@@ -693,11 +693,31 @@ function confUserSubmitted()
 		$szSubtype = request("subtype");
 		print "Expiry: $szExpiry<br>";
         print "Quota: $szQuota<br>";
+
+		if (isset($szExpiry) && strlen($szExpiry))
+		{
+			//Unless changed, expirytime is timestamp... Highest possible value is 2038-01-19 03:14:07. Check if within range
+			$datetimeMax = new DateTime('2038-01-19 03:14:07');
+			$datetimeGiven = new DateTime($szExpiry);			
+
+			if ($datetimeGiven > $datetimeMax)
+			{
+				print red("<br><br>Can't use dates after 2037. Please go back and change.");
+				return;
+			}
+
+			//$interval = $datetimeGiven->diff($datetimeMax);
+			//print "Time interval... ";
+			//print $interval->format('%Y years, %m months, %d days, %H hours, %i minutes, %s seconds');
+			//print "<br>";
+		}
+			
 		
 		$cParam = array_merge($cParam, array(":quota" => $szQuota, ":expiry" => $szExpiry, ":subtype" => $szSubtype));
 		$szExtraFlds = ", mbquota, expirytime, subscriptionType, confirmedTime";
-		$szExtraVals = ", :quota, :expiry, :subtype, now()";
-		//$cParam = array_merge($cParam, array(":quota" => $szQuota));
+		$szExtraVals = ", :quota, str_to_date(:expiry,'%Y-%m-%d %H:%i:%s'), :subtype, now()";
+	
+		$cParam = array_merge($cParam, array(":quota" => $szQuota, ":expiry" => $szExpiry, ":subtype" => $szSubtype));
 		//$szExtraFlds = ", mbquota = :quota";
 		
 		//print_r ($cParam);
@@ -1053,10 +1073,10 @@ function grantedAccess($szName, &$nSecondsUntilUpdate)
 function submitQuota()
 {
 	print h1("Supposed to submit quota");
-	$szQuota = request("quota")+0;
+	$szQuota = (int)request("quota");
 	$szName = request("name");
 
-	if (request("conf")+0)
+	if ((int)request("conf"))
 	{
 		$szConfLine = green(b("Quota has been updated"));
 		$cParam = array(":name" => $szName);//, "addQuota"=>$szQuota);

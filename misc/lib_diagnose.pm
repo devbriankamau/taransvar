@@ -11,7 +11,7 @@ our @ISA= qw( Exporter );
 our @EXPORT_OK = qw();
 
 # these are exported by default.
-our @EXPORT = qw( mysqlUserExist createUsersOk checkHotspot );
+our @EXPORT = qw( mysqlUserExist createUsersOk checkHotspot checkDhcpServer);
 
 use autodie;
 use DBI;
@@ -229,6 +229,24 @@ sub checkHotspot {
 	}
 	
 	my $nErrors = checkHotspotIpfm();
+	return $nErrors;
+}
+
+sub checkDhcpServer {
+	my $nErrors = 0;
+	print "Check DHCP server (in case you're supposed to have one...)";
+
+#        my @pids = `systemctl status isc-dhcp-server.service | grep Active`;
+        my $status = `systemctl status isc-dhcp-server.service | grep Active`;
+        #chomp @pids;
+		print "isc-dhcp-server status:\n $status\n";
+
+	if ($status =~ /failed/) {
+    	print "****** ERROR dhcp server is not running. Connected clients will not receive IP adress\n";
+		print "\nTo check status, run:\nsudo systemctl status isc-dhcp-server.service\nAnd:\nsudo journalctl -u isc-dhcp-server -b --no-pager -n 200\n\n";
+		$nErrors++;
+	}
+
 	return $nErrors;
 }
 

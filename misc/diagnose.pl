@@ -1,4 +1,8 @@
 #!/usr/bin/perl
+#diagnose.pl A - meaning it's connected with a swtich/wifi router and sub network.
+#diagnose.pl B - meaning it's a partnering computer in the same wifi.
+#diagnose.pl C - meaning it's a sub unit conntect to the main \"A\" computer via switch/wifi.
+
 #NOTE! Check the path to crontasks.pl in cron (line 113++) 
 #NOTE! There's "Abscurity" still in tarakernel "Absecurity: Not infected unit......"
 use strict;
@@ -31,6 +35,9 @@ if (! -e $szThisFile) {
 }
 
 print "\n\n******* Taransvar cyber security system diagnostics ******\n(run misc/setup_network.pl for setting up and diagnosing networks setup)\n";
+
+checkDhcpServer();
+
 
 #***** fix the crontasks.pl if still contains the developers user name in path...
 use Cwd 'abs_path';

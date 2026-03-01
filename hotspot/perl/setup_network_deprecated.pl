@@ -10,6 +10,17 @@ use lib ('.');
 use func;
 use lib_net;
 
+# Subroutine to ask a Yes/No question
+sub prompt_yn {
+    my ($query) = @_;
+    my $answer = prompt("$query (Y/N): ");
+    # Return true if the answer is 'y' or 'Y', false otherwise
+    return lc($answer) eq 'y';
+}
+
+prompt_yn("\n\nQuitting hotspot network_setup.pl... Better handle this in the main setup...\n\n");
+return;
+
 #TO DO (fix this)!
    my $szDhcpConfFileName = "dhcpd.conf";
 #   my $szDhcpConfFileName = "/home/thegurus/programming/setup/dhcpd.conf";
@@ -409,12 +420,14 @@ iface $szInternal inet static
 
 		$i = 100;	#Makes the for loop break while the network is working. 
 		print "\nNetworking working with:\nWAN: $szExternal\n";
-		print "LAN: $szInternal\nWill be written to DB\n";
+		print "LAN: $szInternal\n";#Will be written to DB\n";
 
-		my $szSQL = "update setup set WAN = '$szExternal', LAN = '$szInternal', internalIP = '$szInternalIP'";
-		my $dbh = getConnection();
-		my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
-		$sth->execute() or die "execution failed: $dbh->errstr()";
+		#Don't write to DB... The hotspot is no longer the main issue here...
+		#NOTE! ********** column names are wrong... it's internalNic and externalNic
+		#my $szSQL = "update setup set WAN = '$szExternal', LAN = '$szInternal', internalIP = '$szInternalIP'";
+		#my $dbh = getConnection();
+		#my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
+		#$sth->execute() or die "execution failed: $dbh->errstr()";
 	} 
 }
 
@@ -592,6 +605,8 @@ subnet 192.168.$szIternalNett.0 netmask 255.255.255.0 {
  #       system("iptables -A FORWARD -i ".$szInternal." -o ".$szExternal." -j ACCEPT");
  #       system("iptables -t nat -A POSTROUTING -j MASQUERADE");
         system("iptables -t nat -A POSTROUTING -o ".$szExternal." -j MASQUERADE");
+
+prompt_yn("Press enter to setup ipfm on $szInternal");
 
         #Fix device in ipfm config
         print "Setting internal device in ipfm setup: $szInternal\n"; 

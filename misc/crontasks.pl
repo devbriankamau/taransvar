@@ -22,6 +22,9 @@ use lib_net;
 my $nSecondsToSleepBetweenIterations = 5;
 my $nNumberOfWhoIsLookupsPerIteration = 5;	#Increase if too few have owner name in traffic list in http://localhost/index.php?f=traffic
 
+my $nice_timestamp = getNiceTimestamp();
+print "Started: $nice_timestamp\n\n";
+
 my $dbh = getConnection();
 setCronLibDbh($dbh);
 
@@ -97,7 +100,6 @@ if (0) #NO LONGER DO THIS HERE... Handled by by startup.pl
 	exit;
 }
 
-my $nice_timestamp = getNiceTimestamp();
  #my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst)=localtime(time);
  #   my $nice_timestamp = sprintf ( "%04d%02d%02d-%02d:%02d:%02d", $year+1900,$mon+1,$mday,$hour,$min,$sec);
 

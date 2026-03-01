@@ -12,11 +12,16 @@ function listLog()
 	{
 		if ($row = $result->fetch_assoc()) 
 		{
-			if ($row["secsAgo"]+0 > 20)
+			if (!isset($row["secsAgo"]) || (int)$row["secsAgo"] > 20)
 				print "<b><font color=\"red\">This content is supposed to be updated every 10 seconds but misc/crontasks.pl seems not to be set up properly</font></b>";
 			else
 				print "<b>NOTE! This contents was updated ".$row["secsAgo"]." seconds ago</b>. For updated content, ssh ".$row["ip"]." and run sudo dmesg -w</b>";
-			$replaced = str_replace("\n","<br>",$row["dmesg"]);
+			
+			if (isset($row["dmesg"]))
+				$replaced = str_replace("\n","<br>",$row["dmesg"]);
+			else
+				$replaced = "";
+
 			$ip = getSenderIp();
 			$replaced = str_replace($ip,"<b><font color=\"red\">".$ip."</font></b>",$replaced);
 			

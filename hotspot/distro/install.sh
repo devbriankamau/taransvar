@@ -99,6 +99,7 @@ systemctl restart mysql
 
 #Network setup is handled much better by Gatekeeper system...
 #perl /root/wifi/perl/setup_network.pl 
+
 (
     cd perl
     perl install.pl 

@@ -22,14 +22,6 @@ my $szServerInternalIp;# = "192.168.0.1";
 my $szLogFile = $szSysRoot."log/db.log";
 my $szDatestring = gmtime();
 
-#my $database = "taransvar";
-#my $hostname = "localhost";
-#my $port = "3306";
-#my $user = "perl";
-#my $password = "RevSjoko731";
-
-#my $dsn = "DBI:mysql:database=$database;host=$hostname;port=$port";
-#my $dbh = DBI->connect($dsn, $user, $password) or die "Unable to connect!";#: $dbh->errstr()";
 my $dbh = getConnection();
 
 open (my $fLog, '>>', $szLogFile) or die "Could not open logfile: $szLogFile $!";
@@ -302,6 +294,8 @@ while (my $ref = $sth->fetchrow_hashref())
 		#push(@NewCommentsFile, $line);    
 		#$line = "/sbin/iptables -A FORWARD -o $szServerInternalNic -d $szIp -j ACCEPT\n"; 
 		#push(@NewCommentsFile, $line);    
+
+		say $fLog $szLog;	#Log access to log file
 	}
 	else {
 		$szAccessText = "NO ACCESS";

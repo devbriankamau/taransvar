@@ -84,7 +84,7 @@ if ! grep -q crontasks "/var/spool/cron/crontabs/root" ; then
 fi
 
 if ! grep -q startup.pl "/var/spool/cron/crontabs/root" ; then
-  echo "@reboot perl /root/taransvar/perl/startup.pl" >> /var/spool/cron/crontabs/root
+  echo "@reboot perl /root/taransvar/perl/startup.pl > /root/wifi/log/startup.txt" >> /var/spool/cron/crontabs/root
 fi
 service cron reload
 

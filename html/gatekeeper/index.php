@@ -237,6 +237,15 @@ td {
 <title>Taransvar Gatekeeper</title>
 </head>
 <body>
+<script type="text/javascript" src="lib.js" /></script>
+<script type="text/javascript" src="lib2.js" /></script>
+<script type="text/javascript" src="std.js" /></script>
+<script type="text/javascript" src="gatekeeper.js" /></script>
+<script>
+var cJsonParam = new Object;
+</script>
+
+
 <table class="center"><tr><td bgcolor="#AAB396">
 <?php
 
@@ -328,8 +337,9 @@ function listPartners()
 		print "SQL: $sql";
 		$result = $conn->query($sql);
 	}
-	
 
+	print '<div id="scanresult"><a href="javascript:partnerscan()">Scan for partners</a></div>';
+	print '<div id="debug"></div>';	//NOTE! Script with fail without this field..
 	$sql = "SELECT partnerId, name from partner order by name";
 	$result = $conn->query($sql);
 

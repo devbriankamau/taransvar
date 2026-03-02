@@ -25,6 +25,7 @@ if (isset($_GET["res"]))
     $stmt = $conn->prepare($szSQL);
     $stmt->bind_param("s", $server_ip); 
 	$stmt->execute();
+    print "Global DB Server set to $server_ip<br>";
 
     $cPartners = json_decode($_GET["res"]);
     print "<table>";

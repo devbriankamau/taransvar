@@ -74,7 +74,7 @@ void listServers(void)
 	int n;
 	char *cBuf = memAlloc(C_SEGMENT_MAX_SIZE);
 	struct _ServerSpecification *pServerArray = (struct _ServerSpecification *)pSetup->pConfiguration[BLOCK_DESCRIPTIOR_SERVERS];
-	memset(cBuf, 0, sizeof(cBuf));
+	memset(cBuf, 0, C_SEGMENT_MAX_SIZE);	//ØT 260302 - was sizeof(cBuf);
 
 	for (n=0;n<pSetup->nElementsInArray[BLOCK_DESCRIPTIOR_SERVERS];n++)
 	{
@@ -202,7 +202,7 @@ void listColored(int nBlockDescriptor)
 	int n;
 	char *cBuf = memAlloc(C_SEGMENT_MAX_SIZE);
 	struct _ColoredIpSpecification *pServerArray = (struct _ColoredIpSpecification *)pSetup->pConfiguration[nBlockDescriptor];
-	memset(cBuf, 0, sizeof(cBuf));
+	memset(cBuf, 0, C_SEGMENT_MAX_SIZE);	//ØT 260302 - was sizeof(cBuf);
 
 	for (n=0;n<pSetup->nElementsInArray[nBlockDescriptor];n++)
 	{
@@ -281,7 +281,7 @@ void listPartners(void)
 	int n;
 	char *cBuf = memAlloc(C_SEGMENT_MAX_SIZE);
 	struct _PartnerSpecification *pPartnerArray = (struct _PartnerSpecification *)pSetup->pConfiguration[BLOCK_DESCRIPTIOR_PARTNERS];
-	memset(cBuf, 0, sizeof(cBuf));
+	memset(cBuf, 0, C_SEGMENT_MAX_SIZE);	//ØT 260302 - was sizeof(cBuf);
 
 	for (n=0;n<pSetup->nElementsInArray[BLOCK_DESCRIPTIOR_PARTNERS];n++)
 	{
@@ -792,7 +792,7 @@ void listAssistRequests(void)
 	int n;
 	char *cBuf = memAlloc(C_SEGMENT_MAX_SIZE);
 	struct _AssistanceRequest *pArray = (struct _AssistanceRequest *)pSetup->pConfiguration[BLOCK_DESCRIPTIOR_ASSIST];
-	memset(cBuf, 0, sizeof(cBuf));
+	memset(cBuf, 0, C_SEGMENT_MAX_SIZE);	//ØT 260302 - was sizeof(cBuf);
 
 	for (n=0;n<pSetup->nElementsInArray[BLOCK_DESCRIPTIOR_ASSIST];n++)
 	{

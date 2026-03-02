@@ -96,8 +96,8 @@ function partnerScan()
 
     //Scan all IP addresses in same range and send message..
     $nStart= 2;
-    $nStart = 15;
-    $nEnd = 20;
+    //$nStart = 15;
+    $nEnd = 200;
     $cReplies = array();
     for ($n = $nStart; $n<=$nEnd; $n++)
     {

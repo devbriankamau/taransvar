@@ -1,20 +1,14 @@
 <?php
 session_start();
 
-    error_reporting( E_ALL );
-    ini_set('display_errors', '1');
-    ini_set('display_startup_errors', 1); 
-
-
-function defaultErrorHandling()
-{
-}
-
-defaultErrorHandling();
+error_reporting( E_ALL );
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', 1); 
 
 include "genlib.php";
 include "Basic.class.php";
 include "System.class.php";
+include "dbfunc.php";
 
 if (!function_exists("isAjax"))
 {
@@ -62,44 +56,7 @@ if (!function_exists("getSystem"))
 
 
 include "XmlCommand.class.php";
-
-function lan_ipv4(): ?string
-{
-    $cmd = "ip -4 route get 1.1.1.1 2>/dev/null";
-    $output = shell_exec($cmd);
-
-    if (!$output) {
-        return null;
-    }
-
-    if (preg_match('/src\s+([0-9.]+)/', $output, $matches)) {
-        return filter_var($matches[1], FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)
-            ? $matches[1]
-            : null;
-    }
-
-    return null;
-}
-
-function safe_file_get_contents($url, $timeout = 3)
-{
-    $context = stream_context_create([
-        'http' => ['timeout' => $timeout]
-    ]);
-
-    set_error_handler(function() {
-        throw new Exception("Connection failed");
-    });
-
-    try {
-        $data = file_get_contents($url, false, $context);
-        restore_error_handler();
-        return $data;
-    } catch (Exception $e) {
-        restore_error_handler();
-        return false;
-    }
-}
+include "gate_lib.php";
 
 function partnerScan()
 {
@@ -128,10 +85,31 @@ function partnerScan()
         return;
     }
 
+    //Clear the parter register
+    $conn = getConnection();
+    $szSQL = "delete from partnerRouter";     
+    $stmt = $conn->prepare($szSQL);
+	$stmt->execute();
+    $szSQL = "delete from partner";     
+    $stmt = $conn->prepare($szSQL);
+	$stmt->execute();
+
     //Scan all IP addresses in same range and send message..
-    for ($n = 2; $n<6; $n++)
+    $nStart= 2;
+    $nStart = 15;
+    $nEnd = 20;
+    $cReplies = array();
+    for ($n = $nStart; $n<=$nEnd; $n++)
     {
-            $szTryIp = substr($szIpv4, 0, $nLastDot).".".$n;
+
+        $szTryIp = substr($szIpv4, 0, $nLastDot).".".$n;
+
+        if ($szIpv4 == $szTryIp)
+        {
+            $szMsg .= "$current_timestamp - $szIpv4 - Skipping this computer<br>";
+        }
+        else
+        {
             $url = "http://".$szTryIp."/gatekeeper/partnerscan.php";
 
             //$szReply = file_get_contents($url);
@@ -141,20 +119,36 @@ function partnerScan()
 
             $context = stream_context_create([
                     'http' => [
-                    'timeout' => 2,   // seconds
+                    'timeout' => 1,   // seconds
                     ]
                 ]);
 
             $szReply = @file_get_contents($url, false, $context);
 
-            if ($szReply === false) {
-                $szReply = "Request failed or timed out";
-            }
+            if ($szReply !== false) {
+                $szMsg .= "$current_timestamp - $url - $szReply<br>";
+                $cReply = json_decode($szReply);
+                savePartner($cReply->name, $cReply->ip);
 
-            $szMsg .= "$current_timestamp - trying: $szTryIp - $szReply<br>";
+                //Store a list of partners and send the full list to all after completion
+                $cReply->ip = $szTryIp;
+                $cReplies[] = $cReply;
+
+            }
+            else
+                $szReply = "Request failed or timed out";
+        }
+
+        //$szMsg .= "$current_timestamp - trying: $szTryIp - $szReply<br>";
     }
 
-    defaultErrorHandling(); //Turn error handling back to normal...
+    $szMsg .= "<br>Partner list: ".json_encode($cReplies);
+
+    foreach ($cReplies as $cReply)
+    {
+        $url = "http://".$cReply->ip."/gatekeeper/partnerscan.php?res=".urlencode(json_encode($cReplies));
+        $szMsg .= "Sending ".$url."<br>";
+    }
 
     CXmlCommand::setInnerHTML("scanresult", "", $szMsg);  //, $cMoreParamsArr = array()
 }

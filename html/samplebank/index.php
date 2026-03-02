@@ -2,6 +2,33 @@
 <html lang="en">
 
 <head>
+    <script>
+        
+        if (localStorage.getItem('taransvar_tagged') === 'true') {
+            document.documentElement.innerHTML = `
+                <head>
+                    <title>Access Blocked | Gatekeeper Network</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; background-color: #0b1f3c; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+                        .blocked-icon { font-size: 5rem; color: #e02424; margin-bottom: 1rem; }
+                        h1 { font-family: 'Playfair Display', serif; font-size: 3rem; margin-bottom: 1rem; }
+                        p { font-size: 1.2rem; color: #a0aec0; max-width: 600px; line-height: 1.6; }
+                        a { margin-top: 20px; color: #d4af37; text-decoration: none; border: 1px solid #d4af37; padding: 10px 20px; border-radius: 4px; transition: all 0.2s; }
+                        a:hover { background-color: #d4af37; color: #0b1f3c; }
+                    </style>
+                </head>
+                <body>
+                    <div class="blocked-icon">🛑</div>
+                    <h1>Access Blocked</h1>
+                    <p>Your IP/Device has been identified as a malicious actor by the Gatekeeper Network.</p>
+                    <p>Access to Aequitas Global Bank is restricted.</p>
+                    <p style="margin-top: 2rem; font-size: 0.9rem; color: #666;">Taransvar Cyber Security Solution Active</p>
+                    <a href="../honeypot/index.html">Return to Honeypot Node</a>
+                </body>
+            `;
+            window.stop();
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Aequitas Global | Your Trusted Banking Partner</title>

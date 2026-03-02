@@ -2,6 +2,33 @@
 <html lang="en">
 
 <head>
+    <script>
+        
+        if (localStorage.getItem('taransvar_tagged') === 'true') {
+            document.documentElement.innerHTML = `
+                <head>
+                    <title>Access Blocked | Gatekeeper Network</title>
+                    <style>
+                        body { font-family: 'Inter', sans-serif; background-color: #0b1f3c; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; text-align: center; }
+                        .blocked-icon { font-size: 5rem; color: #e02424; margin-bottom: 1rem; }
+                        h1 { font-family: 'Playfair Display', serif; font-size: 3rem; margin-bottom: 1rem; }
+                        p { font-size: 1.2rem; color: #a0aec0; max-width: 600px; line-height: 1.6; }
+                        a { margin-top: 20px; color: #d4af37; text-decoration: none; border: 1px solid #d4af37; padding: 10px 20px; border-radius: 4px; transition: all 0.2s; }
+                        a:hover { background-color: #d4af37; color: #0b1f3c; }
+                    </style>
+                </head>
+                <body>
+                    <div class="blocked-icon">🛑</div>
+                    <h1>Access Blocked</h1>
+                    <p>Your IP/Device has been identified as a malicious actor by the Gatekeeper Network.</p>
+                    <p>Access to Aequitas Global Bank is restricted.</p>
+                    <p style="margin-top: 2rem; font-size: 0.9rem; color: #666;">Taransvar Cyber Security Solution Active</p>
+                    <a href="../honeypot/index.html">Return to Honeypot Node</a>
+                </body>
+            `;
+            window.stop();
+        }
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gatekeeper Cyber Security Solution</title>
@@ -461,6 +488,18 @@
                     cybercrime problem costing billions.</p>
                 <p>Plus, regular companies won't need super expensive firewalls because hackers won't bother trying to
                     attack them; we'll give them basic protection and go after the attackers directly.</p>
+
+                <div
+                    style="margin-top: 2rem; padding: 1.5rem; background: #fff; border-radius: 12px; border: 2px solid var(--primary-red); text-align: center;">
+                    <h4 style="color: var(--text-dark); margin-bottom: 1rem; font-size: 1.2rem;">Try The Demonstration
+                    </h4>
+                    <p style="margin-bottom: 1.5rem; font-size: 0.95rem;">Experience the Gatekeeper Network firsthand.
+                        Visit our honeypot node to simulate a malicious probe and see how our system tags and blocks bad
+                        actors across the entirely fictional network.</p>
+                    <a href="../honeypot/index.html"
+                        style="display: inline-block; background: var(--primary-red); color: white; padding: 0.8rem 2rem; border-radius: 50px; text-decoration: none; font-weight: 700; transition: transform 0.2s;">Go
+                        to Honeypot Node &rarr;</a>
+                </div>
             </div>
         </section>
 

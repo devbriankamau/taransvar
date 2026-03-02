@@ -338,6 +338,8 @@ function listPartners()
 		$result = $conn->query($sql);
 	}
 
+	print '<a href="index.php?f=setDbSrv">Set as global DB server</a><br><br>';
+
 	print '<div id="scanresult"><a href="javascript:partnerscan()">Scan for partners</a></div>';
 	print '<div id="debug"></div>';	//NOTE! Script with fail without this field..
 	$sql = "SELECT partnerId, name from partner order by name";

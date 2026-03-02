@@ -20,7 +20,7 @@ if (isset($_GET["res"]))
 	$stmt->execute();
 
     //Set sender as global DB Server
-    $server_ip = $_SERVER['SERVER_ADDR'];
+    $server_ip = $_SERVER['REMOTE_ADDR'];   
     $szSQL = "update setup set globalDb1ip = inet_aton(?)";     
     $stmt = $conn->prepare($szSQL);
     $stmt->bind_param("s", $server_ip); 
@@ -29,11 +29,17 @@ if (isset($_GET["res"]))
 
     $cPartners = json_decode($_GET["res"]);
     print "<table>";
+    $szMyIp = lan_ipv4();
 
     foreach( $cPartners as $cPartner)
     {
-        print "<tr><td>$cPartner->name</td><td>$cPartner->ip</td></tr>";
-        savePartner($cPartner->name, $cPartner->ip);
+        if ($cPartner->ip == $szMyIp)
+            print "<tr><td>[Skipping myself]</td><td>$cPartner->ip</td></tr>";
+        else
+        {
+            print "<tr><td>$cPartner->name</td><td>$cPartner->ip</td></tr>";
+            savePartner($cPartner->name, $cPartner->ip);
+        }
     }
 
     print "</table>";

@@ -156,8 +156,12 @@ function partnerScan()
         $url = "http://".$cReply["ip"]."/gatekeeper/partnerscan.php?res=".urlencode(json_encode($cReplies));
         $szMsg .= "<br>Sending ".$url."<br>";
         $szReply = safe_file_get_contents($url);
-        $szMsg .= $szReply;
+        if ($szReply === false)
+            $szMsg .= "<br>** ERROR ** returned false";
+        else
+            $szMsg .= "<br>Reply: $szReply";
     }
+    $szMsg .="<br>All partners notified";
 
     CXmlCommand::setInnerHTML("scanresult", "", $szMsg);  //, $cMoreParamsArr = array()
 }

@@ -12,7 +12,7 @@ if (isset($_GET["res"]))
         savePartner($cPartner->name, $cPartner->ip);
     }
 
-    print "<table>";
+    print "</table>";
 
     print "Supposed to store the partner list..";
     return;

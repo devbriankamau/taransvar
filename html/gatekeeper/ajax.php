@@ -154,7 +154,9 @@ function partnerScan()
     foreach ($cReplies as $cReply)
     {
         $url = "http://".$cReply["ip"]."/gatekeeper/partnerscan.php?res=".urlencode(json_encode($cReplies));
-        $szMsg .= "Sending ".$url."<br>";
+        $szMsg .= "<br>Sending ".$url."<br>";
+        $szReply = safe_file_get_contents($url);
+        $szMsg .= $szReply;
     }
 
     CXmlCommand::setInnerHTML("scanresult", "", $szMsg);  //, $cMoreParamsArr = array()

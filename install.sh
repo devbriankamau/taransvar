@@ -98,10 +98,13 @@ echo "Database created. Copying files/"
 
 mkdir /root/taransvar
 mkdir /root/taransvar/perl
-cp misc/*.* /root/taransvar/perl
+#ØT 260302 - rsync instead of copying
+#cp misc/*.* /root/taransvar/perl
+rsync -a --exclude '.git' misc/ /root/taransvar/perl/
 
-echo "Copying html files..."
-cp -r html /var/www
+echo "Copying (rsync) html files..."
+#cp -r html /var/www
+rsync -a --exclude '.git' html/ /var/www/html/
 
 (
 	cd misc

@@ -9,6 +9,23 @@ include "gate_lib.php";
 
 if (isset($_GET["res"]))
 {
+    //This is the list of partner routers sent from Global DB server
+    //Delete already registered DB servers
+    $conn = getConnection();
+    $szSQL = "delete from partnerRouter";     
+    $stmt = $conn->prepare($szSQL);
+	$stmt->execute();
+    $szSQL = "delete from partner";     
+    $stmt = $conn->prepare($szSQL);
+	$stmt->execute();
+
+    //Set sender as global DB Server
+    $server_ip = $_SERVER['SERVER_ADDR'];
+    $szSQL = "update setup set globalDb1ip = inet_aton(?)";     
+    $stmt = $conn->prepare($szSQL);
+    $stmt->bind_param("s", $server_ip); 
+	$stmt->execute();
+
     $cPartners = json_decode($_GET["res"]);
     print "<table>";
 

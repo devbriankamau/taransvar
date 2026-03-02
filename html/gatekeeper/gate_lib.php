@@ -46,14 +46,14 @@ function savePartner($szNname, $szIp)
 
     $szSQL = "insert into partner (name) values (?)";     
     $stmt = $conn->prepare($szSQL);
-    $stmt->bind_param("s", $cReply->name); 
+    $stmt->bind_param("s", $szNname); 
     $stmt->execute();
 
     $newId = $conn->insert_id;
 
     $szSQL = "insert into partnerRouter (partnerId, ip, nettmask) values (?, inet_aton(?), inet_aton('255.255.255.255'))";     
     $stmt = $conn->prepare($szSQL);
-    $stmt->bind_param("is", $newId, $szTryIp); 
+    $stmt->bind_param("is", $newId, $szIp); 
     $stmt->execute();
 }
 

@@ -124,19 +124,26 @@ function partnerScan()
                 ]);
 
             $szReply = @file_get_contents($url, false, $context);
+            //$szMsg .= print $szReply;
 
             if ($szReply !== false) {
                 $szMsg .= "$current_timestamp - $url - $szReply<br>";
-                $cReply = json_decode($szReply);
-                savePartner($cReply->name, $cReply->ip);
+                $cReply = json_decode($szReply, 1);
 
-                //Store a list of partners and send the full list to all after completion
-                $cReply->ip = $szTryIp;
-                $cReplies[] = $cReply;
+                if (!$cReply)
+                    $szMsg .= "Unable to decode reply: $szReply<br>";
+                else
+                {
+                    $cReply["ip"] = $szTryIp;
+                    savePartner($cReply["name"], $cReply["ip"]);
+
+                    //Store a list of partners and send the full list to all after completion
+                    $cReplies[] = $cReply;
+                }
 
             }
-            else
-                $szReply = "Request failed or timed out";
+            //else
+            //    $szReply = "Request failed or timed out";
         }
 
         //$szMsg .= "$current_timestamp - trying: $szTryIp - $szReply<br>";
@@ -146,7 +153,7 @@ function partnerScan()
 
     foreach ($cReplies as $cReply)
     {
-        $url = "http://".$cReply->ip."/gatekeeper/partnerscan.php?res=".urlencode(json_encode($cReplies));
+        $url = "http://".$cReply["ip"]."/gatekeeper/partnerscan.php?res=".urlencode(json_encode($cReplies));
         $szMsg .= "Sending ".$url."<br>";
     }
 

@@ -58,6 +58,9 @@ while (my $row = $sth->fetchrow_hashref()) {
                 }
 
                 #Set to handled (not yet)
+                my $szSql = "update hackReport set handledTime = now() where reportId = ?";
+                my $sth = $dbh->prepare($szSql);
+                $sth->execute($row->{'reportId'});
         }
         else
         {

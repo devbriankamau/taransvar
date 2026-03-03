@@ -30,8 +30,7 @@ $szFromIp = getSenderIp();
 //	$szFromIp = "192.168.39.160";
 	
 $nFromPort = $_SERVER['REMOTE_PORT'];
-$szExtraFields = "";
-$szExtraVals = "";
+$szOurId = "";
 
 if (isset($_GET["f"]))
 {
@@ -40,38 +39,48 @@ if (isset($_GET["f"]))
 		case "confession":
 			//Routers send this to global DB servers when they're notified that one of their units attacked others...
 			//http://192.168.100.15/config_update.php?f=confession&ip=192.168.100.10&port=57612&ourid=2
-                        if (!isset($_GET["ourid"])){
-                                echo "(missing params)";
-                                exit;
-                        }
-			$szExtraFields = ", ipOwnerId";
-			$szExtraVals = ", '".$_GET["ourid"]."'";
+
+			if (!isset($_GET["ourid"])){
+				echo "(missing params)";
+				exit;
+            }
+			$szOurId = $_GET["ourid"];
 			//NOTE! No break here... continue to "report'
                         
-          	case "report":
-                {
-                        if (!isset($_GET["ip"]) || !isset($_GET["port"]) || strlen($_GET["ip"]) < 7){
-                                echo "(missing params)";
-                                exit;
-                        }
-                        if(!filter_var($_GET["ip"], FILTER_VALIDATE_IP)){
-                                echo '(invalid ip: '.$ip.')';
-                                exit;
-                        }
-                        if(!filter_var($szFromIp, FILTER_VALIDATE_IP) || $szFromIp == '::1'){
-                                $szFromIp = '127.0.0.1';
-                        }
-
-                        $conn = getConnection();
-                        #$sql = "select * from hackReport";
-                        $sql = "insert into hackReport (ip, port, partnerIp, partnerPort, status, sentByIp".$szExtraFields.") values (inet_aton('".$_GET["ip"].
-                        "'), ".$_GET["port"].",inet_aton('".$szFromIp."'), ".$nFromPort.", 'hack', inet_aton('".$szFromIp."')".$szExtraVals.")";
-                        print "$sql";
-
-						$result = $conn->query($sql) or die("(error storing)");
-                        print "ok";
+        case "report":
+            {
+                if (!isset($_GET["ip"]) || !isset($_GET["port"]) || strlen($_GET["ip"]) < 7){
+                    echo "(missing params)";
+                    exit;
+                }
+    
+				if(!filter_var($_GET["ip"], FILTER_VALIDATE_IP)){
+					    echo '(invalid ip: '.$ip.')';
                         exit;
-				}
+                }
+
+				if(!filter_var($szFromIp, FILTER_VALIDATE_IP) || $szFromIp == '::1'){
+                    $szFromIp = '127.0.0.1';
+                }
+
+				$szWhat = (isset($_GET["wt"])?$_GET["wt"]: "hack");
+				$conn = getConnection();
+                #$sql = "select * from hackReport";
+#               $sql = "insert into hackReport (ip, port, partnerIp, partnerPort, status, sentByIp".$szExtraFields.") values (inet_aton('".$_GET["ip"].
+#                "'), ".$_GET["port"].",inet_aton('".$szFromIp."'), ".$nFromPort.", 'hack', inet_aton('".$szFromIp."')".$szExtraVals.")";
+
+                #print "$sql";
+
+	        	$szSQL = "insert into hackReport (ip, port, partnerIp, partnerPort, status, sentByIp, ipOwnerId) values (inet_aton(?), ?, inet_aton(?), ?, ?, inet_aton(?), ?)";
+
+    	        $stmt = $conn->prepare($szSQL);
+        	    $stmt->bind_param("sisisis", $_GET["ip"], $_GET["port"], $szFromIp, $nFromPort, $_GET["wt"], $szFromIp, $_GET["ourid"]); 
+            	$stmt->execute();
+
+				//$result = $conn->query($sql) or die("(error storing)");
+                print "ok";
+				exit;
+			}
 
                case "ping":
                 {

@@ -49,7 +49,7 @@ foreach($cPartnerRouters as $szPartner)
 {
 	$szSubdir = ($szPartner == "81.88.18.98"?"/dashboard":"");
 		
-	$szUrl = "http://".$szPartner.$szSubdir."/config_update.php?f=report&ip=".$ip."&port=".$nPort;
+	$szUrl = "http://".$szPartner.$szSubdir."/config_update.php?f=report&ip=".$ip."&port=".$nPort."&wt=honey.php";
         print "Calling: $szUrl<br><br>";
         $szReply = file_get_contents($szUrl);
         if (!$nCount++) {

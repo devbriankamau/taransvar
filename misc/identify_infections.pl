@@ -14,7 +14,7 @@ my $dbh = getConnection();
 my $lookupDbh = getConnection();
 
 # Prepare and execute query to scan the table
-my $query = "SELECT reportId, inet_ntoa(ip) as ip, ip as nIp, port, status, sentByIp as nSentBy, inet_ntoa(sentByIp) as aSentBy, adminIp, inet_ntoa(globalDb1ip) as globalDb1ip, inet_ntoa(globalDb2ip) as globalDb2ip, inet_ntoa(globalDb3ip) as globalDb3ip FROM hackReport, setup where handledTime is null";
+my $query = "SELECT reportId, inet_ntoa(ip) as ip, ip as nIp, port, status, sentByIp as nSentBy, inet_ntoa(sentByIp) as aSentBy, adminIp, inet_ntoa(adminIp) as aAdminIp, inet_ntoa(globalDb1ip) as globalDb1ip, inet_ntoa(globalDb2ip) as globalDb2ip, inet_ntoa(globalDb3ip) as globalDb3ip FROM hackReport, setup where handledTime is null";
 my $sth = $dbh->prepare($query);
 $sth->execute();
 my $nFound = 0;
@@ -64,6 +64,7 @@ while (my $row = $sth->fetchrow_hashref()) {
         }
         else
         {
+                print "\nFrom external (honey.php sends to self)? My IP: ".$row->{'aAdminIp'}."(".$row->{'adminIp'}."), sent by: ".$row->{'aSentBy'}."(".$row->{'nSentBy'}.")\n";
                 #probably a report from global DB server that one of my units has attempted hacking
                 my $szLookup = "select portAssignmentId, ipAddress, inet_ntoa(ipAddress) as aIp from unitPort where port = ".$row->{'port'}." order by created desc limit 1";
                 print "\n$szLookup\n";

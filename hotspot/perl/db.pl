@@ -209,6 +209,12 @@ $sth->execute() or die "$szSQL: execution failed: $dbh->errstr()";
 
 my @NewCommentsFile;                  # make an array to store new file lines
 
+
+#NOTE! Chatgpt suggested better iptable setup.... se hotspot/perl/db_chatgpt_suggested_changes.txt
+
+
+
+
 #1) Reset (optional but recommended while testing)
 push(@NewCommentsFile, "/sbin/iptables -F\n");
 push(@NewCommentsFile, "/sbin/iptables -t nat -F\n");
@@ -227,12 +233,54 @@ push(@NewCommentsFile, "/sbin/iptables -A OUTPUT -m conntrack --ctstate ESTABLIS
 push(@NewCommentsFile, "/sbin/iptables -A INPUT  -i $szServerInternalNic -p udp --sport 68 --dport 67 -j ACCEPT\n");
 push(@NewCommentsFile, "/sbin/iptables -A OUTPUT -o $szServerInternalNic -p udp --sport 67 --dport 68 -j ACCEPT\n");
 
+#NOTE! 
+
+
 #4) Allow clients to reach the portal on TCP/80 (local INPUT)
 push(@NewCommentsFile, "/sbin/iptables -A INPUT  -i $szServerInternalNic -p tcp --dport 80 -j ACCEPT\n");
 push(@NewCommentsFile, "/sbin/iptables -A OUTPUT -o $szServerInternalNic -p tcp --sport 80 -j ACCEPT\n");
 
+#**************** Rerouting non-logged ins to hotspot portal ********************
+# NOTE! Challenge is avoid hijacking traffic from logged in cluents... Create a group "allowed_lan" for them
+push(@NewCommentsFile, "ipset create allowed_lan hash:ip -exist\n");
+
+$sth = $dbh->prepare('SELECT ip, hasaccess from access')
+        or die "prepare statement failed: $dbh->errstr()";
+$sth->execute() or die "execution failed: $dbh->errstr()";
+
+print $sth->rows . " rows found:\n";
+my $szAccessText = "dummy";
+my @cHasAccess = ();
+
+while (my $ref = $sth->fetchrow_hashref()) 
+{
+	my $szIp = $ref->{'ip'};
+	my $nAccess = $ref->{'hasaccess'};
+
+	if ($nAccess) 
+	{
+		push(@NewCommentsFile, "ipset add allowed_lan $szIp -exist\n");
+		$szAccessText = "Has access";
+		say $fLog $szLog;	#Log access to log file
+		push(@cHasAccess, $szIp);
+	}
+	else {
+		$szAccessText = "NO ACCESS";
+	}
+
+	print "$szIp, $szAccessText\n";
+}
+$sth->finish;
+
+# if client is allowed, do NOT redirect
+push(@NewCommentsFile, "/sbin/iptables -t nat -I PREROUTING 1 -i $szServerInternalNic -p tcp --dport 80 -m set --match-set allowed_lan src -j RETURN\n");
+
+# if client is NOT allowed, captive portal hijack
+push(@NewCommentsFile, "/sbin/iptables -t nat -A PREROUTING -i wlp2s0 -p tcp --dport 80 -j REDIRECT --to-ports 80\n");
+
+#Old rerouting... ended up hijacking traffic for logged in clients... new attempt above
 #5) Force HTTP to the portal (optional, but matches your “always end up on login” for HTTP)
-push(@NewCommentsFile, "/sbin/iptables -t nat -A PREROUTING -i $szServerInternalNic -p tcp --dport 80 -j REDIRECT --to-ports 80\n");
+#push(@NewCommentsFile, "/sbin/iptables -t nat -A PREROUTING -i $szServerInternalNic -p tcp --dport 80 -j REDIRECT --to-ports 80\n");
 
 #6) NAT for later (internet after login)
 push(@NewCommentsFile, "/sbin/iptables -t nat -A POSTROUTING -o $szServerExternalNic -j MASQUERADE\n");
@@ -241,16 +289,10 @@ push(@NewCommentsFile, "/sbin/iptables -t nat -A POSTROUTING -o $szServerExterna
 #When a client logs in and you want to allow them out:
 
 
-
-
-
-
-
 $sth = $dbh->prepare(
         'select nasname from nas')
         or die "prepare statement failed: $dbh->errstr()";
 $sth->execute() or die "execution failed: $dbh->errstr()";
-
 
 while (my $ref = $sth->fetchrow_hashref()) 
 {
@@ -264,46 +306,27 @@ while (my $ref = $sth->fetchrow_hashref())
 }
 
 
-$sth = $dbh->prepare('SELECT ip, hasaccess from access')
-        or die "prepare statement failed: $dbh->errstr()";
 	
 # select ip, 1 from session s join userusage u on u.user = s.username
 #	alter table radcheck set mbusage = ( select sum(mb) from userusage where 
 # select user, sum(mb) as mbusage from userusage group by user;
 	
 #    $sth->execute('Eggers') or die "execution failed: $dbh->errstr()";
- $sth->execute() or die "execution failed: $dbh->errstr()";
 
-print $sth->rows . " rows found:\n";
-my $szAccessText = "dummy";
-
-while (my $ref = $sth->fetchrow_hashref()) 
+foreach my $szIp (@cHasAccess)
 {
-	my $szIp = $ref->{'ip'};
-	my $nAccess = $ref->{'hasaccess'};
-	if ($nAccess) {
-		$szAccessText = "Has access";
-		#my $line = "/sbin/iptables -t nat -A PREROUTING -i $szServerInternalNic -s $szIp -j ACCEPT\n"; 
-		#push(@NewCommentsFile, $line);    
+	#my $line = "/sbin/iptables -t nat -A PREROUTING -i $szServerInternalNic -s $szIp -j ACCEPT\n"; 
+	#push(@NewCommentsFile, $line);    
 
-		push(@NewCommentsFile, "/sbin/iptables -I FORWARD 1 -i $szServerInternalNic -s $szIp -o $szServerExternalNic -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT\n");
-		push(@NewCommentsFile, "/sbin/iptables -I FORWARD 2 -i $szServerExternalNic -d $szIp -o $szServerInternalNic -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
+	push(@NewCommentsFile, "/sbin/iptables -I FORWARD 1 -i $szServerInternalNic -s $szIp -o $szServerExternalNic -m conntrack --ctstate NEW,ESTABLISHED,RELATED -j ACCEPT\n");
+	push(@NewCommentsFile, "/sbin/iptables -I FORWARD 2 -i $szServerExternalNic -d $szIp -o $szServerInternalNic -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT\n");
 
-		#push(@NewCommentsFile, $line);    
-		#$line = "/sbin/iptables -A FORWARD -i $szServerInternalNic -s $szIp -j ACCEPT\n"; 
-		#push(@NewCommentsFile, $line);    
-		#$line = "/sbin/iptables -A FORWARD -o $szServerInternalNic -d $szIp -j ACCEPT\n"; 
-		#push(@NewCommentsFile, $line);    
-
-		say $fLog $szLog;	#Log access to log file
-	}
-	else {
-		$szAccessText = "NO ACCESS";
-	}
-
-	print "$szIp, $szAccessText\n";
+	#push(@NewCommentsFile, $line);    
+	#$line = "/sbin/iptables -A FORWARD -i $szServerInternalNic -s $szIp -j ACCEPT\n"; 
+	#push(@NewCommentsFile, $line);    
+	#$line = "/sbin/iptables -A FORWARD -o $szServerInternalNic -d $szIp -j ACCEPT\n"; 
+	#push(@NewCommentsFile, $line);    
 }
-$sth->finish;
  
 #Add iptables rules from web interface
 #my $szIpTablesFromWebFile = "/var/www/html/temp/iptablesTemplates.txt";

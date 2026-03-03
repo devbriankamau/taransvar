@@ -30,6 +30,7 @@ apt-get install -y php libapache2-mod-php php-mysql
 apt-get install -y gcc make curl libcurl4-openssl-dev dhcpdump net-tools conntrack
 apt-get install -y libdbi-perl libdbd-mysql-perl conntrack dhcpdump isc-dhcp-server
 apt-get install -y curl libcurl4-openssl-dev whois iptables
+apt install -y ipset  
 
 #Now also install for hotspot... 
 apt-get install -y ipfm

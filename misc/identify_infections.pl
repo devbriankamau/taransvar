@@ -36,7 +36,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 
                 if (my $partnerRow = $sth->fetchrow_hashref()) {
                         #Partner found.. Send to partner and global DB server
-                        my $szUrl = "http://".$row->{'ip'}."/script/config_update.php?f=report&ip=".$row->{'ip'}."&port=".$row->{'port'}."wt=honeypot";
+                        my $szUrl = "http://".$row->{'ip'}."/script/config_update.php?f=report&ip=".$row->{'ip'}."&port=".$row->{'port'}."&wt=honeypot";
                         print "Reporting to owner:\n".$szUrl."\n";
                         my $szReply = getWgetResult($szUrl);
                         print "Reply from owner:\n".$szReply."\n";
@@ -46,7 +46,7 @@ while (my $row = $sth->fetchrow_hashref()) {
                         {
                                 my $szDbServer = 'globalDb'.$n."ip";
                                 if ($row->{$szDbServer}) {
-                                        my $szUrl = "http://".$row->{$szDbServer}."/script/config_update.php?f=report&ip=".$row->{'ip'}."&port=".$row->{'port'}."wt=honeypot";
+                                        my $szUrl = "http://".$row->{$szDbServer}."/script/config_update.php?f=report&ip=".$row->{'ip'}."&port=".$row->{'port'}."&wt=honeypot";
                                         print $szUrl;
                                         my $szReply = getWgetResult($szUrl);
                                         print $szReply."\n";
@@ -59,7 +59,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 
                 #Set to handled (not yet)
                 my $szSql = "update hackReport set handledTime = now() where reportId = ?";
-                my $sth = $dbh->prepare($szSql);
+                $sth = $dbh->prepare($szSql);
                 $sth->execute($row->{'reportId'});
         }
         else

@@ -25,9 +25,9 @@ if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
 } 
 
 $szFromIp = getSenderIp();
-if (strlen($szFromIp)<10)
+//if (strlen($szFromIp)<7)	#was <10... 10.0.0.16 is <10 yet normal address...
 	//$szFromIp = "127.0.0.1";
-	$szFromIp = "192.168.39.160";
+//	$szFromIp = "192.168.39.160";
 	
 $nFromPort = $_SERVER['REMOTE_PORT'];
 $szExtraFields = "";
@@ -68,10 +68,10 @@ if (isset($_GET["f"]))
                         "'), ".$_GET["port"].",inet_aton('".$szFromIp."'), ".$nFromPort.", 'hack', inet_aton('".$szFromIp."')".$szExtraVals.")";
                         print "$sql";
 
-			$result = $conn->query($sql) or die("(error storing)");
+						$result = $conn->query($sql) or die("(error storing)");
                         print "ok";
                         exit;
-		}
+				}
 
                case "ping":
                 {

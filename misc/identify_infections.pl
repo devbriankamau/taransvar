@@ -4,6 +4,7 @@ use warnings;
 use DBI;
 use lib ('.');
 use func;	#NOTE! See comment above regarding lib..
+use lib_cron;
 
 
 # Connect to MySQL database
@@ -13,40 +14,70 @@ my $dbh = getConnection();
 my $lookupDbh = getConnection();
 
 # Prepare and execute query to scan the table
-my $query = "SELECT reportId, inet_ntoa(ip) as ip, port, status FROM hackReport where handledTime is null";
+my $query = "SELECT reportId, inet_ntoa(ip) as ip, ip as nIp, port, status, sentByIp as nSentBy, inet_ntoa(sentByIp) as aSentBy, adminIp, inet_ntoa(globalDb1ip) as globalDb1ip, inet_ntoa(globalDb2ip) as globalDb2ip, inet_ntoa(globalDb3ip) as globalDb3ip FROM hackReport, setup where handledTime is null";
 my $sth = $dbh->prepare($query);
 $sth->execute();
+my $nFound = 0;
 
 # Fetch and print each row
 while (my $row = $sth->fetchrow_hashref()) {
 #    print "Row:\n";
+        $nFound++;
         print "   $row->{'ip'} $row->{'port'} $row->{'status'}\n";
 
-        my $szLookup = "select portAssignmentId, ipAddress, inet_ntoa(ipAddress) as aIp from unitPort where port = ".$row->{'port'}." order by created desc limit 1";
-        print "\n$szLookup\n";
-        
-        my $sth = $lookupDbh->prepare($szLookup);
-        $sth->execute();
-        while (my $lookupRow = $sth->fetchrow_hashref()) {
-                #    print "Row:\n";
-                print "Internal IP found: ".$lookupRow->{'aIp'}."\t".$lookupRow->{'portAssignmentId'}."\t".(defined($lookupRow->{'status'})?$lookupRow->{'status'}:"No status")."\n";
-                $szLookup = "select unitId, coalesce(description, hostname, hex(dhcpClientId)) as desc from unit where ipAddress = ? order by    
-        } else {
-                print "No record found!\n";
+        if ($row->{'nSentBy'} == $row->{'adminIp'}) {
+                #config_update.php is used by honey.php to report hack attempts on the same computer (sentByIp will be this)
+                print "Internal hack report (maybe from script/config_update.php)\n";
+
+                #Report to the IP address owner (partner). 
+                my $szLookup = "select partnerId from partnerRouter where ip = ?";
+                my $sth = $dbh->prepare($szLookup);
+                $sth->execute($row->{'nIp'});
+
+                if (my $partnerRow = $sth->fetchrow_hashref()) {
+                        #Partner found.. Send to partner and global DB server
+                        my $szUrl = "http://".$row->{'ip'}."/script/config_update.php?f=report&ip=".$row->{'ip'}."&port=".$row->{'port'}."wt=honeypot";
+                        print "Reporting to owner:\n".$szUrl."\n";
+                        my $szReply = getWgetResult($szUrl);
+                        print "Reply from owner:\n".$szReply."\n";
+
+                        #Report to global DB server
+                        for (my $n = 1; $n<=3; $n++)
+                        {
+                                my $szDbServer = 'globalDb'.$n."ip";
+                                if ($row->{$szDbServer}) {
+                                        my $szUrl = "http://".$row->{$szDbServer}."/script/config_update.php?f=report&ip=".$row->{'ip'}."&port=".$row->{'port'}."wt=honeypot";
+                                        print $szUrl;
+                                        my $szReply = getWgetResult($szUrl);
+                                        print $szReply."\n";
+                                }
+                        }
+                }
+                else {
+                        print "Partner not found: ".$row->{'ip'}." (".$row->{'nIp'}.")\n";
+                }
+
+                #Set to handled (not yet)
         }
-
-
-
+        else
+        {
+                #probably a report from global DB server that one of my units has attempted hacking
+                my $szLookup = "select portAssignmentId, ipAddress, inet_ntoa(ipAddress) as aIp from unitPort where port = ".$row->{'port'}." order by created desc limit 1";
+                print "\n$szLookup\n";
+        
+                my $sth = $lookupDbh->prepare($szLookup);
+                $sth->execute();
+                while (my $lookupRow = $sth->fetchrow_hashref()) {
+                        #    print "Row:\n";
+                        print "Internal IP found: ".$lookupRow->{'aIp'}."\t".$lookupRow->{'portAssignmentId'}."\t".(defined($lookupRow->{'status'})?$lookupRow->{'status'}:"No status")."\n";
+                        #$szLookup = "select unitId, coalesce(description, hostname, hex(dhcpClientId)) as desc from unit where ipAddress = ? order by    
+                }
+        }
 }
-    print "\nNOTE! Should only handle unhandled...\n";
 
-
-
-
-
-
-
-
+if (!$nFound) {
+        print "No record found!\n";
+}
 
 
 
@@ -65,8 +96,8 @@ while (my $row = $sth->fetchrow_hashref()) {
 
 
 # Clean up
-$sth->finish();
-$dbh->disconnect();
+#$sth->finish();
+#$dbh->disconnect();
 
 
 
@@ -78,6 +109,6 @@ $dbh->disconnect();
 #}
 
 # Disconnect from the database
-$dbh->disconnect;
-print "Done.\n";
+#$dbh->disconnect;
+#print "Done.\n";
 

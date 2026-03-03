@@ -4,8 +4,8 @@ function getConnection()
 {
 	$servername = "localhost";
 	$username = "scriptUsrAces3f3";
-	$password = "rErte8Oi98!%&e";
-	$dbname = "absecurity";
+	$password = "rErte8Oi98e-2_#";
+	$dbname = "taransvar";
 
 	// Create connection
 	$conn = new mysqli($servername, $username, $password, $dbname);
@@ -23,7 +23,7 @@ function addWarningRecord($szWarning)
 	
 	#First check if recently inserted.. 
 	$szSQL = "select warningId from warning where handled is null and lastWarned >= DATE_SUB(NOW(), INTERVAL 1 DAY) and warning = ?";
-
+print "<br>print trying to log in<br>";
 	$stmt = $conn->prepare($szSQL);
         $stmt->bind_param("s", $szWarning); 
         $stmt->execute();

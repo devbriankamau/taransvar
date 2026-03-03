@@ -10,7 +10,7 @@ error_reporting(E_ALL);
 
 //Put this directly into database and process later... e.g in 10 minutes when dhsp leases and conntrack is loaded.... 
 //
-include "dbfunc.php";
+include "../dbfunc.php";
 
 function getSenderIp()
 {
@@ -66,7 +66,7 @@ if (isset($_GET["f"]))
                         #$sql = "select * from hackReport";
                         $sql = "insert into hackReport (ip, port, partnerIp, partnerPort, status, sentByIp".$szExtraFields.") values (inet_aton('".$_GET["ip"].
                         "'), ".$_GET["port"].",inet_aton('".$szFromIp."'), ".$nFromPort.", 'hack', inet_aton('".$szFromIp."')".$szExtraVals.")";
-                        //print "$sql";
+                        print "$sql";
 
 			$result = $conn->query($sql) or die("(error storing)");
                         print "ok";

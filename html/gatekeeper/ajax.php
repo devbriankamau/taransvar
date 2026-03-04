@@ -166,11 +166,53 @@ function partnerScan()
     CXmlCommand::setInnerHTML("scanresult", "", $szMsg);  //, $cMoreParamsArr = array()
 }
 
+function hackReport()
+{
+    $nLastId = $_GET["id"];
+    //CXmlCommand::alert("ID seen: $nLastId");
+
+    //Add new hackReport records to table.    
+	$sql = "SELECT reportId, inet_ntoa(ip) as ip, port, inet_ntoa(partnerIp) as partnerIp, partnerPort, status, h.created, hostname, description from hackReport h left outer join unit u on u.unitId = h.unitId where reportId > ? order by h.created asc limit 1";
+    $conn = getConnection();
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $nLastId); 
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {    
+        $szDesc = "-".$row["description"]."-";
+        $cArr = array($row["created"],$row["ip"],$row["port"],"&nbsp;", $row["partnerIp"],$row["partnerPort"],$szDesc); //
+        $szRowId = "hr".$row["reportId"];
+        CXmlCommand::addTableRow("hackAttemptsTbl", "top", "", $cArr, "", $szRowId);//$szHTML)
+    }
+
+    //Update internalInfections table...
+	$sql = "SELECT infectionId, inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, status, CAST(active AS UNSIGNED) as active, I.lastSeen, hostname, description from internalInfections I left outer join unit u on u.unitId = I.unitId order by I.lastSeen desc";
+
+    $stmt = $conn->prepare($sql);
+    //$stmt->bind_param("i", $nLastId); 
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {    
+        $szDesc = "-".$row["description"]."-";
+        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],"&nbsp;","&nbsp;",($row["active"])?"Active":"Disabled"); //
+        $szRowId = "inf".$row["infectionId"];
+        CXmlCommand::addTableRow("infectionsTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
+    }
+
+}
+
+
 
 switch ($_GET["func"])
 {
     case "partnerscan":
         partnerScan();
+        break;
+    case "hackReport":
+        //CXmlCommand::alert("Don't know how yet...");
+        hackReport();
         break;
     default:
         print "unknown function";

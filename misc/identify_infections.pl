@@ -6,6 +6,7 @@ use lib ('.');
 use func;	#NOTE! See comment above regarding lib..
 use lib_cron;
 
+NOTE! This function is handled by taralink... grep -r "handledTime" (kept because maybe it's handled better here....)
 
 # Connect to MySQL database
 my $dbh = getConnection();
@@ -25,7 +26,7 @@ while (my $row = $sth->fetchrow_hashref()) {
         $nFound++;
         print "   $row->{'ip'} $row->{'port'} $row->{'status'}\n";
 
-        if ($row->{'nSentBy'} == $row->{'adminIp'}) {
+        if ($row->{'nSentBy'} == $row->{'adminIp'} || $row->{'nSentBy'} == 10) {        # 10 == localhost
                 #config_update.php is used by honey.php to report hack attempts on the same computer (sentByIp will be this)
                 print "Internal hack report (maybe from script/config_update.php)\n";
 

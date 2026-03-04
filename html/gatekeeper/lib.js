@@ -366,7 +366,8 @@ function handleReceivedAjaxText(reply)
     szDebug = szDebug.replace(">","&gt;");
     var szTxt = datetime + szDebug;
     var cDebug = document.getElementById("debug");
-    cDebug.innerHTML = szTxt;
+    if (cDebug)
+        cDebug.innerHTML = szTxt;
     
     if (xmlDoc === false)
     {

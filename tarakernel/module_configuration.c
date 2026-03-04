@@ -451,6 +451,17 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 	cNewElement.ipNettmask = ipNettmask;
 	int n;
 */
+//	ØT 260303 - Check first if already in the list???? (what about the other categories??)
+
+	for (_Node *pInfection = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pInfection; pInfection = pInfection->pNext)
+		if (pInfection->cInfection.ipAddress == ipAddress)
+		{
+			printk("tarakernel: (260303) %08X is already registered. Aborting\n", ipAddress);
+			return;
+		}
+
+	printk("tarakernel: (260303) %08X is a new infection.. add it\n", ipAddress);
+
 	_Node *pNode = getNewBefore(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
 	pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS] = pNode;
 	if (pNode)
@@ -841,20 +852,21 @@ void storeAssistanceRequest(char *lpSpec)
 	else
 		printk("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST]);
 
-        //Convert 7F000001:0-0-0-1 to  7F000001 0 0 0 1
-        while ((lpFound = strchr(lpSpec, ':')))
-            *lpFound = ' ';
-        while ((lpFound = strchr(lpSpec, '-')))
-            *lpFound = ' ';
+	//Convert 7F000001:0-0-0-1 to  7F000001 0 0 0 1
+	while ((lpFound = strchr(lpSpec, ':')))
+		*lpFound = ' ';
+
+	while ((lpFound = strchr(lpSpec, '-')))
+    	*lpFound = ' ';
 
 	printk("tarakernel: About to convert: %s\n", lpSpec);
 	if (sscanf(lpSpec, "%s %u %u %u %u", cIP, &nPort, &nQuality, &nWantsSpoofed, &nActive) == 5)
 	{
-	  printk("tarakernel: Able to convert...\n");
+		printk("tarakernel: Able to convert...\n");
 	}
 	else
 	{
-	  printk("tarakernel: *********** Error converting (got %d)...\n", nConverted);
+		printk("tarakernel: *********** Error converting (got %d)...\n", nConverted);
 	}
 
 //	if ((nError = kstrtoul(lpPort, 16, &nVal)))
@@ -929,10 +941,10 @@ void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatil
 	//Use this to extract the 4 unsighed chars if required:
 	//	unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
 	//	printk("%d.%d.%d.%d", (int)ipAddressBytes[3], (int)ipAddressBytes[2],
-	//		(int)ipAddressBytes[1], (int)ipAddressBytes[0]);
+	//		(int)ipAddressBytes[1], (int)ipAddressBytes[0]);	//ØT 260303 - storeInstruction() seems generic, but then calls storeInfection only?????
 
         #ifdef USE_POINTER_LIST
-              storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);
+              storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);	//ØT 260303 - storeInstruction() seems generic, but then calls storeInfection only?????
               return;
         #endif
 

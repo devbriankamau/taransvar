@@ -22,7 +22,7 @@ void sendToGlogalDbServers(_GlobalServers *cGlobalDb, char *szParams)
       printf("%s\n", szUrl);
     } else {
       char szBuf[256];
-      if (lpGlobalDbIp)
+      if (lpGlobalDbIp && *lpGlobalDbIp)
         printf("****** Skipping wrong IP address for global DB server: %s\n", lpGlobalDbIp);
       //addWarningRecord(conn, szBuf);
     }

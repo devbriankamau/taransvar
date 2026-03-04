@@ -236,7 +236,15 @@ td {
 <head>
 <title>Taransvar Gatekeeper</title>
 </head>
-<body>
+<script>
+	function pageLoader()
+	{
+		if (typeof szUpdateRoutine !== 'undefined') {
+			initUpdater();
+		}
+	}
+</script>
+<body onload="pageLoader()">
 <script type="text/javascript" src="lib.js" /></script>
 <script type="text/javascript" src="lib2.js" /></script>
 <script type="text/javascript" src="std.js" /></script>

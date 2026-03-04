@@ -3,17 +3,24 @@
 
 function listInfections()
 {
+?>
+
+<script>
+var szUpdateRoutine = "hackReport";	
+</script>
+<?php
+
 	$conn = getConnection();
 
 	$sql = "SELECT infectionId, inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, status, CAST(active AS UNSIGNED) as active, I.lastSeen, hostname, description from internalInfections I left outer join unit u on u.unitId = I.unitId order by I.lastSeen desc";
 	$result = $conn->query($sql);
 
-        print "<h2>Registered infections in our net:</h2>";
+	print "<h2>Registered infections in our net:</h2>";
 
 	if ($result) 
 	{
 		// output data of each row  
-		print "<table>";
+		print '<table id="infectionsTbl">';
 		$nCount=0;
 		while($row = $result->fetch_assoc()) 
 		{
@@ -32,7 +39,7 @@ function listInfections()
 					break;
 			}
 			$szWho = $row["hostname"].$row["description"];
-			print '<tr><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'</td><td>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td><a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
+			print '<tr id="inf'.$row["infectionId"].'"><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'</td><td>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td><a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
 			//print '<tr><td>'.$row["ip"].'</td><td>'.$row["nettmask"].'</td><td>'.$row["status"].'</td><td></td>';
 	    		print "</tr>";
 			$nCount++;
@@ -51,22 +58,22 @@ function listInfections()
 
 
 
-	$sql = "SELECT inet_ntoa(ip) as ip, port, inet_ntoa(partnerIp) as partnerIp, partnerPort, status, h.created, hostname, description from hackReport h left outer join unit u on u.unitId = h.unitId order by h.created desc";
+	$sql = "SELECT reportId, inet_ntoa(ip) as ip, port, inet_ntoa(partnerIp) as partnerIp, partnerPort, status, h.created, hostname, description from hackReport h left outer join unit u on u.unitId = h.unitId order by h.created desc";
 	$result = $conn->query($sql);
 
 	if ($result) 
 	{
 		// output data of each row  
-		print "<h2><table>";
+		print '<h2><table id="hackReportTbl">';
 		$nCount=0;
 		while($row = $result->fetch_assoc()) 
 		{       
 		        if ($nCount == 0)
 		        {
-		                print '<tr><td>Reported</td><td colspan="3">Attacker</td><td colspan="2">Reporter</td></tr>';
+		                print '<tr><th>Reported</th><th colspan="3">Attacker</th><th colspan="2">Reporter</th></tr>';
 		        }
 		        $szWhom =       ($row["description"] && strlen($row["description"])?$row["description"]:$row["hostname"]);
-			print '<tr><td>'.$row["created"].'</td><td>'.$row["ip"].'</td><td>'.$row["port"].'</td><td>'.$szWhom.'</td><td>'.$row["partnerIp"].'</td><td>'.$row["partnerPort"].'</td><td>'.$row["status"].'</td>';
+			print '<tr id="hr'.$row['reportId'].'"><td>'.$row["created"].'</td><td>'.$row["ip"].'</td><td>'.$row["port"].'</td><td>'.$szWhom.'</td><td>'.$row["partnerIp"].'</td><td>'.$row["partnerPort"].'</td><td>'.$row["status"].'</td>';
 			//print "<td>" . $row["toIP"]. "</td><td>" . $row["protocol"]."</td>";
 	    		print "</tr>";
 			$nCount++;

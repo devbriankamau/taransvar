@@ -668,7 +668,7 @@ function handleAddTableRow(cCommand)
             if (!cTable.rows[n].id.localeCompare(szKey))
             {
                 //Already exists.
-                cRow = cTable.row[n];
+                cRow = cTable.rows[n]; //ØT 260304 - was row, not rows
                 cRow.innerHTML = "";
                 break;
             }

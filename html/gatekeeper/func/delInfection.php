@@ -43,7 +43,7 @@ function delInfection()
 		$stmt->bind_param("i", $_GET["id"]); 
 	        $stmt->execute();
 
-		require_once("func/listInfections.php");
+		require_once("listInfections.php");
        	listInfections();
 
 }

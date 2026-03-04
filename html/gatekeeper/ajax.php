@@ -16,6 +16,20 @@ if (!function_exists("isAjax"))
 }
 
 
+function getSenderIp() 
+{
+	if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
+		$ip = $_SERVER['HTTP_CLIENT_IP'];
+	} elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) 
+	{
+    		$ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+	} else {
+    		$ip = $_SERVER['REMOTE_ADDR'];
+ 	}
+ 	return $ip;
+} 
+
+
 function myId() 
 {
     $nMyId = (isset($_SESSION['sess_adm_userid'])?$_SESSION['sess_adm_userid']:0)+0;
@@ -183,7 +197,7 @@ function hackReport()
         $szDesc = "-".$row["description"]."-";
         $cArr = array($row["created"],$row["ip"],$row["port"],"&nbsp;", $row["partnerIp"],$row["partnerPort"],$szDesc); //
         $szRowId = "hr".$row["reportId"];
-        CXmlCommand::addTableRow("hackAttemptsTbl", "top", "", $cArr, "", $szRowId);//$szHTML)
+        CXmlCommand::addTableRow("hackReportTbl", "top", "", $cArr, "", $szRowId);//$szHTML)
     }
 
     //Update internalInfections table...
@@ -204,6 +218,90 @@ function hackReport()
 }
 
 
+function traffic()
+{
+    $nLastId = $_GET["id"];
+	$conn = getConnection();
+	$sql = "SELECT trafficId, inet_ntoa(T.ipFrom) as ipFrom, inet_ntoa(T.ipTo) as ipTo, T.whoIsId, CAST(isLan AS UNSIGNED) as isLan, name, portFrom, portTo, created, count from traffic T left outer join whoIs W on W.whoIsId = T.whoIsId where trafficId > ? order by trafficId asc limit 50";
+
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $nLastId); 
+    $stmt->execute();
+    $result = $stmt->get_result();
+
+    while ($row = $result->fetch_assoc()) {    
+        $szName = ($row["isLan"] ? '<font color="gray">LAN traffic</font>' : ($row["name"]?$row["name"]:""));
+        $cArr = array($row["ipFrom"],$szName, $row["portFrom"], $row["portTo"], $row["created"], $row["count"]); //
+        $szRowId = "tr".$row["trafficId"];
+        CXmlCommand::addTableRow("trafficTbl", "top", "", $cArr, "", $szRowId);//$szHTML)
+    }
+
+
+}
+
+function dmsgLog()
+{
+    //CXmlCommand::alert("About to read..");
+	$conn = getConnection();
+	$szSQL = "select inet_ntoa(adminIp) as ip, dmesg, unix_timestamp(now())-unix_timestamp(dmesgUpdated) as secsAgo from setup";
+	$result = $conn->query($szSQL);
+	$row = 0;
+
+	if ($result && $result->num_rows > 0) 
+	{
+		if ($row = $result->fetch_assoc()) 
+        {
+			$lines = explode("\n", ($row["dmesg"]?$row["dmesg"]:""));
+			$lines = array_reverse($lines);
+			$text_reversed = implode("\n", $lines);
+			$replaced = str_replace("\n","<br>",$text_reversed);
+
+			$ip = getSenderIp();
+			$replaced = str_replace($ip,"<b><font color=\"red\">".$ip."</font></b>",$replaced);
+            CXmlCommand::setInnerHTML("logHere", "", $replaced);//, $cMoreParamsArr = array())
+        }
+    }
+}
+
+function units()
+{
+	//$sql = "select U.unitId, UP.created, mac, vci, inet_ntoa(UP.ipAddress), inet_ntoa(U.ipAddress), hostname from unitPort UP join unit U on U.unitId = UP.unitId where created > DATE_SUB( NOW() , INTERVAL 1 DAY ) order by U.unitId, UP.created desc;";
+
+#	$sql = "select U.unitId, description, greatest(discovered, lastSeen) as discovered, hex(mac) as mac, vci, inet_ntoa(S.ip) as ip, inet_ntoa(U.ipAddress), hostname, hex(dhcpClientId) as dhcpClientId from dhcpSession S join unit U on clientId = unitId where discovered > DATE_SUB( NOW() , INTERVAL 1 DAY ) or lastSeen > DATE_SUB( NOW() , INTERVAL 1 DAY ) order by greatest(discovered, lastSeen) desc;";
+	$sql = "select coalesce(unitId,'') as unitId, coalesce(description, '') as description, coalesce(lastSeen,'') as lastSeen, coalesce(hex(mac),'') as mac, coalesce(vci,'')as vci, coalesce(inet_ntoa(ipAddress),'') as ip, coalesce(hostname,'') as hostname, hex(dhcpClientId) as dhcpClientId from unit where  lastSeen is null or lastSeen > DATE_SUB( NOW() , INTERVAL 1 DAY ) order by lastSeen desc;";
+
+	$conn = getConnection();
+	$result = $conn->query($sql);
+    $nCount = 0;
+    $szRowId = "uninitialized";
+
+	if ($result->num_rows > 0) 
+	{
+		// output data of each row  
+		while($row = $result->fetch_assoc()) 
+		{
+			$szM = (isset($row["mac"])?$row["mac"]:"");
+		    $szMac = (strlen($szM) > 12 && substr($szM, 12) == "00000000000000000000" ? substr($szM, 0,12) : $szM);
+		    $szDescription = $row["description"].'<a href="index.php?f=edtDesc&id='.$row["unitId"].'">[Edit]</a>';
+		       
+		    //Assemble list of last ports used..
+            $szPorts = '<a href="index.php?f=showPorts&id='.$row["unitId"].'">[Show]</a>';
+		       
+	    	//print "<tr><td>".$row["hostname"]."</td><td>".$row["dhcpClientId"]."</td><td>".$row["vci"]."</td><td>".$szDescription."</td><td>".$szMac."</td><td>".$row["lastSeen"]."</td><td>".$row["ip"]."</td><td>".$szPorts."</td></tr>";
+			$nCount++;
+
+            $szRowId = "un".$row["unitId"];
+            $cArr = array($row["hostname"], $row["dhcpClientId"], $row["vci"], $szDescription, $szMac, $row["lastSeen"],$row["ip"],$szPorts);
+            CXmlCommand::addTableRow("unitsTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
+	  	}
+	} 
+
+    if (!$nCount)
+        CXmlCommand::setInnerHTML("updateTime", "", "No DHCP IP assignments registered. You should make sure misc/crontasks.pl<br>is registered with cron. See the script file for instructions.<br>");//, $cMoreParamsArr = array())
+    else
+        CXmlCommand::setInnerHTML("updateTime", "", "$nCount records read");//, $cMoreParamsArr = array())
+}
+
 
 switch ($_GET["func"])
 {
@@ -213,6 +311,16 @@ switch ($_GET["func"])
     case "hackReport":
         //CXmlCommand::alert("Don't know how yet...");
         hackReport();
+        break;
+    case "traffic":
+        traffic();
+        break;
+    case "log":
+        dmsgLog();
+        break;
+    case "units":
+        units();
+        //CXmlCommand::setInnerHTML("updateTime", "", "Updated from Ajax..");//, $cMoreParamsArr = array())
         break;
     default:
         print "unknown function";

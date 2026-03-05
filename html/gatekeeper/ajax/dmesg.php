@@ -65,7 +65,7 @@ function dmesg()
 			$lines = explode("\n", ($row["dmesg"]?$row["dmesg"]:""));
 			$lines = array_reverse($lines);
 
-			if ($szFilter+0)
+			if ((int)$szFilter)
 			{
 				//Remove lines that didn't contain any text to be colored
 				for ($n = 0; $n < sizeof($lines); $n++)

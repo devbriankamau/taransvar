@@ -2,6 +2,9 @@
 
 //Keywork USE n is_numeric() for , isNumeric(), isNumber, isInteger
 
+require_once("Basic.class.php"); //Required by CDb (Db.class.php) - and probably also elsewhere
+require_once("Db.class.php"); //This lib may be the only one here using this class... Better use getConnection() as the others and drop this file...
+
 function noop()
 {
     //Just to be able to place a break point...
@@ -3282,7 +3285,10 @@ function saveHackingReportToDb($szMsg, $szTable, $nId=0, $szTechInfo="", $nAvoid
     
 	//$szSQL = "insert into SystemMessage (PostedBy, RegardingWhat, RegardingId, Warning, URL, IP, TechInfo, Category) values ($nMe, '$szTable', $nId, '$szDbMsg', '$szURL', '$szIP', '$szDbTech','$szCategory')";
     $pDb = CDb::get();
+    //$pDb = getConnection();
 //    return 0;   //150313
+    $stmt = $conn->prepare($szSQL);
+
     $pDb->execute("insert into SystemMessage (PostedBy, RegardingWhat, RegardingId, Warning, URL, IP, BinaryIp, TechInfo, Category) 
                 values (:me, :table, :id, :dbMsg, :url, :ip, :binIp, :tech, :cat)",
                 array(":me"=>myId(), ":table"=>substr($szTable,0,15), ":id"=>$nId, ":dbMsg"=>$szDbMsg, ":url"=>substr($szURL,254),

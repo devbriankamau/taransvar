@@ -360,7 +360,7 @@ function handleReceivedAjaxText(reply)
     var xmlDoc = BuildXMLFromString(reply);
     
     //160409
-    var currentdate = new Date();
+    /*var currentdate = new Date();
     var datetime = "Last Sync: " + currentdate.getHours() + ":"     + currentdate.getMinutes() + ":" + currentdate.getSeconds();
     var szDebug = reply.substring(0,100).replace("<","&lt;");
     szDebug = szDebug.replace(">","&gt;");
@@ -368,6 +368,7 @@ function handleReceivedAjaxText(reply)
     var cDebug = document.getElementById("debug");
     if (cDebug)
         cDebug.innerHTML = szTxt;
+    */
     
     if (xmlDoc === false)
     {

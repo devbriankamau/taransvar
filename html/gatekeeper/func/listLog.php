@@ -1,6 +1,17 @@
 
 <script>
-var szUpdateRoutine = "log";	
+var szUpdateRoutine = "dmesg";	
+
+function logSrch()
+{
+	var szSrch = document.getElementById("crit");
+	var bFilter = document.getElementById("filter");
+
+	//alert("Filter/mark: "+szSrch.value);
+
+	request("dmesg","srch="+szSrch.value+"&filter="+(bFilter.checked?1:0));
+	return false;
+}
 </script>
 <?php 
 
@@ -17,18 +28,20 @@ function listLog()
 		{
 			if (!isset($row["secsAgo"]) || (int)$row["secsAgo"] > 20)
 				print "<b><font color=\"red\">This content is supposed to be updated every 10 seconds but misc/crontasks.pl seems not to be set up properly</font></b>";
-			else
-				print "<b>NOTE! This contents was updated ".$row["secsAgo"]." seconds ago</b>. For updated content, ssh ".$row["ip"]." and run sudo dmesg -w</b>";
+			//else
+			//	print "<b>NOTE! This contents was updated ".$row["secsAgo"]." seconds ago</b>. For updated content, ssh ".$row["ip"]." and run sudo dmesg -w</b>";
 
-			$lines = explode("\n", ($row["dmesg"]?$row["dmesg"]:""));
-			$lines = array_reverse($lines);
-			$text_reversed = implode("\n", $lines);
-			$replaced = str_replace("\n","<br>",$text_reversed);
+			$szSearch = (isset($_SESSION["srch"]) && strlen($_SESSION["srch"]))?$_SESSION["srch"]:"10.0.0.16(green)^TAG:(red)";
+			$szChecked = isset($_SESSION["filter"])&&$_SESSION["filter"]?" checked":"";
 
-			$ip = getSenderIp();
-			$replaced = str_replace($ip,"<b><font color=\"red\">".$ip."</font></b>",$replaced);
+			print '<form onsubmit="logSrch(); return false;">
+			<label for="crit">Mark/filter:</label><input id="crit" value="'.$szSearch.'" size="60"> <label for="filter">Filter:</label><input type="checkbox"'.$szChecked.' id="filter">
+			<input type="submit"></form>';
+		//</form><br><br><div id="debug">Debug info here</div>
+
+		//<input id="crit" onkeyup="logSrch()">
 			
-			print '<table id="logTbl"><tr><td id="lg1"><p><div id="logHere" align="left">'.$replaced."</div></p></td></tr></table>";
+			print '<table id="dmesgTbl"><tr><td id="lg1"><div id="logHere" align="left">Please wait for content to read (if it\'s set up properly)</div></td></tr></table>';
 		}
 	}
 	if (!$row)

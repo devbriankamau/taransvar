@@ -6,15 +6,27 @@ ini_set('display_errors', '1');
 ini_set('display_startup_errors', 1); 
 
 include "genlib.php";
-include "Basic.class.php";
+require_once "Basic.class.php";
 include "System.class.php";
 include "dbfunc.php";
 
+/*if (file_exists("../Db.class.php"))
+    include "../Db.class.php";
+else
+    include "Db.class.php";
+*/
 if (!function_exists("isAjax"))
 {
     function isAjax() {return true;}
 }
 
+function reportHacking() {}
+
+function experiencingDbConnectionTrouble()
+{
+	//print "<bR>DB-Error has been detected... don't know what may cause this...<bR><bR>";
+	return false;
+}
 
 function getSenderIp() 
 {
@@ -239,30 +251,6 @@ function traffic()
 
 }
 
-function dmsgLog()
-{
-    //CXmlCommand::alert("About to read..");
-	$conn = getConnection();
-	$szSQL = "select inet_ntoa(adminIp) as ip, dmesg, unix_timestamp(now())-unix_timestamp(dmesgUpdated) as secsAgo from setup";
-	$result = $conn->query($szSQL);
-	$row = 0;
-
-	if ($result && $result->num_rows > 0) 
-	{
-		if ($row = $result->fetch_assoc()) 
-        {
-			$lines = explode("\n", ($row["dmesg"]?$row["dmesg"]:""));
-			$lines = array_reverse($lines);
-			$text_reversed = implode("\n", $lines);
-			$replaced = str_replace("\n","<br>",$text_reversed);
-
-			$ip = getSenderIp();
-			$replaced = str_replace($ip,"<b><font color=\"red\">".$ip."</font></b>",$replaced);
-            CXmlCommand::setInnerHTML("logHere", "", $replaced);//, $cMoreParamsArr = array())
-        }
-    }
-}
-
 function units()
 {
 	//$sql = "select U.unitId, UP.created, mac, vci, inet_ntoa(UP.ipAddress), inet_ntoa(U.ipAddress), hostname from unitPort UP join unit U on U.unitId = UP.unitId where created > DATE_SUB( NOW() , INTERVAL 1 DAY ) order by U.unitId, UP.created desc;";
@@ -303,30 +291,36 @@ function units()
 }
 
 
-switch ($_GET["func"])
+$szFile = "ajax/".$_GET["func"].".php";
+
+if (file_exists($szFile))
 {
-    case "partnerscan":
-        partnerScan();
-        break;
-    case "hackReport":
-        //CXmlCommand::alert("Don't know how yet...");
-        hackReport();
-        break;
-    case "traffic":
-        traffic();
-        break;
-    case "log":
-        dmsgLog();
-        break;
-    case "units":
-        units();
-        //CXmlCommand::setInnerHTML("updateTime", "", "Updated from Ajax..");//, $cMoreParamsArr = array())
-        break;
-    default:
-        print "unknown function";
-
+    require_once($szFile);
+    //print "Calling the func..";
+    $_GET["func"]();
 }
+else
+    switch ($_GET["func"])
+    {
+        case "partnerscan":
+            partnerScan();
+            break;
+        case "hackReport":
+            //CXmlCommand::alert("Don't know how yet...");
+            hackReport();
+            break;
+        case "traffic":
+            traffic();
+            break;
+        case "units":
+            units();
+            //CXmlCommand::setInnerHTML("updateTime", "", "Updated from Ajax..");//, $cMoreParamsArr = array())
+            break;
+        default:
+            print "unknown function : ".$_GET["func"];
 
-    CXmlCommand::flushXml();
+    }
+
+CXmlCommand::flushXml();
 
 ?>

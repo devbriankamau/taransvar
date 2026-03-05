@@ -35,6 +35,11 @@ else
 	return;
 }
 
+function experiencingDbConnectionTrouble()
+{
+	print "<bR>DB-Error has been detected... don't know what may cause this...<bR><bR>";
+}
+
 function loggedIn()
 {
 	if (!isset($_SESSION["userid"]))

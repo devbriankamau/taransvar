@@ -51,7 +51,7 @@ function myUpdaterFunction() {
     else
     {
         cReportId = "NAN";
-        console.log("No rows or no table header.. Can't read if of row two of "+szUpdateRoutine+"Tbl");
+        console.log("No rows or no table header.. Can't read id of row 2 of "+szUpdateRoutine+"Tbl");
     }
     
 	request(szUpdateRoutine,"id="+cReportId);
@@ -61,7 +61,7 @@ function initUpdater()
 {
 //	szUpdateRoutine = szRoutine;
 
-	const intervalId = setInterval(myUpdaterFunction, 1000);
+	const intervalId = setInterval(myUpdaterFunction, 3000);
 
 /*	document.addEventListener("DOMContentLoaded", function () {
 

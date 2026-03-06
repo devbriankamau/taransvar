@@ -56,7 +56,8 @@ union _TagUnion {
 };
 
 struct _ipPort2 {
-	volatile uint32_t ip;
+	//volatile uint32_t ip;
+        volatile uint32_t sIp, dIp;
 	//uint32_t sPort, dPort, nCount;
         unsigned short int sPort, dPort, nCount;  //u32
         union _TagUnion cTagUnion;

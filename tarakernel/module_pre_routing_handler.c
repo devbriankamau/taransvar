@@ -94,7 +94,8 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
     int n = 0;
     for (n = 0; n < sizeof(pSetup->cPendingIncomingReportArr) / sizeof(struct _ipPort2); n++)
     {
-          if (pSetup->cPendingIncomingReportArr[n].ip == pPacket->ip_header->saddr && 
+          if (pSetup->cPendingIncomingReportArr[n].sIp == pPacket->ip_header->saddr && 
+			pSetup->cPendingIncomingReportArr[n].dIp == pPacket->ip_header->daddr && 
               pSetup->cPendingIncomingReportArr[n].sPort == pPacket->sPort &&
               pSetup->cPendingIncomingReportArr[n].dPort == pPacket->dPort)
           {
@@ -106,10 +107,11 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
                 break;
           }
           else
-                if (!pSetup->cPendingIncomingReportArr[n].ip)
+                if (!pSetup->cPendingIncomingReportArr[n].sIp)
                 {
                       //Found an available slot...
-                      pSetup->cPendingIncomingReportArr[n].ip = pPacket->ip_header->saddr;
+                      pSetup->cPendingIncomingReportArr[n].sIp = pPacket->ip_header->saddr;
+                      pSetup->cPendingIncomingReportArr[n].dIp = pPacket->ip_header->daddr;
                       pSetup->cPendingIncomingReportArr[n].sPort = pPacket->sPort;
                       pSetup->cPendingIncomingReportArr[n].dPort = pPacket->dPort;
                       pSetup->cPendingIncomingReportArr[n].nCount = 1;
@@ -164,7 +166,12 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		kfree(pPacket);
 		return NF_ACCEPT;
 	}
+
+	//ØT - 260305 - From now log everything if set to logging 
+	if (pSetup->cShowInstructions.bits.doReportTraffic)
+        reportInboundTraffic(pPacket);
 	
+
 	if(blackListed(pPacket->ip_header->saddr))  //See "W/B List" and "Domains" in localhost/dashboard for ip-addresses here.  
 	{
 		unsigned int nRetval = requestActionOutbound(NULL);//str);
@@ -239,9 +246,9 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			else
 			  pSetup->cGlobalStatistics.nFromPartnerUntagged++; 
 		}
-		else
-          	        if (pSetup->cShowInstructions.bits.doReportTraffic)
-                                reportInboundTraffic(pPacket);
+//		else
+//          	if (pSetup->cShowInstructions.bits.doReportTraffic)
+//                reportInboundTraffic(pPacket);	//ØT 260305 - report everything PRE ROUTING....
 		
         }    
 
@@ -361,7 +368,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 	{
 	    //To or from the router itself (not to be forwarded to other..). This is probably not interesting to anybody. (except my firewall.....)
 		//OT_Changed: 260225 - incoming traffic is interesting to "SampleBank" or "HoneyPot"... Start logging this....
-		reportInboundTraffic(pPacket);	//OT_Changed: 260225 - added this... 
+		//reportInboundTraffic(pPacket);	//ØT 260305 - NOw report everything prerouting..//OT_Changed: 260225 - added this... 
 		kfree(pPacket);
 		return NF_ACCEPT;
 	}

@@ -71,10 +71,34 @@ sub miscDir {
 	return "./";	#Do this better than assume current dir...
 }
 
-if (programRunning("taralink", "taralink/")) {
-	print "*********** taralink is running in other window... Please close it (Ctrl-C) and try again.\n";
-	exit;
+my $proc = "taralink";
+
+# Check if process exists
+my @pids = `pgrep $proc`;
+chomp @pids;
+
+if (@pids) {
+    print "Process '$proc' is running with PID(s): @pids\n";
+    print "Do you want to kill it? (y/n): ";
+    
+    my $answer = <STDIN>;
+    chomp $answer;
+
+    if ($answer =~ /^y/i) {
+        foreach my $pid (@pids) {
+            kill 'TERM', $pid;
+            print "Sent TERM to PID $pid\n";
+        }
+    } else {
+        #print "Process left running.\n";
+		exit;
+    }
 }
+
+#if (programRunning("taralink", "taralink/")) {
+#	print "*********** taralink is running in other window... Please close it (Ctrl-C) and try again.\n";
+#	exit;
+#}
 
 print getcwd()."\n";
 my $szCurDir = getcwd();

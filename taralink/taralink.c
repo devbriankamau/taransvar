@@ -405,13 +405,13 @@ int main()
 
   while (1)
   {
-        //struct nlmsghdr *nlh = NULL;
+    //struct nlmsghdr *nlh = NULL;
 
 	printf("Waiting for message from kernel\n");
 
 	// Read message from kernel 
-        //nlh = (struct nlmsghdr *)malloc(NLMSG_SPACE(MAX_PAYLOAD));
-        memset(pSockData->nlh, 0, NLMSG_SPACE(MAX_PAYLOAD)); //Initialize the buffer, otherwise previous msg will remain at end of string.
+    //nlh = (struct nlmsghdr *)malloc(NLMSG_SPACE(MAX_PAYLOAD));
+    memset(pSockData->nlh, 0, NLMSG_SPACE(MAX_PAYLOAD)); //Initialize the buffer, otherwise previous msg will remain at end of string.
 	int nDataLength = recvmsg(pSockData->sock_fd, &pSockData->msg, 0);
 	lpPayload = (char *)NLMSG_DATA(pSockData->nlh);
 	//printf("Received message: %s\n", lpPayload);
@@ -420,57 +420,56 @@ int main()
 	//insertLog(lpPayload);
 	int nSequenceNumber = -1;
 
-        if (isConfigurationRequest(lpPayload, &nSequenceNumber))
-        {
-      		int bReadChangesOnly;
+    if (isConfigurationRequest(lpPayload, &nSequenceNumber))
+    {
+      	int bReadChangesOnly;
 
 		printf("Configuration requested..\n");
 		sentConfiguration(pSockData, nSequenceNumber, 1, bReadChangesOnly = 0);
 	} 
 	else
 	{
-	        //This is better way to find keyword at start....
-	        char *lpSeparator = strchr(lpPayload, '|');
-	        char cKeyword[20];
-	        if (lpSeparator && lpSeparator - lpPayload < sizeof(cKeyword))
-	        {
-	              strncpy(cKeyword, lpPayload, lpSeparator - lpPayload);
-	              cKeyword[lpSeparator - lpPayload] = 0;  //Terminate the string.
-	        }
-	        else
-	              *cKeyword = 0;
+	    //This is better way to find keyword at start....
+	    char *lpSeparator = strchr(lpPayload, '|');
+	    char cKeyword[20];
+	    if (lpSeparator && lpSeparator - lpPayload < sizeof(cKeyword))
+	    {
+	        strncpy(cKeyword, lpPayload, lpSeparator - lpPayload);
+	        cKeyword[lpSeparator - lpPayload] = 0;  //Terminate the string.
+	    }
+	    else
+	        *cKeyword = 0;
 	        
-	        //Check if it's status report from Taransvar kernel module
-	        //char *lpSearchKey = "status|";
+	    //Check if it's status report from Taransvar kernel module
+	    //char *lpSearchKey = "status|";
 		//lpSeparator = strstr(lpPayload, lpSearchKey);
 		//if (lpSeparator == lpPayload)
 		if (!strcmp(cKeyword, "status"))
 		{
-		        char *lpStatus = lpSeparator+1;//lpPayload+strlen(lpSearchKey); 
+		    char *lpStatus = lpSeparator+1;//lpPayload+strlen(lpSearchKey); 
 			printf("%s\n", lpStatus);
 			
 			checkReportStatus(lpStatus);
-
 		}
 		else
 		{
 		        if (!strcmp(cKeyword, "TRAFFIC"))
 		        {
-                              char cBuf[200];
-                              int nTrafficLen = strlen(lpSeparator+1); 
-                              //bufferToHex((char*)lpPayload, (nDataLength>60?60:nDataLength), cBuf, 200);
-                              //printf("**** Traffic hex dump: %s\n", cBuf);
-                              strncpy(cBuf, lpSeparator+1, (nTrafficLen>50?50:nTrafficLen+1));
-                              if (nTrafficLen > 50)
-                              {
-                                    sprintf(cBuf+50," *** truncated, len: %d *** ", nTrafficLen);
-                                    strcpy(cBuf+strlen(cBuf), lpSeparator+1+nTrafficLen-50);
-                              }
+                    char cBuf[400];	//was 200
+                    int nTrafficLen = strlen(lpSeparator+1); 
+                    //bufferToHex((char*)lpPayload, (nDataLength>60?60:nDataLength), cBuf, 200);
+                    //printf("**** Traffic hex dump: %s\n", cBuf);
+                    strncpy(cBuf, lpSeparator+1, (nTrafficLen>250?250:nTrafficLen+1));	//was (nTrafficLen>50?50:nTrafficLen+1));
+                    if (nTrafficLen > 250)	//was 50
+                    {
+                        sprintf(cBuf+250," *** truncated, len: %d *** ", nTrafficLen);	//was 50
+                        strcpy(cBuf+strlen(cBuf), lpSeparator+1+nTrafficLen-50);
+                    }
 
-                              printf("**** Traffic received: %s\n", cBuf);//lpSeparator+1);
+                    printf("**** Traffic received: %s\n", cBuf);//lpSeparator+1);
 		        
-		              //handleTrafficReportFromKernel(lpPayload+strlen(lpSearchKey), nDataLength - strlen(lpSearchKey));
-		              handleTrafficReportFromKernel(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
+		            //handleTrafficReportFromKernel(lpPayload+strlen(lpSearchKey), nDataLength - strlen(lpSearchKey));
+		            handleTrafficReportFromKernel(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
 		        }
     		        else if (!strcmp(cKeyword, "CHECK"))
     		        {

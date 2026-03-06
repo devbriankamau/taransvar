@@ -398,7 +398,13 @@ sub checkNetworkSetup {
 		}
 	
 		if ($nDeviceCount >= 2 && !ipIsUp($szInternalIP, @cDevices)) {
-			my $szNetworkSetup = getFileContents("/etc/network/interfaces"); 
+			my $szInterfaces = "/etc/network/interfaces";
+			my $szNetworkSetup;
+			if (-e $szInterfaces) {
+				$szNetworkSetup = getFileContents($szInterfaces); 
+			} else {
+				$szNetworkSetup = "";
+			}
 			my @cFound = split("\n",$szNetworkSetup);
 			my @cMatches = grep(/$szInternalNic/, @cFound);
 			my $nPresumedInternaFoundInInterfaces = @cMatches; 

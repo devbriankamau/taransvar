@@ -125,6 +125,14 @@
         <p>This site will show your tagging status but it's not yet finalized.</p>
         <br>
         <a href="status.php" class="btn btn-primary btn-large">View Status</a>
+
+<p>
+<?php
+include "guestinfo.php";
+guestInfo();
+?>
+</p>
+
     </section>
 
     <footer class="footer">

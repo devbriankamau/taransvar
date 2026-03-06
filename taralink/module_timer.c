@@ -76,7 +76,7 @@ void timer_callback(union sigval timer_data)
 {
 	char *lpPayload;
 	//struct t_eventData *data = timer_data.sival_ptr;
-	printf("Timer fired (here) - thread-id: %d\n", gettid());
+	//printf("Timer fired - thread-id: %d\n", gettid());
 
         struct _SocketData *pSockData = 0;
         

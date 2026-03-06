@@ -313,7 +313,7 @@ sub moduleRunning {
 
 sub getFileContents {
 	my ($szFilename) = @_;
-	open my $fh, '<', $szFilename or die "Can't open file in getFileContents() $!";
+	open my $fh, '<', $szFilename or die "Can't open file $szFilename in getFileContents() $!";
 	my $szDump = do { local $/; <$fh> };
 	close ($fh);
 	return $szDump;

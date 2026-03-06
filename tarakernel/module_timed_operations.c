@@ -30,7 +30,8 @@ bool trafficReportToTaralinkFound(int nProcessId)
 
         if (!pSetup->cShowInstructions.bits.doReportTraffic)  //No need to do anything further if not supposed to report traffic...
         {
-              pSetup->cPendingIncomingReportArr[0].ip = 0;   //To avoid that one with wrong time is being inserte in table if reporting is being turend on later. 
+              pSetup->cPendingIncomingReportArr[0].sIp = 0;   //To avoid that one with wrong time is being inserte in table if reporting is being turend on later. 
+              pSetup->cPendingIncomingReportArr[0].dIp = 0;
               return false;
         }
 
@@ -49,16 +50,18 @@ bool trafficReportToTaralinkFound(int nProcessId)
 
         for (n = 0; n < C_TRAFFIC_REPORT_ARRAY_SIZE; n++)
         {
-            if (!pSetup->cPendingIncomingReportArr[n].ip)
+            if (!pSetup->cPendingIncomingReportArr[n].sIp)
                 break;
                 
             struct _ipPort2 *pRec = &pSetup->cPendingIncomingReportArr[n];
             //OT_Changed:260225 - now also sending the tag...
             //sprintf(lpSendBuf+strlen(lpSendBuf), "%08X-%X-%X-%X^", swappedEndian(pRec->ip), pRec->sPort, pRec->dPort, pRec->nCount);
-            sprintf(lpSendBuf+strlen(lpSendBuf), "%08X-%X-%X-%X-%X^", swappedEndian(pRec->ip), pRec->sPort, pRec->dPort, pRec->nCount, pRec->cTagUnion.nBe16);
+            //ØT 260305 - Here's where sending...
+            sprintf(lpSendBuf+strlen(lpSendBuf), "%08X-%X-%08X-%X-%X-%X^", swappedEndian(pRec->sIp), pRec->sPort, swappedEndian(pRec->dIp), pRec->dPort, pRec->nCount, pRec->cTagUnion.nBe16);
             
             //Clear this spot so it can be used for next report...
-            pSetup->cPendingIncomingReportArr[n].ip = 0;  
+            pSetup->cPendingIncomingReportArr[n].sIp = 0;  
+            pSetup->cPendingIncomingReportArr[n].dIp = 0;   //Not necessary....
         }
         
         if (n == 0)

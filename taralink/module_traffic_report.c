@@ -27,16 +27,96 @@ char *bufferToHex(char *lpBuffer, int len, char* lpTarget, int nBufSize)
 }
 
 
-
-
-
-
-
-
-
-
 void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 {
+    //ØT 260305 - Here's where receiving (new version)...
+	//For now just printing.... 
+	//Now sending both fromIP and toIP (not sure which the old version sent)
+
+	MYSQL *conn;
+	conn = getConnection();
+	char *lpRec;
+	char *lpTokens = "^";
+    
+	int status;
+	MYSQL_RES *result;
+	MYSQL_ROW row;
+	MYSQL_FIELD *field;
+	MYSQL_RES *rs_metadata;
+	MYSQL_STMT *stmt;
+	MYSQL_BIND ps_params[4];
+
+	//length[0] = strlen(cod);
+    
+	stmt = mysql_stmt_init(conn);
+	if (stmt == NULL) {
+		printf("Could not initialize statement\n");
+		exit(1);
+	}
+
+	#define N_MAX_RECORDS 100
+	char *cRecord[N_MAX_RECORDS];
+	int nRecordCount = 0;
+
+	char *token = strtok(lpPayload, "^");
+
+	while (token != NULL) {
+		cRecord[nRecordCount++] = token;
+		token = strtok(NULL, "^");
+
+		if (nRecordCount > N_MAX_RECORDS - 3)
+		{
+			//No need for further error handling since this is just informational....????
+			printf("\n***** ERROR ****** Too many records... Increase array size to handle more\n");
+			break;
+		}
+	}
+
+	for (int j = 0; j < nRecordCount; j++)
+	{
+		//printf("Traffic found: %s\n", cRecord[j]);
+
+		//Split the traffic record
+		char *token = strtok(cRecord[j], "-");
+		char *cFields[10];
+		//Record format: AA4AFA8E-1BB-AA4AFA8E-D6CE-1-999   (6 fields... so 10 should be enough for a while)
+		// <hex ip from>-<portfrom>-<hex ip to>-<port to>-<count>-<tag> 
+
+		while (token != NULL) {
+			cFields[j++] = token;
+			token = strtok(NULL, "-");
+		}
+
+		if (j != 6)
+		{
+			printf("***** ERROR ****** Incomplete record.. %d fields, supposed to be 6. Skipping record.\n", j);
+		}
+		else
+		{
+			//printf("Record decoded: %s %s %s %s %s %s\n", cFields[0], cFields[1], cFields[2], cFields[3], cFields[4], cFields[5]);
+           	char cSql[400];
+			//OT_Changed: 260225 - Now also saving the tag...
+			sprintf(cSql, "insert into traffic (ipFrom, portFrom, ipTo, portTo, count, tag) values (0x%s, 0x%s, 0x%s ,0x%s, 0x%s, 0x%s)", 
+					cFields[0], cFields[1], cFields[2], cFields[3], cFields[4], cFields[5]);
+            
+			if (mysql_query(conn, cSql)){
+                //According to manual, mysql_query() is supposed to return true if ok... But apparently not on all computers 
+                //     printf("******************************** ABLE TO INSERT ***********\n");
+            }
+            //else
+                //     printf("******** ERROR inserting traffic record.\n");
+		}
+	}
+	//printf("%d records inserted in traffic table.\n", nRecordCount);
+
+	mysql_close(conn);
+}
+
+
+//void OLD_VERSION2_handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
+/*void OLD_VERSION2_handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
+{
+    //ØT 260305 - Here's where receiving...
 	MYSQL *conn;
 	conn = getConnection();
 	char *lpRec;
@@ -65,7 +145,12 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 		printf("Could not initialize statement\n");
 		exit(1);
 	}
-	/*char *lpSql = "insert into traffic (ipFrom, portFrom, portTo, count) values (unhex(?), unhex(?) ,unhex(?), unhex(?))"; 
+
+
+
+	/* 260305 This block was already commented out...
+	
+	char *lpSql = "insert into traffic (ipFrom, portFrom, portTo, count) values (unhex(?), unhex(?) ,unhex(?), unhex(?))"; 
 			
 	status = mysql_stmt_prepare(stmt, lpSql, strlen(lpSql));
 	test_stmt_error(stmt, status); //line which gives me the syntax error 
@@ -113,9 +198,11 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 	// bind parameters
 	status = mysql_stmt_bind_param(stmt, ps_params); //muore qui
 	test_stmt_error(stmt, status);
+
+	260306 Block already commented out ends here
 */
     
-	char *lpIp, *lpPortFrom, *lpPortTo, *lpCount, *lpTag;
+/*	char *lpIp, *lpPortFrom, *lpPortTo, *lpCount, *lpTag;
 	int nCount = 0;
     
 	for (lpRec = strtok (lpPayload, lpTokens); lpRec ; lpRec = strtok (NULL, lpTokens))
@@ -138,7 +225,7 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 		        printf("\n***** ERROR! Record is incomplete: %s... Aborting...\n", cBackup);
 		        break;
 		}
-		
+
 		*lpSep = 0;
 		lpPortFrom = lpSep+1; 
 		char *lpSep2 = strchr(lpPortFrom, '-');
@@ -202,8 +289,10 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 					sprintf(cSql, "insert into traffic (ipFrom, portFrom, portTo, count, tag) values (0x%s, 0x%s ,0x%s, 0x%s, 0x%s)", lpIp, lpPortFrom, lpPortTo, lpCount, lpTag);
                 	
 			//printf("%s\n", cSql);
-
-/*			printf("strtok finished\n");
+*/
+/*
+			260306 - was alread commented out
+			printf("strtok finished\n");
                 	nIpFrom = strtol(lpIp, 0, 16);
                 	nPortFrom = strtol(lpPortFrom, 0, 16);
                 	nPortTo = strtol(lpPortTo, 0, 16);
@@ -215,8 +304,12 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 			status = mysql_stmt_execute(stmt);
 			test_stmt_error(stmt, status);
 			printf("inserted\n");
+
+			already commented out block ends here
 */		
-			/*u32*/ unsigned int nIpFrom = strtol(lpIp, 0, 16);
+
+/*
+			unsigned int nIpFrom = strtol(lpIp, 0, 16);
   		        //printf("Found %s (%u.%u.%u.%u)\n", cBackup, IPADDRESS(nIpFrom));
 
                         if (mysql_query(conn, cSql)){
@@ -235,122 +328,7 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 	printf("%d records inserted in traffic table.\n", nCount);
 
 	mysql_close(conn);
-
 }
+*/
 
-
-void OLD_handleTrafficReportFromKernel(struct _ipPort2 *lpPayload, int nDataLength);
-void OLD_handleTrafficReportFromKernel(struct _ipPort2 *lpPayload, int nDataLength)
-{
-/* NOTE! Maybe this function should only store the report and return and then save to the database later... (not sure if it's syncron or asyncron) */
-
-	int nArrSize = nDataLength / sizeof(struct _ipPort2);
-	if (nArrSize != C_TRAFFIC_REPORT_ARRAY_SIZE)
-	{
-		printf("\n***** Traffic report array size mismatch. Should have been: %d, is: %d (bytes: %d+8)\n", C_TRAFFIC_REPORT_ARRAY_SIZE, nArrSize, nDataLength);
-		if (nArrSize > C_TRAFFIC_REPORT_ARRAY_SIZE)
-			nArrSize = C_TRAFFIC_REPORT_ARRAY_SIZE;
-	}
-	else
-		printf("\nTraffic report from kernel (length: %d, %d posts)\n", nDataLength, nArrSize);
-      
-        char cBuf[200];
-        bufferToHex((char*)lpPayload, (nDataLength>50?50:nDataLength), cBuf, 200);
-        printf("**** Received: %s\n", cBuf);
-      
-	//nArrSize = 2;
-	MYSQL *conn;
-	conn = getConnection();
-      
-      
-	for (int n = 0; n < nArrSize; n++)
-		{
-		struct _ipPort2 *pPost = lpPayload + n * sizeof(struct _ipPort2);
-		if (pPost->ip)
-		{
-			printf("Found: %u: %u %u (count: %u)\n", pPost->ip, pPost->sPort, pPost->dPort, pPost->nCount);
-
-			int status;
-			MYSQL_RES *result;
-			MYSQL_ROW row;
-			MYSQL_FIELD *field;
-			MYSQL_RES *rs_metadata;
-			MYSQL_STMT *stmt;
-			MYSQL_BIND ps_params[4];
-			//unsigned long length[4];
-			//char cod[64];
-                        unsigned int ipFrom, portFrom, portTo, count;
-                        //unsigned long int bIsUnsigned = 1;
-
-			//length[0] = strlen(cod);
-    
-			stmt = mysql_stmt_init(conn);
-			if (stmt == NULL) {
-				printf("Could not initialize statement\n");
-                        	exit(1);
-                        }
-			char *lpSql = "insert into traffic (ipFrom, portFrom, portTo, count) values (?, ? , ?, ?)"; 
-			
-			status = mysql_stmt_prepare(stmt, lpSql, strlen(lpSql));
-			test_stmt_error(stmt, status); //line which gives me the syntax error 
-
-			memset(ps_params, 0, sizeof(ps_params));
-                        ipFrom = pPost->ip;
-                        portFrom = pPost->sPort;
-                        portTo = pPost->dPort;
-                        count = pPost->nCount;
-                        
-                        //ipFrom
-			ps_params[0].buffer_type = MYSQL_TYPE_LONG;//MYSQL_TYPE_VAR_STRING;
-                        ps_params[0].buffer = (char*) &ipFrom;   
-                        ps_params[0].buffer_length = sizeof(int);
-                        ps_params[0].length = 0; //int-field;
-                        ps_params[0].is_unsigned = 1;
-                        ps_params[0].is_null = 0;
-
-                        //portFrom
-			ps_params[1].buffer_type = MYSQL_TYPE_LONG;
-                        ps_params[1].buffer = (char*) &portFrom;
-                        ps_params[1].buffer_length = 0; //Int field
-                        ps_params[1].length = 0;//Int field
-                        ps_params[1].is_unsigned = 1;
-                        ps_params[1].is_null = 0; 
-
-                        //portTo
-			ps_params[2].buffer_type = MYSQL_TYPE_LONG;
-                        ps_params[2].buffer = (char*) &portTo;
-                        ps_params[2].buffer_length = 0; //Int field
-                        ps_params[2].length = 0; //Int field
-                        ps_params[2].is_unsigned = 1;
-                        ps_params[2].is_null = 0;
-
-                        //count
-			ps_params[3].buffer_type = MYSQL_TYPE_LONG;
-                        ps_params[3].buffer = (char*) &count;
-                        ps_params[3].buffer_length = 0; //Int field
-                        ps_params[3].length = 0; //Int field
-                        ps_params[3].is_unsigned = 1;
-                        ps_params[3].is_null = 0;
-
-
-                        // bind parameters
-                        status = mysql_stmt_bind_param(stmt, ps_params); //muore qui
-                        test_stmt_error(stmt, status);
-
-                        // Run the stored procedure
-                        status = mysql_stmt_execute(stmt);
-                        test_stmt_error(stmt, status);
-
-
-
-
-
-
-            }
-            else
-                  printf ("This slot was blank...\n");
-      }
-      
-      mysql_close(conn);
-}
 

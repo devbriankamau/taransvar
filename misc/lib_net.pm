@@ -3,6 +3,7 @@ package lib_net;
 use strict;
 use warnings;
 use Exporter;
+use FindBin;
 
 our @ISA= qw( Exporter );
 
@@ -152,7 +153,7 @@ sub setupIpTablesTheOldWay {
 	addWarningRecord(0, $szMsg);
 }
 
-sub setupIpTables {
+sub OLD_setupIpTables {
         my ($szInternalIp, $szInternalDevice, $szExternalDevice) = @_;
 #        print "************** NOTE! Run iptables rules for forwarding to work but it causes DNS to no longer work on this computer...\n";
         #setupIpTablesTheOldWay($szInternalIp, $szInternalDevice, $szExternalDevice);
@@ -197,6 +198,43 @@ sub setupIpTables {
        	$comm->disconnect;	
 
 	#Make permanent: sudo netfilter-persistent save
+}
+
+sub setupIpTables {
+    my ($szInternalIp, $szInternalDevice, $szExternalDevice) = @_;
+
+	#Set up iptables
+	#Old: system("/sbin/iptables -P INPUT ACCEPT");
+	#Old: system("/sbin/iptables -P OUTPUT ACCEPT");
+
+	my $src  = "$FindBin::Bin/iptables_template.txt";
+	my $dest = "/root/setup/iptables.sh";
+
+	print "Current dir: ", `pwd`;	
+	print "\n";
+
+	unless (-f $src) {
+    	print "Warning: $src does not exist - network (IPTABLES) will not be set up properly\n";
+    	print "Press Enter to continue or Ctrl-C to quit...\n";
+    	<STDIN>;
+	}
+
+	system("cp $src $dest");
+
+	#LAN_IF="lan_if"
+	#WAN_IF="wan_if"
+	#LAN_IP="lan_ip"
+
+	system("sed -i 's/lan_if/$szInternalDevice/g' $dest");
+	system("sed -i 's/wan_if/$szExternalDevice/g' $dest");
+	system("sed -i 's/lan_ip/$szInternalIp/g' $dest");
+
+	# make executable
+	chmod 0755, $dest;
+
+	# run it with bash
+	system("bash $dest");
+	print "IPTABLES setup printed to and run from $dest (in case you need it later)\n";
 }
 
 sub iptablesAddMoreRulesDummy {
@@ -590,6 +628,7 @@ sub setupWifiNicAsHotspot {
     #run_command("sudo apt update && sudo apt upgrade -y");
     run_command("sudo apt install iw");
     run_command("sudo apt install hostapd");
+	print "\nThis install will probably hang if installed already.. But resumes if you press enter few times....\n";
     run_command("sudo apt install iptables-persistent");
     
     run_command("sudo systemctl unmask hostapd");

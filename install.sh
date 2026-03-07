@@ -109,6 +109,11 @@ rsync -a --exclude '.git' html/ /var/www/html/
 
 (
 	cd misc
+	perl setup_network.pl
+)
+
+(
+	cd misc
 	perl compile.pl install
 )
 
@@ -121,10 +126,6 @@ else
 	read -n 1 -s -p "Ctrl-C to break or press any key to coontinue"
 fi
 
-(
-	cd misc
-	perl setup_network.pl
-)
 #perl install.pl - nothing left here 
 
 #echo "Seems like the installation succeeded.\n\n"
@@ -137,7 +138,9 @@ printf "It requies that you have an additional network device and will share the
 
 #read -n 1 -s -p "Press Ctrl-C to abort or any key to coontinue."
 
-read -p "Do you want to install the hotspot system? [y/n]: " answer
+#Hotspot system is removed from install for now... The iptables there and also a bult inn extremely simple firewall easily cause iptables problems 
+#read -p "Do you want to install the hotspot system? [y/n]: " answer
+my $answer = "n";	
 
 # Convert input to lowercase to handle 'Y' or 'y'
 case "$answer" in
@@ -158,7 +161,6 @@ esac
 
 (
 	cd misc
-	perl setup_network.pl
 	perl startup.pl
 )
 

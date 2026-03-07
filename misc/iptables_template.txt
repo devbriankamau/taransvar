@@ -1,0 +1,98 @@
+#!/bin/bash
+set -e
+
+#lan_if ++ is being replaced by correct while installing
+LAN_IF="lan_if"
+WAN_IF="wan_if"
+LAN_IP="lan_ip"
+LOGIN_PORT="80"
+ALLOWED_SET="allowed_lan"
+
+# Flush old rules
+iptables -F
+iptables -t nat -F
+iptables -X
+
+# Default policies
+iptables -P INPUT DROP
+iptables -P OUTPUT DROP
+iptables -P FORWARD DROP
+
+# Create ipset if missing
+ipset create "$ALLOWED_SET" hash:ip -exist
+
+# -------------------------
+# Basic router/self traffic
+# -------------------------
+
+# Loopback
+iptables -A INPUT  -i lo -j ACCEPT
+iptables -A OUTPUT -o lo -j ACCEPT
+
+# Established / related
+iptables -A INPUT   -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A OUTPUT  -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+
+# This computer may reach anything on WAN/uplink side
+iptables -A INPUT  -i "$WAN_IF" -j ACCEPT
+iptables -A OUTPUT -o "$WAN_IF" -j ACCEPT
+
+# Optional: allow this computer to reach LAN clients too
+iptables -A INPUT  -i "$LAN_IF" -j ACCEPT
+iptables -A OUTPUT -o "$LAN_IF" -j ACCEPT
+
+# -------------------------
+# LAN services on router
+# -------------------------
+
+# DHCP for Wi-Fi clients
+iptables -A INPUT  -i "$LAN_IF" -p udp --sport 68 --dport 67 -j ACCEPT
+iptables -A OUTPUT -o "$LAN_IF" -p udp --sport 67 --dport 68 -j ACCEPT
+
+# DNS on router, if the router serves DNS
+iptables -A INPUT  -i "$LAN_IF" -p udp --dport 53 -j ACCEPT
+iptables -A INPUT  -i "$LAN_IF" -p tcp --dport 53 -j ACCEPT
+iptables -A OUTPUT -o "$LAN_IF" -p udp --sport 53 -j ACCEPT
+iptables -A OUTPUT -o "$LAN_IF" -p tcp --sport 53 -j ACCEPT
+
+# Local login page / captive portal
+iptables -A INPUT -i "$LAN_IF" -p tcp --dport "$LOGIN_PORT" -j ACCEPT
+
+# -------------------------
+# NAT
+# -------------------------
+
+# Logged-in clients bypass HTTP redirect
+iptables -t nat -I PREROUTING 1 \
+    -i "$LAN_IF" -p tcp --dport 80 \
+    -m set --match-set "$ALLOWED_SET" src \
+    -j RETURN
+
+# Everyone else hitting HTTP gets sent to local login page
+iptables -t nat -A PREROUTING \
+    -i "$LAN_IF" -p tcp --dport 80 \
+    -j REDIRECT --to-ports "$LOGIN_PORT"
+
+# NAT out to uplink
+iptables -t nat -A POSTROUTING -o "$WAN_IF" -j MASQUERADE
+
+# -------------------------
+# Forwarding
+# -------------------------
+
+# Logged-in Wi-Fi clients may reach anything upstream
+iptables -A FORWARD \
+    -i "$LAN_IF" -o "$WAN_IF" \
+    -m set --match-set "$ALLOWED_SET" src \
+    -m conntrack --ctstate NEW,ESTABLISHED,RELATED \
+    -j ACCEPT
+
+# Return traffic to logged-in Wi-Fi clients
+iptables -A FORWARD \
+    -i "$WAN_IF" -o "$LAN_IF" \
+    -m set --match-set "$ALLOWED_SET" dst \
+    -m conntrack --ctstate ESTABLISHED,RELATED \
+    -j ACCEPT
+
+#EOF

@@ -46,9 +46,6 @@ if (-e $szIndexHtml) {
     system("rm $szIndexHtml"); #Default apache file prevents dashboard from showing if exists.
 }
 
-system("/sbin/iptables -P INPUT ACCEPT");
-system("/sbin/iptables -P OUTPUT ACCEPT");
-
 my @cDevices = getDevices();
 
 my $szActiveLink = $cDevices[0];
@@ -217,7 +214,8 @@ iface $szInternal inet static
     }
 	
     system("sudo systemctl restart systemd-networkd >> ".$szSysRoot."log/install.log");
-	
+    setupFirewall($szInternalIP, $szInternal, $szExternal);
+
     my $szWorkingDir = $szSysRoot."log";	#Required for wget to save index.html
     chdir $szWorkingDir; 
 
@@ -386,10 +384,10 @@ server=8.8.4.4
 	system($szCmd);
         
 	system("service isc-dhcp-server restart");
-
-        setupFirewall($szInternalIP, $szInternal, $szExternal);
 } else {
-		print "*** WARNING! Unable to ping. Setup not written to database!\n";
+		print "*** WARNING! Unable to ping after trying to set up the network. Setup not written to database!\n";
+    	print "Press Enter to continue or Ctrl-C to quit...\n";
+    	<STDIN>;
 }
     
 

@@ -35,6 +35,9 @@ apt install -y ipset
 #Now also install for hotspot... 
 apt-get install -y ipfm
 
+#260307 - install for get() used in lib_cron.pm
+sudo apt install -y libwww-perl
+
 apt update -y
 apt upgrade -y
 
@@ -99,6 +102,7 @@ echo "Database created. Copying files/"
 
 mkdir /root/taransvar
 mkdir /root/taransvar/perl
+
 #ØT 260302 - rsync instead of copying
 #cp misc/*.* /root/taransvar/perl
 rsync -a --exclude '.git' misc/ /root/taransvar/perl/

@@ -11,6 +11,10 @@ use func;
 #use lib_cron;
 use lib_diagnose;
 
+sub getLogRoot {
+	return "/root/setup/log/";
+}
+
 if (createUsersOk()) {
 	exit 0;	#exit code 0 means all well
 } else {

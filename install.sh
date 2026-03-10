@@ -25,6 +25,7 @@ if [ -d /var/lib/mysql ] && [ "$(ls -A /var/lib/mysql 2>/dev/null)" ]; then
 else
     apt-get install -y mariadb-server
 fi
+
 apt-get install -y apache2 perl libdbd-mysql-perl libmariadb-dev libmnl-dev
 apt-get install -y php libapache2-mod-php php-mysql
 apt-get install -y gcc make curl libcurl4-openssl-dev dhcpdump net-tools conntrack

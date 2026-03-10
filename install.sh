@@ -145,7 +145,7 @@ printf "It requies that you have an additional network device and will share the
 
 #Hotspot system is removed from install for now... The iptables there and also a bult inn extremely simple firewall easily cause iptables problems 
 #read -p "Do you want to install the hotspot system? [y/n]: " answer
-my $answer = "n";	
+answer = "n"
 
 # Convert input to lowercase to handle 'Y' or 'y'
 case "$answer" in

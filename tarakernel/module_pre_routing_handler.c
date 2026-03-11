@@ -84,8 +84,7 @@ char *inspectIsItMe(unsigned int nIp, char *cBuf)
 int dropFromLogging(struct _PacketInspection *pPacket);
 int dropFromLogging(struct _PacketInspection *pPacket)
 {
-
-	printk("tarakernel: Drop %d - checking %d and %d", pSetup->dontDmesgIPs[0], pPacket->ip_header->saddr, pPacket->ip_header->daddr);
+	//printk("tarakernel: Drop %d - checking %d and %d", pSetup->dontDmesgIPs[0], pPacket->ip_header->saddr, pPacket->ip_header->daddr);
 	return  pPacket->ip_header->saddr == pSetup->dontDmesgIPs[0] || pPacket->ip_header->daddr == pSetup->dontDmesgIPs[0];
 }
 
@@ -102,7 +101,7 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
 	//Check if one of the IP addresses is among those put in setup->dontDmesgIPs not to be handled (for now only handles one..). 
 	if (dropFromLogging(pPacket))
 	{
-		printk("tarakernel: ******* Dropping logging because one of IPs is listed as not to log to dmesg\n");
+		//printk("tarakernel: ******* Dropping logging because one of IPs is listed as not to log to dmesg\n");
 		return;
 	}
 

@@ -286,7 +286,7 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
 			printk("tarakernel: kstrtoul returned %d for IP not to send to dmesg (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIpList);
 			return lpFound + 1;
 		}
-		pSetup->dontDmesgIPs[0] = swappedEndian((u32) nMyIp);
+		pSetup->dontDmesgIPs[0] = nMyIp;//swappedEndian((u32) nMyIp);
     }    
     else
     {

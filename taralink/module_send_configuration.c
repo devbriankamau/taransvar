@@ -444,7 +444,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 				#define N_MAX_DONT_DMSG_IPs 150
 				char szDontDmesgIPs[N_MAX_DONT_DMSG_IPs];
-				strncpy(szDontDmesgIPs, row[nField++], N_MAX_DONT_DMSG_IPs-1);
+				strcpy(szDontDmesgIPs, row[nField++]);
 				if (strlen(szDontDmesgIPs) > N_MAX_DONT_DMSG_IPs - 50)
 					printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %d (currently in use: %d)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
 

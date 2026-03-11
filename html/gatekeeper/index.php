@@ -1,6 +1,6 @@
 <?php
 session_start();
-$nRequiredDbVersion=49;	#NOTE! Make sure this line is always number 3 because that's claimed below.
+$nRequiredDbVersion=50;	#NOTE! Make sure this line is always number 3 because that's claimed below.
 include "dbfunc.php";
 
 $szErrorMessage = "";	//Use it to print message...
@@ -8,9 +8,23 @@ $szErrorMessage = "";	//Use it to print message...
 //Check if db is updated otherwise the script often fails...
 
 $conn = getConnection();
-$sql = "SELECT *, inet_ntoa(adminIP) as adminIPA from setup";
+$sql = "SELECT *, coalesce(inet_ntoa(adminIP),'') as adminIPA from setup";
 $result = $conn->query($sql);
 $bOk = $result->num_rows > 0 && $setupRow = $result->fetch_assoc(); 
+
+function printTitle()
+{
+	global $setupRow;
+	if (isset($setupRow["nickname"]) && strlen($setupRow["nickname"]))
+		$szDisplay = $setupRow["nickname"];
+	else
+		$szDisplay = "Taransvar Gatekeeper";
+
+	$nPos = strrpos($setupRow["adminIPA"], ".");
+	$szPostfix =  substr($setupRow["adminIPA"], $nPos+1);
+	print "$szDisplay ($szPostfix)";
+
+}
 
 //$bOk = 0;
 
@@ -239,7 +253,9 @@ td {
 
 </style>
 <head>
-<title>Taransvar Gatekeeper</title>
+<title><?php 
+	printTitle();
+?></title>
 </head>
 <script>
 	function pageLoader()
@@ -273,11 +289,8 @@ function showMenu()
 { 
 global $setupRow;
 ?>
-<h1>Taransvar Gatekeeper<?php 
-$nPos = strrpos($setupRow["adminIPA"], ".");
-$szDisplay =  substr($setupRow["adminIPA"], $nPos+1);
-print " ($szDisplay)";
-//asdfasdf
+<h1><?php 
+	printTitle();
 ?></h1>
 <table>
 <tr>

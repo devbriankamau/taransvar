@@ -47,6 +47,13 @@ update setup set dbVersion = 48;
 alter table session modify username varchar(150);
 update setup set dbVersion = 49;
 
+#version 50 (260311)
+alter table setup add dontDmesgIPs varchar(150);
+update setup set dbVersion = 50;
+
+#version 51 (260311)
+alter table setup add nickname varchar(100);
+update setup set dbVersion = 51;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

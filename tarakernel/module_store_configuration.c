@@ -150,32 +150,33 @@ char *interpretInspection(char *lpBlockDescriptor, char *lpIpList)
 
 char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
 {
-      char *lpFound = strchr(lpIpList, '|'); 
-      int nError;
-      long unsigned int nMyIp;
+    char *lpFound = strchr(lpIpList, '|'); 
+    int nError;
+    long unsigned int nMyIp;
       
-      if (lpFound)
-      {
-            char *lpSep;
+    if (lpFound)
+    {
+        char *lpSep;
 
-            *lpFound = 0;
-            //printk("I think this is SETUP: %s... What is this: %s\n", lpBlockDescriptor, lpIpList);
-            //lpIpList now: C0A86413^C0A83201^FFFFFF00
-            lpSep = strchr(lpIpList, '^');
-            if (!lpSep) {
-                  lpIpList = lpFound + 1;
-    	  	  printk("tarakernel: ***** ERROR in setup (external IP)\n");
-                  return lpIpList;
-            }
+		*lpFound = 0;
+		//printk("I think this is SETUP: %s... What is this: %s\n", lpBlockDescriptor, lpIpList);
+    	//lpIpList now: C0A86413^C0A83201^FFFFFF00
+        lpSep = strchr(lpIpList, '^');
 
-            *lpSep = 0; 
+    	if (!lpSep) {
+			lpIpList = lpFound + 1;
+			printk("tarakernel: ***** ERROR in setup (external IP)\n");
+			return lpIpList;
+		}
 
-            if ((nError = kstrtoul(lpIpList, 16, &nMyIp)))
-            {
-	  	printk("tarakernel: kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIpList);
-		return lpFound + 1;
-            }
-            pSetup->nMyIp  = swappedEndian((u32) nMyIp);
+		*lpSep = 0; 
+
+        if ((nError = kstrtoul(lpIpList, 16, &nMyIp)))
+        {
+			printk("tarakernel: kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIpList);
+				return lpFound + 1;
+        }
+        pSetup->nMyIp  = swappedEndian((u32) nMyIp);
 
             //****** Get internal ip
             lpIpList = lpSep+1; 
@@ -186,7 +187,7 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
             }
 
             *lpSep = 0; 
-  	  //printk("tarakernel: ***** Internal IP: %s\n", lpIpList);
+  			//printk("tarakernel: ***** Internal IP: %s\n", lpIpList);
 
 			if ((nError = kstrtoul(lpIpList, 16, &nMyIp)))
 			{
@@ -195,17 +196,17 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
             }
             pSetup->nInternalIp  = swappedEndian((u32) nMyIp);
 
-            //****** Get nettmask
-            lpIpList = lpSep+1; 
-            lpSep = strchr(lpIpList, '^');
+        //****** Get nettmask
+        lpIpList = lpSep+1; 
+        lpSep = strchr(lpIpList, '^');
 
-            if (!lpSep) {
-    	  	  printk("tarakernel: ***** ERROR in setup (nettmask)\n");
-                  return lpFound + 1;
-            }
+        if (!lpSep) {
+    	  	printk("tarakernel: ***** ERROR in setup (nettmask)\n");
+            return lpFound + 1;
+        }
             
-            *lpSep = 0; 
-			//printk("tarakernel: ***** Nettmask: %s\n", lpIpList);
+        *lpSep = 0; 
+		//printk("tarakernel: ***** Nettmask: %s\n", lpIpList);
 
 			if ((nError = kstrtoul(lpIpList, 16, &nMyIp)))
 			{
@@ -228,15 +229,15 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
             pSetup->nBlockIncomingTaggedTrafficLevel = (unsigned char)nMyIp;
             printk("tarakernel: ****** blocking threshold found ****: %d\n", pSetup->nBlockIncomingTaggedTrafficLevel);
 
-            //****** Get show info instructions
-            lpIpList = lpSep+1; 
-            lpSep = strchr(lpIpList, '^');
-  	 // printk("tarakernel: ***** Show instructions: %s\n", lpIpList);
+        //****** Get show info instructions
+        lpIpList = lpSep+1; 
+        lpSep = strchr(lpIpList, '^');
+		// printk("tarakernel: ***** Show instructions: %s\n", lpIpList);
 
-            if (!lpSep) {
-				printk("tarakernel: ***** ERROR in setup (show instructions)\n");
-				return lpFound + 1;
-            }
+        if (!lpSep) {
+			printk("tarakernel: ***** ERROR in setup (show instructions)\n");
+			return lpFound + 1;
+        }
 
             *lpSep = 0; 
 
@@ -246,11 +247,11 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
 				return lpFound + 1;
             }
             //pSetup->nShowInstructions  = nMyIp;
-            pSetup->cShowInstructions.nValues  = nMyIp;
+        pSetup->cShowInstructions.nValues  = nMyIp;
 
-            printk("tarakernel: Setup saved: %08X, %08X, %08X, %02X\n",pSetup->nMyIp, pSetup->nInternalIp, pSetup->nNettmask, pSetup->cShowInstructions.nValues);
+        printk("tarakernel: Setup saved: %08X, %08X, %08X, %02X\n",pSetup->nMyIp, pSetup->nInternalIp, pSetup->nNettmask, pSetup->cShowInstructions.nValues);
             
-            printk("tarakernel: Show: SS:%d, SPRP:%d, SHRNP:%d, SFP:%d, SFNP:%d, SUPTR:%d, orpn:%d, other:%d, tag:%d, inspect:%d, block:%d\n",
+        printk("tarakernel: Show: SS:%d, SPRP:%d, SHRNP:%d, SFP:%d, SFNP:%d, SUPTR:%d, orpn:%d, other:%d, tag:%d, inspect:%d, block:%d\n",
               pSetup->cShowInstructions.bits.showStatus,
               pSetup->cShowInstructions.bits.showPreRoutePartner,
               pSetup->cShowInstructions.bits.showPreRouteNonPartner,
@@ -266,19 +267,35 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
               pSetup->cShowInstructions.bits.doInspection,
               pSetup->cShowInstructions.bits.doBlocking
               //pSetup->cShowInstructions.bits.doOther
-        
-        
-        );
+		        );
 
-      }    
-      else
-      {
-    	printk("tarakernel: *************** ERROR: Never supposed to get here...\n");
-          return lpIpList + strlen(lpIpList);
-      }
+		//Get list of IP addresses not to log to dmesg (setup->dontDmesgIPs)
+        lpIpList = lpSep+1; 
+        lpSep = strchr(lpIpList, '^');
+        if (!lpSep) {
+			printk("tarakernel: ***** ERROR in setup (List of IPs not to log to dmsg is lacking)\n");
+			pSetup->dontDmesgIPs[0] = 0;
+			return lpFound + 1;
+        }
+
+        *lpSep = 0; 
+
+		printk("tarakernel: Received IPs not to log to dmesg: %s (WARNING - for now can only handle one)\n", lpIpList);
+		if ((nError = kstrtoul(lpIpList, 16, &nMyIp)))
+		{
+			printk("tarakernel: kstrtoul returned %d for IP not to send to dmesg (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIpList);
+			return lpFound + 1;
+		}
+		pSetup->dontDmesgIPs[0] = swappedEndian((u32) nMyIp);
+    }    
+    else
+    {
+		printk("tarakernel: *************** ERROR: Never supposed to get here...\n");
+    	return lpIpList + strlen(lpIpList);
+    }
       
-      lpIpList = lpFound + 1;
-      return lpIpList;
+    lpIpList = lpFound + 1;
+    return lpIpList;
 }
 
 

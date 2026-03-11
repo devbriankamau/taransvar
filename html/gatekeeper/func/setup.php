@@ -72,6 +72,8 @@ function saveSetupNew()
 	getUpdateSetupIp("globalDb3ip", "db3", $cConn);
 
 	updateSetupString("background", "bkg", $cConn);
+	updateSetupString("dontDmesgIPs", "dmsgIPs", $cConn);	
+	updateSetupString("nickname", "nick", $cConn);	
 
 	$szSQL = "update setup set handled = b'0';"; 
 	//print "<br>SQL: $szSQL<br>";
@@ -83,23 +85,24 @@ function saveSetupNew()
 
 function setup()
 {
-        if (isset($_GET["submit"]))
-        {
-        	//NOTE! Should verify that especilly all IP addresses are legal:  if(!filter_var($_GET["ip"], FILTER_VALIDATE_IP)){ do some error handling  }
+    if (isset($_GET["submit"]))
+    {
+    	//NOTE! Should verify that especilly all IP addresses are legal:  if(!filter_var($_GET["ip"], FILTER_VALIDATE_IP)){ do some error handling  }
         	
-        	//saveSetupOld();
-        	saveSetupNew();
+        //saveSetupOld();
+        saveSetupNew();
 		print 'Setup should have been saved..<br><br><a href="index.php?f=setup">See it..</a>';
 		return;
-        }
-        print "<h2>Setup</h2>";
+    }
+
+    print "<h2>Setup</h2>";
 	$szSQL = "select adminIp, inet_ntoa(adminIp) as adminIpA, inet_ntoa(internalIP) as internalIP, inet_ntoa(nettmask) as nettmask, 
-		statusIntervalSec, if(showStatus,1,0) as showStatus, ifnull(blockIncomingTaggedTrafficThreshold,0) as threshold, showPreRoutePartner, showPreRouteNonPartner, showForwardPartner, showForwardNonPartner, showUrgentPtrUsage, showOwnerless, showOther, showNew1, showNew2, doTagging, doReportTraffic, doInspection, doBlocking, doOther, inet_ntoa(globalDb1ip) as globalDb1ip, inet_ntoa(globalDb2ip) as globalDb2ip, inet_ntoa(globalDb3ip) as globalDb3ip, background, dbVersion, uptime, workshopId from setup";
+		statusIntervalSec, if(showStatus,1,0) as showStatus, ifnull(blockIncomingTaggedTrafficThreshold,0) as threshold, showPreRoutePartner, showPreRouteNonPartner, showForwardPartner, showForwardNonPartner, showUrgentPtrUsage, showOwnerless, showOther, showNew1, showNew2, doTagging, doReportTraffic, doInspection, doBlocking, doOther, inet_ntoa(globalDb1ip) as globalDb1ip, inet_ntoa(globalDb2ip) as globalDb2ip, inet_ntoa(globalDb3ip) as globalDb3ip, background, dbVersion, uptime, workshopId, dontDmesgIPs, nickname from setup";
 	$conn = getConnection();
 	$result = $conn->query($szSQL);
-        $nCount =0;
+    $nCount =0;
 
-        if($result->num_rows > 0 && $row = $result->fetch_assoc()) 
+    if($result->num_rows > 0 && $row = $result->fetch_assoc()) 
 	{
 	        $szPartnerName = $row["adminIpA"];
         ?>
@@ -127,20 +130,14 @@ function setup()
                         $szDefault = ($szOption == $row["background"]?" selected":"");
                         print "<option $szDefault>$szOption</option>";
                 }
-/*                                <option>server</option>
-                <option>computer</option>
-                <option>background</option>
-                <option>gold</option>
-                <option>raspberry</option>
-                <option>micro tower</option>
-*/
                 ?>
                 </select></td></tr>
-                <tr><td colspan="2">*) Traffic with severity level exceeding this will be blocked</td></tr>
-                <tr><td colspan="2">&nbsp</td></tr>
+                <tr><td>Nickname</td><td><input name="nick" value="<?php print $row["nickname"]; ?>"></td></tr>
+                <tr><td>Don't log IPs</td><td><input name="dmsgIPs" value="<?php print $row["dontDmesgIPs"]; ?>"></td></tr>
 
                 <tr><td>DB version</td><td><?php print $row["dbVersion"]; ?></td></tr>
                 <tr><td>Uptime</td><td><?php print $row["uptime"]; ?></td></tr>
+                <tr><td colspan="2">*) Traffic with severity level exceeding this will be blocked</td></tr>
 
 		</table>
 		

@@ -153,6 +153,7 @@ struct _Setup {
 	u32 nMyIp;
 	u32 nInternalIp;  //OT1111
 	u32 nNettmask;
+	u32 dontDmesgIPs[2];	//NOTE! Increase to handle more than one..
 //	u16 nShowInstructions;
 	union _showStatusBitsUnion cShowInstructions;   
 	struct _statistics cGlobalStatistics;

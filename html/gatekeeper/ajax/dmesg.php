@@ -17,6 +17,15 @@ function colorMark($szSubject, $szColorInstructions)
 
 	foreach ($records as $rec)
 	{
+		//If instruction is "-<IP>", remove line is contains the Ip 
+		if (substr($rec, 0,1) == "-") 
+		{
+			return "REMOVE: ".substr($rec,1);
+			
+			if (str_contains($szSubject, substr($rec,1), $szSubject))
+				return "[deleted] $szSubject";
+		}
+
 	    if (preg_match('/^(.*)\(([^)]*)\)$/', $rec, $m))
 		{
 	        $text  = $m[1];

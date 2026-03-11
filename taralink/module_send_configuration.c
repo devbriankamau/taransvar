@@ -407,7 +407,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 		//************** Add setup *****************
 		//printf("Reading setup...\n");
-		char *lpSQL = "select hex(ifnull(adminIp,0)), hex(ifnull(internalIP,0)), hex(ifnull(nettmask,0)), if (handled,1,0), ifnull(blockIncomingTaggedTrafficThreshold,0), if(showStatus,1,0) as showStatus, if (showPreRoutePartner,1,0), if (showPreRouteNonPartner,1,0), if (showForwardPartner,1,0), if (showForwardNonPartner,1,0), if (showUrgentPtrUsage,1,0), if (showOwnerless,1,0), if (showOther,1,0), if (showNew1,1,0), if (showNew2,1,0), if (doTagging,1,0), if (doReportTraffic,1,0), if (doInspection,1,0), if (doBlocking,1,0), if (doOther,1,0)  from setup";
+		char *lpSQL = "select hex(ifnull(adminIp,0)), hex(ifnull(internalIP,0)), hex(ifnull(nettmask,0)), if (handled,1,0), ifnull(blockIncomingTaggedTrafficThreshold,0), if(showStatus,1,0) as showStatus, if (showPreRoutePartner,1,0), if (showPreRouteNonPartner,1,0), if (showForwardPartner,1,0), if (showForwardNonPartner,1,0), if (showUrgentPtrUsage,1,0), if (showOwnerless,1,0), if (showOther,1,0), if (showNew1,1,0), if (showNew2,1,0), if (doTagging,1,0), if (doReportTraffic,1,0), if (doInspection,1,0), if (doBlocking,1,0), if (doOther,1,0), dontDmesgIPs from setup";
 		
 		if (mysql_query(conn, lpSQL)) {
 			fprintf(stderr, "taralink: %s\n", mysql_error(conn));
@@ -442,8 +442,19 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 				cShowStatusBits.bits.doBlocking  = atoi(row[nField++]);
 				cShowStatusBits.bits.doOther  = atoi(row[nField++]);
 
-                                unsigned int  nBlockingThreshold = atoi(row[4]);
-				sprintf(cReply+strlen(cReply), "SETUP|%s^%s^%s^%01X^%02X^|", row[0], row[1], row[2], nBlockingThreshold, cShowStatusBits.nValues);
+				#define N_MAX_DONT_DMSG_IPs 150
+				char szDontDmesgIPs[N_MAX_DONT_DMSG_IPs];
+				strncpy(szDontDmesgIPs, row[nField++], N_MAX_DONT_DMSG_IPs-1);
+				if (strlen(szDontDmesgIPs) > N_MAX_DONT_DMSG_IPs - 50)
+					printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %d (currently in use: %d)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
+
+				//NOTE! For now only handles one IP address
+				uint32_t ip_numeric = 0;
+				if (strlen(szDontDmesgIPs))
+					ip_numeric = inet_addr(szDontDmesgIPs);
+
+				unsigned int  nBlockingThreshold = atoi(row[4]);
+				sprintf(cReply+strlen(cReply), "SETUP|%s^%s^%s^%01X^%02X^%02X^|", row[0], row[1], row[2], nBlockingThreshold, cShowStatusBits.nValues, ip_numeric);
 					//strcpy(cReply+strlen(cReply), "SETUP|");
 					//strcpy(cReply+strlen(cReply), row[0]);
 					//strcpy(cReply+strlen(cReply), "|");

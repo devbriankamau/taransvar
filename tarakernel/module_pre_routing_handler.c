@@ -81,6 +81,15 @@ char *inspectIsItMe(unsigned int nIp, char *cBuf)
       return cBuf;
 }
 
+int dropFromLogging(struct _PacketInspection *pPacket);
+int dropFromLogging(struct _PacketInspection *pPacket)
+{
+
+	printk("tarakernel: Drop %d - checking %d and %d", pSetup->dontDmesgIPs[0], pPacket->ip_header->saddr, pPacket->ip_header->daddr);
+	return  pPacket->ip_header->saddr == pSetup->dontDmesgIPs[0] || pPacket->ip_header->daddr == pSetup->dontDmesgIPs[0];
+}
+
+
 void reportInboundTraffic(struct _PacketInspection *pPacket); //To avoid compiler warning
 void reportInboundTraffic(struct _PacketInspection *pPacket)
 {
@@ -89,6 +98,14 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
           printk("tarakernel: ******* ERROR should never get to reportInboundTraffic()\n");
           return;
     }
+
+	//Check if one of the IP addresses is among those put in setup->dontDmesgIPs not to be handled (for now only handles one..). 
+	if (dropFromLogging(pPacket))
+	{
+		printk("tarakernel: ******* Dropping logging because one of IPs is listed as not to log to dmesg\n");
+		return;
+	}
+
 
     //Queue this packet for sending to ABMonitor for further handling. 
     int n = 0;
@@ -148,7 +165,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 
 	if (pPacket->ip_header->protocol != IPPROTO_TCP)
 	{
-	        kfree(pPacket);
+	    kfree(pPacket);
 		return NF_ACCEPT;
 	}
 	else
@@ -283,12 +300,14 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 					printk("tarakernel: PR: Outbound for partner - BUT TAGGING IS DISABLED (%s -> %s)\n", pPacket->cSourceIp, pPacket->cDestIp);
 			*/		
 	        	if (pSetup->cShowInstructions.bits.showPreRoutePartner)
-				printk("tarakernel: PR: Outbound for partner - not handling tagging in PRE_ROUTING (%s -> %s)\n", pPacket->cSourceIp, pPacket->cDestIp);
+					if (!dropFromLogging(pPacket))
+						printk("tarakernel: PR: Outbound for partner - not handling tagging in PRE_ROUTING (%s -> %s)\n", pPacket->cSourceIp, pPacket->cDestIp);
 					
 		}
 		else
 	        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
-    				printk("tarakernel: PR: Outbound for non-partner %s:%d -> %s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);  //asdfasfd
+					if (!dropFromLogging(pPacket))
+    					printk("tarakernel: PR: Outbound for non-partner %s:%d -> %s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);  //asdfasfd
 	}
 	
 	if (!bToOrFromMe)
@@ -296,9 +315,10 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
         	if (pSetup->cShowInstructions.bits.showOwnerless)
         	{
 			char cBuf1[50], cBuf2[50];
-			printk("tarakernel: PR: Neither to or from me.. What is this? %s:%d (%s) -> %s:%d (%s)\n", 
-				pPacket->cSourceIp, pPacket->sPort, inspectIsItMe(pPacket->ip_header->saddr, cBuf1),  
-				pPacket->cDestIp, pPacket->dPort, inspectIsItMe(pPacket->ip_header->daddr, cBuf2));
+			if (!dropFromLogging(pPacket))
+				printk("tarakernel: PR: Neither to or from me.. What is this? %s:%d (%s) -> %s:%d (%s)\n", 
+					pPacket->cSourceIp, pPacket->sPort, inspectIsItMe(pPacket->ip_header->saddr, cBuf1),  
+					pPacket->cDestIp, pPacket->dPort, inspectIsItMe(pPacket->ip_header->daddr, cBuf2));
 		}
 	}
 	//else
@@ -338,9 +358,9 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 //return NF_ACCEPT;
 
 
-        int bToOrFromMe = 0;
+	int bToOrFromMe = 0;
 
-        //No longer do this, handled by abmonitor... checkTimedOperation();  //module_timed_operations.h
+    //No longer do this, handled by abmonitor... checkTimedOperation();  //module_timed_operations.h
 
 	if (!skb)
 		return NF_ACCEPT;
@@ -399,9 +419,9 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 	if (pPacket->ip_header->saddr == pSetup->nMyIp)
 	//if (isMeOrMine(pPacket->ip_header->saddr))
 	{
-                bToOrFromMe = 1;
+        bToOrFromMe = 1;
 
-                if (isPartner(pPacket->ip_header->daddr)) //If outbound traffic for partner.	
+        if (isPartner(pPacket->ip_header->daddr)) //If outbound traffic for partner.	
 		{
 		        //***** Do tagging in case it's a server and not only a router (routers are tagging while forwarding. See T001)
 		        bool bForwarding = false;   //This is PRE ROUTING, not forwarding
@@ -429,8 +449,9 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 			*/
 		}
 		else
-	        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
-  				printk("tarakernel: POST ROUTING Outbound for non-partner (no tagging) (%s:%d -> %s:%d).\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
+        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
+				if (!dropFromLogging(pPacket))
+	  				printk("tarakernel: POST ROUTING Outbound for non-partner (no tagging) (%s:%d -> %s:%d).\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
 	}
 	
 	if (!bToOrFromMe)

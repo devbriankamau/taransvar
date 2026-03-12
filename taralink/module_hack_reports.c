@@ -112,11 +112,11 @@ void checkHackReports()
 
 	while ((row = mysql_fetch_row(res)) != NULL)
 	{
-	        if (atoi(row[6]) > 10)
-	        {
-                      setHackReportAsHandled("Aborted (timed out 10 times)", atoi(row[0]));
-                      continue;
-	        }
+	    if (atoi(row[6]) > 10)
+        {
+			setHackReportAsHandled("Aborted (timed out 10 times)", atoi(row[0]));
+            continue;
+	    }
 	        
 		printf("Hack report %s %s %s\n", row[4], row[3], row[2]);
 
@@ -166,10 +166,12 @@ void checkHackReports()
 	                  	
 				if (lookupRow2 && atoi(lookupRow2[0]) > 0)
 				{
-					//This IP is already registered in internalInfections. Update it (those are the IP 
+					//NOTE! 260312 - Even though it's in the internalInfections table, it may be deactivated... so don't put it back in active state here...
+					//This IP is already registered in internalInfections. Update it (those are the IP  
 					//addresses that will be sent to tarakernel and be subject to tagging and blocking). 
-					sprintf(cSQL, "update internalInfections set unitId = %s, lastSeen = now(), active = 1, handled = null where infectionId = %s", lookupRow[2], lookupRow2[0]);
-					printf("Already in internalInfections, update it.\n");                                          
+					//sprintf(cSQL, "update internalInfections set unitId = %s, lastSeen = now(), active = 1, handled = null where infectionId = %s", lookupRow[2], lookupRow2[0]);
+					sprintf(cSQL, "update internalInfections set unitId = %s, lastSeen = now() where infectionId = %s", lookupRow[2], lookupRow2[0]);
+					printf("Already in internalInfections, update it (NOTE! Was setting to active - which may be a problem...).\n");                                          
 						
 					if (mysql_query(localUpdate, cSQL)) {
 						fprintf(stderr, "******** ERROR ****** While updating internalInfections: %s\n", mysql_error(localUpdate));
@@ -269,7 +271,7 @@ void checkHackReports()
 			}
 			mysql_free_result(lookupRes);
 
-		        setHackReportAsHandled(lpStatus, atoi(row[0]));
+		    setHackReportAsHandled(lpStatus, atoi(row[0]));
       	      
 			//********* Send hackReport to global DB servers as registered in setup **********
 			//asdfasdf

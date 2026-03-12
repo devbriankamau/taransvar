@@ -1,6 +1,35 @@
 <?php
 
 
+function getActivateInfectionsLinks($row)
+{
+	switch ($row["active"])
+	{
+		case "1":
+			$szAction = "deactivate";
+			$szExtraAction = '';
+			break;
+		case "0":
+			$szAction = "activate";
+			$szExtraAction = '<a href="index.php?f=delInfection&action=delete&id='.$row["infectionId"].'">[delete]</a>';
+			break;
+        default:
+            $szAction = $szExtraAction = "ERROR (unknown active)";
+            break;
+	}
+
+	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
+}
+
+/*$szIncFile = "include_printAcivateInfectionLinks_xxx.php";
+
+if (file_exists($szIncFile))
+    include $szIncFile;
+else
+    if (file_exists("func/".$szIncFile))
+        include "func/".$szIncFile;
+*/
+
 function listInfections()
 {
 ?>
@@ -39,7 +68,10 @@ var szUpdateRoutine = "hackReport";
 					break;
 			}
 			$szWho = $row["hostname"].$row["description"];
-			print '<tr id="inf'.$row["infectionId"].'"><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'</td><td>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td><a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
+			print '<tr id="inf'.$row["infectionId"].'"><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'</td><td>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td>';
+			$szActivateLinks = getActivateInfectionsLinks($row);
+			print $szActivateLinks;
+			print '</td>';
 			//print '<tr><td>'.$row["ip"].'</td><td>'.$row["nettmask"].'</td><td>'.$row["status"].'</td><td></td>';
 	    		print "</tr>";
 			$nCount++;
@@ -53,10 +85,7 @@ var szUpdateRoutine = "hackReport";
 	}
 	print "</table>";
 
-
-        print "<h2>Hacking attempts reported by partners and fans:</h2>";
-
-
+    print "<h2>Hacking attempts reported by partners and fans:</h2>";
 
 	$sql = "SELECT reportId, inet_ntoa(ip) as ip, port, inet_ntoa(partnerIp) as partnerIp, partnerPort, status, h.created, hostname, description from hackReport h left outer join unit u on u.unitId = h.unitId order by h.created desc";
 	$result = $conn->query($sql);

@@ -212,9 +212,44 @@ function hackReport()
         CXmlCommand::addTableRow("hackReportTbl", "top", "", $cArr, "", $szRowId);//$szHTML)
     }
 
+}
+
+
+function getActivateInfectionsLinks($row)
+{
+	switch ($row["active"])
+	{
+		case "1":
+			$szAction = "deactivate";
+			$szExtraAction = '';
+			break;
+		case "0":
+			$szAction = "activate";
+			$szExtraAction = '<a href="index.php?f=delInfection&action=delete&id='.$row["infectionId"].'">[delete]</a>';
+			break;
+        default:
+            $szAction = $szExtraAction = "ERROR (unknown active)";
+            break;
+	}
+
+	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
+}
+
+/*$szIncFile = "include_printAcivateInfectionLinks_xx.php";
+
+if (file_exists($szIncFile))
+    include $szIncFile;
+else
+    if (file_exists("func/".$szIncFile))
+        include "func/".$szIncFile;
+*/
+
+function internalInfections()
+{
     //Update internalInfections table...
 	$sql = "SELECT infectionId, inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, status, CAST(active AS UNSIGNED) as active, I.lastSeen, hostname, description from internalInfections I left outer join unit u on u.unitId = I.unitId order by I.lastSeen desc";
 
+    $conn = getConnection();
     $stmt = $conn->prepare($sql);
     //$stmt->bind_param("i", $nLastId); 
     $stmt->execute();
@@ -222,11 +257,14 @@ function hackReport()
 
     while ($row = $result->fetch_assoc()) {    
         $szDesc = "-".$row["description"]."-";
-        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],"&nbsp;","&nbsp;",($row["active"])?"Active":"Disabled"); //
+        
+		$szActivateLinks = getActivateInfectionsLinks($row); //($row["active"])?"Active":"Disabled"
+
+		$szWho = $row["hostname"].$row["description"];
+        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],$szWho,$row["status"],$szActivateLinks); //
         $szRowId = "inf".$row["infectionId"];
         CXmlCommand::addTableRow("infectionsTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
     }
-
 }
 
 
@@ -308,6 +346,7 @@ else
         case "hackReport":
             //CXmlCommand::alert("Don't know how yet...");
             hackReport();
+            internalInfections();
             break;
         case "traffic":
             traffic();

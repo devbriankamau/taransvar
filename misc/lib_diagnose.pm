@@ -73,7 +73,7 @@ sub createSpecificUser {
 	my ($szUser, $szHost, $szPass) = @_;
 	
 	my $szCreateUser = ($szHost eq ""?$szUser:"\'$szUser\'@\'$szHost\'");
-	my $szSQL = "create user $szCreateUser identified by \'$szPass\'";
+	my $szSQL = "create user $szCreateUser identified WITH mysql_native_password by \'$szPass\'";
 	if (runSqlCmdLineOk($szSQL)) {
 		#return 1;
 		#print "Run sql seemd to succeed..\n"; 

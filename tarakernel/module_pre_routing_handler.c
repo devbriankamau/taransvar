@@ -98,6 +98,9 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
           return;
     }
 
+	if (dropFromLogging(pPacket))
+		return;	
+
 	//Check if one of the IP addresses is among those put in setup->dontDmesgIPs not to be handled (for now only handles one..). 
 	if (dropFromLogging(pPacket))
 	{
@@ -461,32 +464,36 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
     		if (isMeOrMine(pPacket->ip_header->saddr))
     		{
 	        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
-				printk("tarakernel: POST ROUTING From subnet to external (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
+					if (!dropFromLogging(pPacket))
+						printk("tarakernel: POST ROUTING From subnet to external (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
 	        }
 		else
-      			if (isMeOrMine(pPacket->ip_header->daddr))
-      			{
-        	        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
-        				printk("tarakernel: POST ROUTING From external to subnet (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
+    		if (isMeOrMine(pPacket->ip_header->daddr))
+  			{
+		    	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
+					if (!dropFromLogging(pPacket))
+		    				printk("tarakernel: POST ROUTING From external to subnet (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
 			}
-		        else
-		        {
-		        	if (pPacket->ip_header->daddr == pSetup->nMyIp && portForwarded(pPacket->dPort))
-		        	{
+		    else
+		    {
+	        	if (pPacket->ip_header->daddr == pSetup->nMyIp && portForwarded(pPacket->dPort))
+	        	{
 					if (pSetup->cShowInstructions.bits.showOther)
-        					printk("tarakernel: POST ROUTING to forwarded port (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort); 
-		        	}
-        	        	else
-        	        	{
-        	        	        //asdf
-       	        	                char *lpTemp = kmalloc(200, GFP_KERNEL);
-       	        	                if (lpTemp)
-       	        	                {
-       	        	                        getMeAndMine(lpTemp, 200);
-        				        printk("tarakernel: **** WARNING **** PR None of mine.. Probably partner malconfiguration? (%s:%d->%s:%d %s)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, lpTemp);
+						if (!dropFromLogging(pPacket))
+	        				printk("tarakernel: POST ROUTING to forwarded port (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort); 
+		    	}
+    	    	else
+    	        	{
+        		        //asdf
+    	                char *lpTemp = kmalloc(200, GFP_KERNEL);
+       	        	    if (lpTemp)
+       	                {
+       	        	        getMeAndMine(lpTemp, 200);
+							if (!dropFromLogging(pPacket))
+        				    	printk("tarakernel: **** WARNING **** PR None of mine.. Probably partner malconfiguration? (%s:%d->%s:%d %s)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, lpTemp);
         				}
         				else
-						printk("tarakernel: **** ERROR allocating buffer in post  routing handling\n");
+							printk("tarakernel: **** ERROR allocating buffer in post routing handling\n");
 						
 					kfree(lpTemp);
         			}

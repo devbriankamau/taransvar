@@ -782,7 +782,8 @@ sub fixDevicesOldWay {
 		checkChangeSomething($dbh, "NIC", "internalNic", $szCurrentInternalNic, $szInternalLink);	
 		checkChangeSomething($dbh, "NIC", "externalNic", $szCurrentExternalNic, $szActiveLink);	
 
-		if ($szExternalIP ne "" && $szCurrentExternal ne $szExternalIP) {
+		if (0)#$szExternalIP ne "" && $szCurrentExternal ne $szExternalIP) {
+			#260311 - ******* Don't change the network setup this way... May ruin correct setup if there's multiple NICs
 			print "****************** About to change adminIP: $szCurrentExternal -> $setExtern\n";  
 			my $szSQL = "update setup set adminIP = $setExtern, internalIP = $setIntern, handled = b'0'";
 			my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";

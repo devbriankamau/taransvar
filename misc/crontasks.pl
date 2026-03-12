@@ -106,7 +106,7 @@ if (0) #NO LONGER DO THIS HERE... Handled by by startup.pl
 checkRequests();	#See lib_cron.pm 	check setup.requestReboot  (Set from hotspot setup menu choice)	
 
 createDirectories();
-fixDevicesOldWay();
+#fixDevicesOldWay(); - 260311 - Don't do this... it messed up good setup when there's multiple NICs
 updateGlobalDemo(); #NOTE! Not reflecting the new code where each user may have individual demo setup (not yet working properly)
 workshopSetup();	#If workshopId is set in dashboard setup, it will register other computers with same workshopId as partners.
 

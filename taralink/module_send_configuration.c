@@ -278,23 +278,29 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 		if (nFound)
 		{
+			printf("%d routers updated\n", nFound);
 			strcpy(cReply+strlen(cReply), "|");
-		        bFoundData = 1;
-                }
+	        bFoundData = 1;
+        }
+		//else
+		//	printf("No routers updated\n", nFound);
 
 		//************** Add packet inspection into ([INSPECT|DROP])the white- and blacklistings *****************
 		//printf("Reading inspections...\n");
 		
 		if (bReadChangesOnly)
-    		      strcpy(szSQL, "select hex(ip), hex(nettmask), handling, ip from inspection ip where active = b'1' and handled is null order by handling");
-	        else
-  		      strcpy(szSQL, "select hex(ip), hex(nettmask), handling, ip from inspection ip where active = b'1' order by handling");
+    		strcpy(szSQL, "select hex(ip), hex(nettmask), handling, ip from inspection ip where active = b'1' and handled is null order by handling");
+	    else
+  		    strcpy(szSQL, "select hex(ip), hex(nettmask), handling, ip from inspection ip where active = b'1' order by handling");
+
 		//printf("SQL: %s\n", szSQL);
+
 		if (mysql_query(conn, szSQL)) {
 		    fprintf(stderr, "taralink: %s\n", mysql_error(conn));
  		    reportErrorReadin("inspection info");
 		    return 0;
 		}
+
 		res = mysql_use_result(conn);
 		char szHandling[20];
 		*szHandling = 0;
@@ -374,7 +380,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		        lpHandledWhere = " and active = b'1'";
 		        
 		sprintf(szSQL, "select requestId, hex(ip), port, requestQuality, CAST(wantSpoofed AS UNSIGNED) as wantSpoofed, handled, CAST(active AS UNSIGNED) as active from assistanceRequest where purpose = 'fromPartner' %s order by ip", lpHandledWhere);
-		//printf("Assist requests: %s\n", szSQL);
+		printf("Assist requests: %s\n", szSQL);
 		
 		if (mysql_query(conn, szSQL)) {
 		    fprintf(stderr, "taralink: %s\n", mysql_error(conn));
@@ -406,7 +412,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
                 }
 
 		//************** Add setup *****************
-		//printf("Reading setup...\n");
+		printf("Reading setup...\n");
 		char *lpSQL = "select hex(ifnull(adminIp,0)), hex(ifnull(internalIP,0)), hex(ifnull(nettmask,0)), if (handled,1,0), ifnull(blockIncomingTaggedTrafficThreshold,0), if(showStatus,1,0) as showStatus, if (showPreRoutePartner,1,0), if (showPreRouteNonPartner,1,0), if (showForwardPartner,1,0), if (showForwardNonPartner,1,0), if (showUrgentPtrUsage,1,0), if (showOwnerless,1,0), if (showOther,1,0), if (showNew1,1,0), if (showNew2,1,0), if (doTagging,1,0), if (doReportTraffic,1,0), if (doInspection,1,0), if (doBlocking,1,0), if (doOther,1,0), dontDmesgIPs from setup";
 		
 		if (mysql_query(conn, lpSQL)) {
@@ -419,9 +425,11 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		
 		if ((row = mysql_fetch_row(res)) != NULL)
 		{
+			printf("Found setup row...\n");
 			if (!bReadChangesOnly || !atoi(row[3]))
 			{
-  			        bFoundData = 1;
+				printf("processing it...\n");
+  			    bFoundData = 1;
 				union _showStatusBitsUnion cShowStatusBits;
 				cShowStatusBits.nValues = 0; //Initialize the whole union / structure
 				//cShowStatusBits.bits.nDummy = 0;
@@ -444,14 +452,20 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 				#define N_MAX_DONT_DMSG_IPs 150
 				char szDontDmesgIPs[N_MAX_DONT_DMSG_IPs];
-				strcpy(szDontDmesgIPs, row[nField++]);
-				if (strlen(szDontDmesgIPs) > N_MAX_DONT_DMSG_IPs - 50)
-					printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %d (currently in use: %d)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
-
-				//NOTE! For now only handles one IP address
 				uint32_t ip_numeric = 0;
-				if (strlen(szDontDmesgIPs))
-					ip_numeric = inet_addr(szDontDmesgIPs);
+				if (row[nField++] && *row[nField++])
+				{
+					strcpy(szDontDmesgIPs, row[nField++]);
+					if (strlen(szDontDmesgIPs) > N_MAX_DONT_DMSG_IPs - 50)
+						printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %d (currently in use: %d)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
+
+					//NOTE! For now only handles one IP address
+					if (strlen(szDontDmesgIPs))
+						ip_numeric = inet_addr(szDontDmesgIPs);
+				}
+				else
+					printf("No IP not to send dmesg set..\n");
+
 
 				unsigned int  nBlockingThreshold = atoi(row[4]);
 				sprintf(cReply+strlen(cReply), "SETUP|%s^%s^%s^%01X^%02X^%02X^|", row[0], row[1], row[2], nBlockingThreshold, cShowStatusBits.nValues, ip_numeric);
@@ -467,32 +481,33 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 						return 0;
 					}
 			  	}
+				printf("Finished processing it...\n");
 			}  
-			//else
-			//	printf("Not adding setup.. handled was: %s\n", row[13]);
+			else
+				printf("Not adding setup.. handled was: %s\n", row[13]);
 		}
 		else
 		{
-		        unsigned long nMinutes = minutesSincePing(); 
-		        if (nMinutes >= 10)
-		        {
-		              setPing();
-    		              /*
-    		              char szUrl[255];
-		              strcpy(szUrl, "http://81.88.19.252/script/config_update.php?f=ping&status=Unable_to_read_setup");
-		              *szWgetBuff = 0;
-		              wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
-		              //printf("%s\n", szUrl);
-		              */
-		        }
-	              printf("Minutes: %lu (%s)\n", nMinutes, szWgetBuff);
+	        unsigned long nMinutes = minutesSincePing(); 
+	        if (nMinutes >= 10)
+	        {
+	            setPing();
+                 /*
+                 char szUrl[255];
+	            strcpy(szUrl, "http://81.88.19.252/script/config_update.php?f=ping&status=Unable_to_read_setup");
+	            *szWgetBuff = 0;
+	            wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
+	            //printf("%s\n", szUrl);
+	            */
+			}
+	        printf("Minutes: %lu (%s)\n", nMinutes, szWgetBuff);
 			printf("************ ERROR! Unable to read the setup\n");
 		}
 			
-		//printf("Freeing up connections\n");
-    		mysql_free_result(res);
+		printf("Freeing up connections\n");
+    	mysql_free_result(res);
 
-                //***************** Finish it up 
+        //***************** Finish it up 
 		strcpy(cReply+strlen(cReply), "EOF");
 
 		/* close connection */
@@ -506,7 +521,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		sprintf(cReply, "%d|EOF", nSequenceNumber); //For now only handles one sequence.. but will requri more in future....
 
         nThreadId = syscall(SYS_gettid);//sys_gettid(); // //gettid()
-        //printf("Setup before sending: %s\n", cReply); 
+        printf("Setup before sending: %s\n", cReply); 
         
         if (bFoundData)
         {

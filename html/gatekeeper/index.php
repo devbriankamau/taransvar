@@ -30,8 +30,6 @@ function printTitle()
 
 if ($bOk)
 {
-	print "ok";
-
 	if (intval($setupRow["dbVersion"])+0 != $nRequiredDbVersion)
 	{
 		if ($setupRow["dbVersion"]+0 < $nRequiredDbVersion)

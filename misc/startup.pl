@@ -16,9 +16,9 @@ my $filename = '/root/setup/log/startup.txt';
 
 sub add {
 	my ($szTxt) = @_;
-	open(my $fh, '>>', $filename) or die "Could not open file '$filename' $!";
-	print $fh getNiceTimestamp().": $szTxt\n";
-	close $fh;
+#	open(my $fh, '>>', $filename) or die "Could not open file '$filename' $!";
+#	print $fh getNiceTimestamp().": $szTxt\n";
+#	close $fh;
 	print $szTxt."\n";
 }
 
@@ -59,13 +59,13 @@ if (defined($szNic) && uc(substr($szNic, 0, 1)) eq "W") {
     add("Internal NIC is cabled.");
 }
 
-add("After warning");
-networkSetupOk();
-add("Network setup done");
+#add("After warning");
+#networkSetupOk();
+#add("Network setup done");
 $cSetup = getSetup();	#Get again in case network setup is changed
-my $szNetworkStatus = $cSetup->{"networkStatus"};
-print "$szNetworkStatus\n";
-add("Network status: $szNetworkStatus\n");
+#my $szNetworkStatus = $cSetup->{"networkStatus"};
+#print "$szNetworkStatus\n";
+#add("Network status: $szNetworkStatus\n");
 
 startTaraSystemsOk();	#Defined in lib_cron.pm
 

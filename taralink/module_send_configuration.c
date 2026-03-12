@@ -451,11 +451,12 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 				cShowStatusBits.bits.doOther  = atoi(row[nField++]);
 
 				#define N_MAX_DONT_DMSG_IPs 150
+				int nDontMsgFldNo = nField++;	
 				char szDontDmesgIPs[N_MAX_DONT_DMSG_IPs];
 				uint32_t ip_numeric = 0;
-				if (row[nField++] && *row[nField++])
+				if (row[nDontMsgFldNo] && *row[nDontMsgFldNo])
 				{
-					strcpy(szDontDmesgIPs, row[nField++]);
+					strcpy(szDontDmesgIPs, row[nDontMsgFldNo]);
 					if (strlen(szDontDmesgIPs) > N_MAX_DONT_DMSG_IPs - 50)
 						printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %d (currently in use: %d)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
 

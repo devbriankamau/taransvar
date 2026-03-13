@@ -165,10 +165,10 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 		strcpy(cReply, "configuration 0?"); //Configuration not yet received.. Request it..
 	else
 	{
-	        sendCheckRequests(nlhead->nlmsg_pid);    //Defined in module_timed_operations.c 
-	        debugRoutine(); //Defined in module_timed_operations.c
+	    sendCheckRequests(nlhead->nlmsg_pid);    //Defined in module_timed_operations.c 
+	    debugRoutine(); //Defined in module_timed_operations.c
 	        
-	        //*************** NOTE! Make changes here... probably never sends status as long as there's traffic....
+	    //*************** NOTE! Make changes here... probably never sends status as long as there's traffic....
 		if (trafficReportToTaralinkFound(nlhead->nlmsg_pid)) //Defined in module_timed_operations.c
 		{
 		        //Also logged by trafficReportToTaralinkFound()
@@ -194,10 +194,10 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 
 static int __init hello_init(void) 
 {
-        //doPointerTest();  //See module_pointer_list.c
-        //return 0;
+    //doPointerTest();  //See module_pointer_list.c
+    //return 0;
 
-        printk("tarakernel: Started (version %d). Start taralink to send configuration.\n", C_VERSION);
+    printk("tarakernel: Started (version %d). Start taralink to send configuration.\n", C_VERSION);
 	
 	if (!configuraton_init())		//defined in module_configuration.c;
 		printk("tarakernel: ****** ERROR ***** configuraton_init() returned false\n");

@@ -215,34 +215,7 @@ function hackReport()
 }
 
 
-function getActivateInfectionsLinks($row)
-{
-	switch ($row["active"])
-	{
-		case "1":
-			$szAction = "deactivate";
-			$szExtraAction = '';
-			break;
-		case "0":
-			$szAction = "activate";
-			$szExtraAction = '<a href="index.php?f=delInfection&action=delete&id='.$row["infectionId"].'">[delete]</a>';
-			break;
-        default:
-            $szAction = $szExtraAction = "ERROR (unknown active)";
-            break;
-	}
-
-	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
-}
-
-/*$szIncFile = "include_printAcivateInfectionLinks_xx.php";
-
-if (file_exists($szIncFile))
-    include $szIncFile;
-else
-    if (file_exists("func/".$szIncFile))
-        include "func/".$szIncFile;
-*/
+include "func/include_getAcivateInfectionLinks.php";
 
 function internalInfections()
 {
@@ -261,7 +234,18 @@ function internalInfections()
 		$szActivateLinks = getActivateInfectionsLinks($row); //($row["active"])?"Active":"Disabled"
 
 		$szWho = $row["hostname"].$row["description"];
-        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],$szWho,$row["status"],$szActivateLinks); //
+
+        if ($row["active"]==0)
+        {
+        	$szF = '<font color="red">';
+			$szFE = "</font>";
+        }
+        else
+        {
+            $szF = $szFE = "";
+        }
+
+        $cArr = array($szF.$row["lastSeen"].$szFE,$szF.$row["ip"].$szFE,$szF.$row["nettmask"].$szFE,$szF.$szWho.$szFE,$szF.$row["status"].$szFE,$szF.$szActivateLinks.$szFE); //
         $szRowId = "inf".$row["infectionId"];
         CXmlCommand::addTableRow("infectionsTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
     }

@@ -11,20 +11,20 @@ void sendToGlogalDbServers(_GlobalServers *cGlobalDb, char *szParams)
   {
     //char *lpGlobalDbIp; //No idea why this isn't working: szGlobalDb[n];
     char *lpGlobalDbIp = cGlobalDb->ip[n];
-    printf("About to send to global DB server: %s\n", lpGlobalDbIp);
 
     if (lpGlobalDbIp && strlen(lpGlobalDbIp) > 7)
     {
-      char szUrl[255];
-      sprintf(szUrl, "http://%s/%s", lpGlobalDbIp, szParams);
-      *szWgetBuff = 0;
-      wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
-      printf("%s\n", szUrl);
+		printf("About to send to global DB server: %s\n", lpGlobalDbIp);
+    	char szUrl[255];
+    	sprintf(szUrl, "http://%s/%s", lpGlobalDbIp, szParams);
+    	*szWgetBuff = 0;
+    	wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
+		printf("%s\n", szUrl);
     } else {
-      char szBuf[256];
-      if (lpGlobalDbIp && *lpGlobalDbIp)
-        printf("****** Skipping wrong IP address for global DB server: %s\n", lpGlobalDbIp);
-      //addWarningRecord(conn, szBuf);
+    	char szBuf[256];
+    	if (lpGlobalDbIp && *lpGlobalDbIp)
+    		printf("****** Skipping wrong IP address for global DB server: %s\n", lpGlobalDbIp);
+      	//addWarningRecord(conn, szBuf);
     }
   }
 }

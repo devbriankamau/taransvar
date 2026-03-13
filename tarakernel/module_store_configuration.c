@@ -387,7 +387,7 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 					      
 					if ((nRes = sscanf(lpPointer, "%hhu.%hhu.%hhu.%hhu:%hhu.%hhu.%hhu.%hhu~%u~%s", ipAddressBytes+0, ipAddressBytes+1,ipAddressBytes+2,ipAddressBytes+3, ipNettmaskBytes+0, ipNettmaskBytes+1,ipNettmaskBytes+2,ipNettmaskBytes+3, &nActive, quality)) == 10) 
 					{
-				        	printk("Interpretation %s: %d.%d.%d.%d:%d.%d.%d.%d-%s(%08X/%08X)\n", (nActive?"":"(NOTE! INACTIVE infection)"), (int)ipAddressBytes[3], (int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0], (int)ipNettmaskBytes[3], (int)ipNettmaskBytes[2], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[0],quality, ipAddress, ipNettmask);
+				        	printk("tarakernel: Interpretation %s: %d.%d.%d.%d:%d.%d.%d.%d-%s(%08X/%08X)\n", (nActive?"":"(NOTE! INACTIVE infection)"), (int)ipAddressBytes[3], (int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0], (int)ipNettmaskBytes[3], (int)ipNettmaskBytes[2], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[0],quality, ipAddress, ipNettmask);
 				        	if (nActive)
 						      storeInstruction(nBlockDescriptor, ipAddress, ipNettmask, port, quality);	//NOTE! Defined in module_configuration.c
 						else
@@ -410,7 +410,7 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 						storePartner(lpPointer, lpColon + 1);
 					}
 					else
-						printk("Interpretation of partner failed: %s\n", lpPointer);
+						printk("tarakernel: Interpretation of partner failed: %s\n", lpPointer);
 				}
 				break;
 
@@ -426,11 +426,11 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 					if (lpColon)
 					{
 						*lpColon = 0;
-						printk("Inspection directive:%s/%s\n", lpPointer, lpColon + 1);
+						printk("tarakernel: Inspection directive:%s/%s\n", lpPointer, lpColon + 1);
 						storeInspectionDirective(nBlockDescriptor, lpPointer, lpColon + 1);
 					}
 					else
-						printk("Interpretation of inspection directive failed (res=%d): %s\n", nRes, lpPointer);
+						printk("tarakernel: Interpretation of inspection directive failed (res=%d): %s\n", nRes, lpPointer);
 				}
 				break;
 				
@@ -442,11 +442,11 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
                                         if (lpColon)
 					{
 						*lpColon = 0;
-						printk("Honeyport directive:%s/%s\n", lpPointer, lpColon + 1);
+						printk("tarakernel: Honeyport directive:%s/%s\n", lpPointer, lpColon + 1);
 						storeHoneyport(lpPointer, lpColon + 1);
 					}
 					else
-						printk("Interpretation of honeyport directive failed: %s\n", lpPointer);
+						printk("tarakernel: Interpretation of honeyport directive failed: %s\n", lpPointer);
 				}
 				break;
 				
@@ -460,7 +460,7 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 
                 if (!lpFound)
                 {
-                      printk("Pointer was NULL... Aborting\n");
+                      printk("tarakernel: ****** ERROR ****** Pointer was NULL... Aborting\n");
                       return NULL;
                 }
 

@@ -599,6 +599,7 @@ void removeInfectionFromPointerList(volatile uint32_t ipAddress, volatile uint32
 
 	while (*pNodePointer)
 	{
+		
 		if (ipAddress == (*pNodePointer)->cInfection.ipAddress)
 		{
 			struct _Node *pDeleteThis = *pNodePointer;
@@ -615,7 +616,7 @@ void removeInfectionFromPointerList(volatile uint32_t ipAddress, volatile uint32
 
 void removeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, short port)
 {
-        removeInfectionFromPointerList(ipAddress, ipNettmask, port);
+    removeInfectionFromPointerList(ipAddress, ipNettmask, port);
 	listInfectionsPointerList();
         return;
         

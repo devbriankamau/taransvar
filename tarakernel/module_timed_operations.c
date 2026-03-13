@@ -1,10 +1,39 @@
 //module_timed_operations.h
 
+void reportInfectionsList(void);
+void reportInfectionsList(void)
+{
+      //printk("tarakernel: Should report list of infections...\n");
+	struct _Node *pNode = (struct _Node *)(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]);
+      printk("tarakernel: Registered infections: ");
+      int nFound = 0;
+
+	while (pNode)
+	{
+            nFound++;
+		volatile uint32_t ipAddress = swappedEndian((u32) pNode->cInfection.ipAddress);
+		unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
+            
+        	printk("tarakernel: %d.%d.%d.%d(%08X), ", (int)ipAddressBytes[3], (int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0], ipAddress);
+            //*** NOTE Should convert all IP adresses to __be32 and just print like  */
+            //printk("tarakernel: %pI4(%08X), ",pNode->cInfection.ipAddress, pNode->cInfection.ipAddress);
+
+            pNode = pNode->pNext;
+      }
+
+      if (nFound)
+            printk("\n");
+
+      printk("tarakernel: %d infections found\n", nFound);
+}
+
 void debugRoutine(void)
 {
       //You may do debugging here and printk("tarakernel: This ends in the log..."); to print.
       //  doPointerTest();
       //  doInfectionsPointerListTest();
+
+      reportInfectionsList();
 }
 
 char *bufferToHex(char *lpBuffer, int len, char* lpTarget, int nBufSize); //To avoid compiler warning...

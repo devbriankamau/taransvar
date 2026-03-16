@@ -369,8 +369,14 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 				printk ("tarakernel: Packet was tagged using the DSCP part of ToS.. Value: %d. System is set to block packets above %d, so %s\n", 
 						dscp, pSetup->nBlockIncomingTaggedTrafficLevel, (bBlock?"BLOCKING" : "NOT blocking"));
 
+				setDscp(ip_hdr(pPacket->skb), 0);	
+			    recalcChecksum(pPacket);
+
 				if(bBlock)
+				{
+					checkFree(pPacket, false /*bLeavingPostRouting*/);
 					return NF_DROP;
+				}
 			}
 			/*
 		    This is probably traffic both to this node and to nodes inside this network (NAT will translate to local IP address). Meaning the same
@@ -384,6 +390,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			    if (cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel)
 			    {
                     printk("tarakernel: ******* WARNING ***** Dropping tagged data with presumed severity (%u) exceeding blocking threshold (%u). (%s -> %s)\n", cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp); 
+					checkFree(pPacket, false /*bLeavingPostRouting*/);
                     return NF_DROP;
 			    }
 
@@ -392,6 +399,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		        sprintf(pSetup->c100, "Tag was (but removed): (%08X) Infected: %u, botnetId: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id, pSetup->nBlockIncomingTaggedTrafficLevel);
 		              
 				pPacket->tcp_header->urg_ptr = 0; //Removing tag. 
+			    recalcChecksum(pPacket);
 
 				//When an incoming packet on a Linux system is tagged using the urg_ptr field, often, the package
 			    //still doesn't go through if the urg_ptr field is cleared at the receiver end. Is this because the URG flag is set somewhere?

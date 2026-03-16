@@ -79,7 +79,8 @@ void tagThePacket(struct _PacketInspection *pPacket);	//module_tagging.c
 int isNewConnection(struct sk_buff *skb);
 void saveStolenPackage(struct _PacketInspection *pPacket);
 uint8_t getDscp(struct _PacketInspection *pPacket);
-
+void setDscp(struct iphdr *iph, uint8_t newDscp);
+void recalcChecksum(struct _PacketInspection *pPacket);
 
 static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
 static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);

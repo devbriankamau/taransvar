@@ -202,6 +202,21 @@ void setDscp(struct iphdr *iph, uint8_t newDscp)
         ip_send_check(iph);     //unlike urg_ptr, tos is in IP header so have to recalc check sum
 }
 
+void recalcChecksum(struct _PacketInspection *pPacket)
+{
+    //Recalculate check sums. Wrong check sum is most likely reason why packets are being dropped after setting urg_ptr
+
+    struct iphdr *iph = ip_hdr(pPacket->skb);
+    struct tcphdr *tcph = tcp_hdr(pPacket->skb);
+    unsigned int tcplen = pPacket->skb->len - ip_hdrlen(pPacket->skb);
+
+    tcph->check = 0;
+    tcph->check = tcp_v4_check(tcplen,
+                           iph->saddr,
+                           iph->daddr,
+                           csum_partial((char *)tcph, tcplen, 0));
+}
+
 void tagThePacket(struct _PacketInspection *pPacket)
 {
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
@@ -257,8 +272,5 @@ void tagThePacket(struct _PacketInspection *pPacket)
         printk("tarakernel: DSCP field was already set. Dropping altering.\n");
     #endif
 
-    #define CALC_CHECKSUM 
-    #ifdef CALC_CHECKSUM
-    recalcChecksum(pPacket)
-    #endif
+    recalcChecksum(pPacket);
 }

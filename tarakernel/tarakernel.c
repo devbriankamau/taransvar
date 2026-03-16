@@ -78,7 +78,7 @@ void checkPartner(u32 nIp);
 void tagThePacket(struct _PacketInspection *pPacket);	//module_tagging.c
 int isNewConnection(struct sk_buff *skb);
 void saveStolenPackage(struct _PacketInspection *pPacket);
-
+uint8_t getDscp(struct _PacketInspection *pPacket);
 
 
 static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);

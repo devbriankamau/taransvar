@@ -58,10 +58,22 @@ void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const st
 
 void checkFree(struct _PacketInspection *pPacket, bool bLeavingPostRouting)
 {
-	if (!pPacket->bSetupOwned)// For now only clear if not owned by setup... || bLeavingPostRouting)
+	if (bLeavingPostRouting)
 	{
-		printk("tarakernel: *********** Destroying pPacket\n"); //Should never get here anymore...
-		return;
+		struct nf_conn *ct;
+		enum ip_conntrack_info ctinfo;
+
+		ct = nf_ct_get(pPacket->skb, &ctinfo);
+		if (ct) {
+			ct->mark = 0;
+			//printk("tarakernel: Leaving POST_ROUTING - clearing ct-mark");
+		}
+	}
+
+	if (!pPacket->bSetupOwned || bLeavingPostRouting)	//Tried not to clear after POST_ROUTING, but got messed up when tarakernel restarts because conntrack still keeps the session active... 
+	{
+//		printk("tarakernel: *********** Destroying pPacket\n"); //Should never get here anymore...
+//		return;
 		//pPacket should be freed
 
 		//If owned by pSetup, then clear it from table...
@@ -182,7 +194,8 @@ struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const s
 	int nAvailable = -1; //Found an available slot (save it)
 
 	ct = nf_ct_get(skb, &ctinfo);
-	if (ct) {
+	if (0)	//ØT 260316 - just testing... (ct) 
+	{
     	if (ct->mark == 0) 
 		{
 			int n=0;
@@ -243,7 +256,7 @@ struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const s
 	else
 	{
 		//This happened when hook was registered with pSetup->nf_PRE_ROUTING_hook_ops->priority = NF_IP_PRI_FIRST; - Use NF_IP_PRI_CONNTRACK + 1;
-		printk("tarakernel: ****** ERROR ***** conntrack probably not activated. Can't store packet info cross hooks\n");
+		//ØT - 260316 - just disabled for testing.... printk("tarakernel: ****** ERROR ***** conntrack probably not activated. Can't store packet info cross hooks\n");
 		struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
 		initPacket(pPacket, skb, state, false /*bSetupOwned*/);
 		return pPacket;

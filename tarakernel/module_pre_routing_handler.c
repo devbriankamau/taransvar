@@ -363,8 +363,15 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			uint8_t dscp = getDscp(pPacket);
 			
 			if (dscp)
-				printk ("tarakernel: Packet was tagged using the DSCP part of ToS. Value: %d", dscp);
-			
+			{
+				bool bBlock = dscp > pSetup->nBlockIncomingTaggedTrafficLevel;
+
+				printk ("tarakernel: Packet was tagged using the DSCP part of ToS.. Value: %d. System is set to block packets above %d, so %s\n", 
+						dscp, pSetup->nBlockIncomingTaggedTrafficLevel, (bBlock?"BLOCKING" : "NOT blocking"));
+
+				if(bBlock)
+					return NF_DROP;
+			}
 			/*
 		    This is probably traffic both to this node and to nodes inside this network (NAT will translate to local IP address). Meaning the same
 		    traffic will also show up in module_forwardning.c...

@@ -3,6 +3,7 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <net/tcp.h>
+#include <linux/netfilter.h>
 //#include <linux/skbuff.h>
 //#include <linux/byteorder/generic.h>
 //#include <net/checksum.h>
@@ -198,15 +199,19 @@ void tagThePacket(struct _PacketInspection *pPacket)
 {
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
 
-    //Usin urg_ptr
+    #define DO_URG_PTR_TAGGING
+
+    #ifdef DO_URG_PTR_TAGGING
+    //***************Using urg_ptr **************************
 	union _TagUnion cUnion;
 	cUnion.cTag.version_no = TAG_VERSION_NO;
 	cUnion.cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
 	cUnion.cTag.botnet_id = 99; //To be assigned by Taransvar.. To be implemented later...
 	pPacket->tcp_header->urg_ptr= cUnion.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 	pSetup->cGlobalStatistics.nOutboundTagged++;
+    #endif
 
-    //Using DSCP - 6-bit (max value: 63) part of TOS (Type of Service)
+    //***********************Using DSCP - 6-bit (max value: 63) part of TOS (Type of Service)
     //Normal used values for DSCP:
     
     //Value     Name            Use
@@ -222,23 +227,33 @@ void tagThePacket(struct _PacketInspection *pPacket)
     //14    known hacker
     //15    botnet
     //16    botnet command & control
+
+    #define DO_DSCP_TAGGING
     
+    #ifdef DO_DSCP_TAGGING
     struct iphdr *iph = ip_hdr(pPacket->skb);   //NOTE! Not necessary... iph is already in pPacket scruct????
 
     uint8_t currentDscp = iph->tos >> 2;    //Or just getDscp(pPacket);
 
     if (currentDscp == 0) {             //It's suggested we only set the DSCP if it's not already sent to avoid messing with QoS services
+
+        if (skb_try_make_writable(pPacket->skb, ip_hdrlen(pPacket->skb)))
+        {
+            printk("tarakernel: Can't make it writable for DSCP tagging so dropping packet.\n");
+            return;// NF_DROP; it's void function..
+        }
+
         uint8_t newDscp = 11;
         uint8_t ecn = iph->tos & 0x03;          // preserve ECN
         iph->tos = (newDscp << 2) | ecn;           // set DSCP
+        ip_send_check(iph);     //unlike urg_ptr, tos is in IP header so have to recalc check sum
     }    
     else
         printk("tarakernel: DSCP field was already set. Dropping altering.\n");
+    #endif
 
     //Recalculate check sums. Wrong check sum is most likely reason why packets are being dropped after setting urg_ptr
     struct tcphdr *tcph = tcp_hdr(pPacket->skb);        //NOTE! Not necessary... tcph is already in pPacket scruct????
-
-    tcph->check = 0;
 
     tcph->check = tcp_v4_check(
             pPacket->skb->len - ip_hdrlen(pPacket->skb),

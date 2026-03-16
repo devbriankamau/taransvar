@@ -116,7 +116,9 @@ print "touching tarakernel to enforce compilation..\n";
 system("touch ../tarakernel/tarakernel.h");	#To ensure that it's compiled...
 my $szAbSecLogFile = getSysRoot()."log/abseclog.txt"; 
 #Not working: open STDERR, '>&STDOUT'; #This may redirect stderr to stdout....
+
 system ("make -C ../tarakernel > $szAbSecLogFile"); 	#&> also saves stderr content which plain > doesn't
+
 #close(STDERR); - don't know if this should be done...
 open(FILE, $szAbSecLogFile) or die "Can't read file 'filename' [$!]\n";  
 my $szCompileLog = <FILE>; 
@@ -221,7 +223,7 @@ chdir "taralink";
 #print getcwd();
 
 $szLogFile = getSysRoot()."log/gcc.txt"; 
-system ("gcc taralink.c -o taralink -L/usr/lib/mysql -lmariadb -lcurl > $szLogFile");
+system ("TMPDIR=/home/user/temp gcc taralink.c -o taralink -L/usr/lib/mysql -lmariadb -lcurl > $szLogFile");
 my $szFilename = './taralink';
 $nFileSize = fileModified($szFilename, 45*1000, 10);
 if ($nFileSize <= 0) {

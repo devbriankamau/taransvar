@@ -8,9 +8,6 @@ struct _tagSpecification {
 	unsigned int botNetId;	//Assigned by AkiliBomba
 };
 
-
-
-
 int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
 {
 	char *lpPrOrFw = (bForwarding?"FW":"PR");
@@ -32,6 +29,7 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
 			printk("tarakernel: %s: TARGET HAS REQUESTED ASSISTANCE! DROPPING PACKAGE FROM INFECTED: %s->%s, request: %d, this IP: %d\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, nRequestedAssistance, nSenderIsInfected);
 
 			//kfree(pPacket); Being done by caller...
+			//checkFree(pPacket..)		Being done by caller...
 			kfree(lpInfectionStatus);
 			return NF_DROP;
 		}
@@ -46,14 +44,17 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
                               
 			if (nSenderIsInfected)
 			{
-				//Outbound traffic to partner and tagging is turned on.. Tag it.
-				union _TagUnion cUnion;
-				cUnion.cTag.version_no = TAG_VERSION_NO;
-				cUnion.cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
-				cUnion.cTag.botnet_id = 99; //To be assigned by Taransvar.. To be implemented later...
-				pPacket->tcp_header->urg_ptr= cUnion.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
-				pSetup->cGlobalStatistics.nOutboundTagged++;
+				tagThePacket(pPacket);
+
+			    if (isNewConnection(pPacket->skb))
+    			{
+					//module_stolen.c not yet included
+					//saveStolenPackage(pPacket);
+					//ØT 260314 - not yet ready
+					//return NF_STOLEN;	//Return without freeing pPacket because we'll handle it from callback...
+			    }
 			}
+
 		}
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
 		{
@@ -77,23 +78,38 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
 
 static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
-        struct _PacketInspection *pPacket;
-	//static int nPackagesForwarded = 0;
-	//u32 newGrossMemorySize;
-	//u32 nCurrentHeaderSize;  //Given in number of 32bit words
-	//u32 nOurTagSize;//, nOnlyShowCount;
 		
 	if (!bReceivedConfiguration)
 	{
-	        printk("tarakernel: Dropping forwarded package until configuration is received (please start taralink).\n");
+	    printk("tarakernel: Dropping forwarded package until configuration is received (please start taralink).\n");
 		return NF_DROP;
 	}
 	
 	if (!skb)
 		return NF_ACCEPT;
 
-	pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
-	initPacket(pPacket, skb, state);
+
+
+	//Just checking if mark is set in PRE_ROUTING
+
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
+
+	ct = nf_ct_get(skb, &ctinfo);
+	if (ct) {
+		printk(KERN_INFO "tarakernel: FORWARD   ct=%px mark=%u ctinfo=%d\n", ct, ct->mark, ctinfo);		
+
+		if (ct->mark == 0) 
+			printk("tarakernel: ****** ERROR - mark was not set in FORWARD handler\n");
+		else
+			printk("tarakernel: ****** Mark was set in FORWARD handler\n");
+	}
+	else
+		printk("tarakernel: ****** ERROR - Unable to get conntrack info\n");
+
+	//pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+	//initPacket(pPacket, skb, state);
+	struct _PacketInspection *pPacket = getPacketInfo(priv, skb, state);
 
 	if (pPacket->tcp_header->urg)
 		if (pSetup->cShowInstructions.bits.showUrgentPtrUsage)
@@ -103,7 +119,27 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 	{
 		bool bForwarding = true;
 		int nRetval = checkFixTagging(pPacket, bForwarding);
-		kfree(pPacket);
+
+		//For now, always set this for test..
+		bool set_tsval = 1;
+		bool set_tsecr = 0;	//Don't know what we can use this for.
+
+		__be32 new_tsval_be = 0b011111;	//6 bit
+        __be32 new_tsecr_be;
+
+		__be32 tsval_be, tsecr_be;
+
+		if (tcp_read_timestamp_option(skb, &tsval_be, &tsecr_be)) 
+		{
+			if (tcp_set_timestamp_option(skb, set_tsval, new_tsval_be, set_tsecr, new_tsecr_be))
+				printk("tarakernel: ******* TSval tagging successful!\n");
+			else
+				printk("tarakernel: ******* Failed to tag using TSval field\n");
+		}
+		else
+			printk("tarakernel: **** Unable to read TSval\n");
+
+		checkFree(pPacket, nRetval != NF_ACCEPT /*bLeavingPostRouting*/);
 		return nRetval;
 	}
 
@@ -125,7 +161,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
   			pSetup->cGlobalStatistics.nFromPartnerUntagged++;
 
 		pPacket->tcp_header->urg_ptr = 0;  //Remove the tag.. This is confidential information..
-        kfree(pPacket);
+		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}	    
 

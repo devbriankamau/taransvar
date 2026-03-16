@@ -30,7 +30,7 @@ static unsigned int requestActionOutbound(char *lpStr)
 	return NF_DROP;
 }
 
-void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const struct nf_hook_state *state)
+void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const struct nf_hook_state *state, bool bSetupOwned)
 {
 	u32 ip; //NOTE! Need this one because the IPADDRESS macro seems not to work on pointers
 
@@ -53,6 +53,27 @@ void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const st
 	pPacket->dPort = htons((unsigned short int) pPacket->tcp_header->dest);
 	
 	pPacket->cTagUnion.nBe16 = pPacket->tcp_header->urg_ptr;	//OT_Changed - 
+	pPacket->bSetupOwned = bSetupOwned;
+}
+
+void checkFree(struct _PacketInspection *pPacket, bool bLeavingPostRouting)
+{
+	if (!pPacket->bSetupOwned)// For now only clear if not owned by setup... || bLeavingPostRouting)
+	{
+		printk("tarakernel: *********** Destroying pPacket\n"); //Should never get here anymore...
+		return;
+		//pPacket should be freed
+
+		//If owned by pSetup, then clear it from table...
+		if (!pPacket->bSetupOwned)
+			for (int n=0; n > N_MAX_PACKETS_PROCESS; n++)
+				if (pSetup->cPacketsProcessing[n] == pPacket)
+					//NOTE! Could do better testing... check if one has been found - and should be found...
+					pSetup->cPacketsProcessing[n] = 0;
+
+		kfree(pPacket);
+	}
+	//else, leave without kfree'ing
 }
 
 int isMeOrMine(unsigned int nIp)
@@ -153,6 +174,83 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
     }
 }
 
+struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
+{
+	//Check first if this packet is stored in skb
+	struct nf_conn *ct;
+	enum ip_conntrack_info ctinfo;
+	int nAvailable = -1; //Found an available slot (save it)
+
+	ct = nf_ct_get(skb, &ctinfo);
+	if (ct) {
+    	if (ct->mark == 0) 
+		{
+			int n=0;
+			//mark is not set.. Create a new memory object - check first if stored....if so, then that's error?
+			for (n=0; n > N_MAX_PACKETS_PROCESS; n++)
+			{
+				struct _PacketInspection *pTest = pSetup->cPacketsProcessing[n];
+				if (pTest->skb == skb) 			
+				{
+					printk("tarakernel: skb already stored (ERROR *****but skb->mark not set*****).. reusing... (ndx n)\n");
+					return pTest;
+				}
+				if (!pTest)
+					if (nAvailable < 0)
+						nAvailable = n;
+			}
+
+			struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+			initPacket(pPacket, skb, state, true /*bSetupOwned*/);
+
+			if (nAvailable < 0 && n == N_MAX_PACKETS_PROCESS)
+			{
+				printk("tarakernel: ************* ERROR ***** Increase N_MAX_PACKETS_PROCESSING\n");
+				return pPacket; //NOTE! This one is never being deleted..... Program will stop very soon
+			}
+
+			if (nAvailable < 0)
+				nAvailable = n; 	//Occupy the current one..
+
+			pSetup->cPacketsProcessing[nAvailable] = pPacket;	
+			//printk("tarakernel: ***** New packet info stored at slot %d\n", nAvailable);			
+        	ct->mark = nAvailable +1;	//NOTE! 1 based (not 0-based) to indicate that a value is set (default is 0)
+			nf_conntrack_event_cache(IPCT_MARK, ct);	//Shouldn't be necessary but some are doing this...
+
+			//printk(KERN_INFO "tarakernel: (After setting) ct=%px mark=%u ctinfo=%d\n", ct, ct->mark, ctinfo);		
+
+			return pPacket;
+    	}
+		else
+		{
+			struct _PacketInspection *pPacket = pSetup->cPacketsProcessing[ct->mark-1];
+			if (!pPacket)
+			{
+				//ØT 260314 - For now, not trusting the stored value..... just debugging...
+				printk("tarakernel: ******** skb->mark was set but cleared again... so reinstated now..\n");
+				struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+				initPacket(pPacket, skb, state, true /*bSetupOwned*/);
+				pSetup->cPacketsProcessing[ct->mark-1] = pPacket;	
+				return pPacket;
+			}
+			else
+			{
+				//printk("tarakernel: ******** skb->mark was set and is being used..\n");
+				return pPacket; //NOTE! ct->mark is 1-based because 0 means not set...
+			}
+		}
+	}
+	else
+	{
+		//This happened when hook was registered with pSetup->nf_PRE_ROUTING_hook_ops->priority = NF_IP_PRI_FIRST; - Use NF_IP_PRI_CONNTRACK + 1;
+		printk("tarakernel: ****** ERROR ***** conntrack probably not activated. Can't store packet info cross hooks\n");
+		struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+		initPacket(pPacket, skb, state, false /*bSetupOwned*/);
+		return pPacket;
+	}
+
+}
+
 static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
         int bToOrFromMe = 0;
@@ -162,12 +260,13 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 	if (!skb)
 		return NF_ACCEPT;
 
-	struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
-	initPacket(pPacket, skb, state);
+	//struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+	struct _PacketInspection *pPacket = getPacketInfo(priv, skb, state); (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+	//initPacket(pPacket, skb, state, bSetupOwned);
 
 	if (pPacket->ip_header->protocol != IPPROTO_TCP)
 	{
-	    kfree(pPacket);
+		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}
 	else
@@ -182,7 +281,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 	{
                 //NOTE! IF YOU CHANGE THIS TEXT, THEN ALSO CHANGE IN crontasks.pl. IT'S LOOKING FOR IT
 		printk("tarakernel: Start taralink to send configuration! %s -> %s\n", pPacket->cSourceIp, pPacket->cDestIp); 
-		kfree(pPacket);
+		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}
 
@@ -190,14 +289,35 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 	if (pSetup->cShowInstructions.bits.doReportTraffic)
         reportInboundTraffic(pPacket);
 	
+	//Check TSval tagging
+
+	/* sval in the option part of the TCP header is another possible way to send data we're exploring...
+	__be32 tsval_be, tsecr_be;
+
+	if (tcp_read_timestamp_option(skb, &tsval_be, &tsecr_be)) {
+	    u32 tsval = ntohl(tsval_be);
+    	//u32 tsecr = ntohl(tsecr_be);
+		//printk(KERN_INFO "tarakernel: ****************** TSval was set: %d\n", tsval);
+	}
+	//else
+	//	printk("tarakernel: ****************** Failed to read TSval values??\n");
+
+	*/
 
 	if(blackListed(pPacket->ip_header->saddr))  //See "W/B List" and "Domains" in localhost/dashboard for ip-addresses here.  
 	{
 		unsigned int nRetval = requestActionOutbound(NULL);//str);
-                pSetup->cGlobalStatistics.nBlocked++;
-		kfree(pPacket);
+		pSetup->cGlobalStatistics.nBlocked++;
+
 		if (nRetval == NF_DROP)
-		      printk("tarakernel: ***** Dropping traffic from blacklisted sender.\n");
+		{
+		    printk("tarakernel: ***** Dropping traffic from blacklisted sender.\n");
+			checkFree(pPacket, true /*bLeavingPostRouting*/);
+		}
+		else
+			checkFree(pPacket, false /*bLeavingPostRouting*/);
+
+
 		return nRetval; //NF_ACCEPT or NF_DROP;
 	}
 
@@ -210,7 +330,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		if (pSetup->cShowInstructions.bits.showOther)
 			printk("tarakernel: PR: Traffic with subnet %s:%d -> %s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
 			
-		kfree(pPacket);
+		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}
 
@@ -309,7 +429,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		else
 	        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
 					if (!dropFromLogging(pPacket))
-    					printk("tarakernel: PR: Outbound for non-partner %s:%d -> %s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);  //asdfasfd
+    					printk("tarakernel: PR: Outbound for non-partner %s:%d -> %s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort); 
 	}
 	
 	if (!bToOrFromMe)
@@ -328,7 +448,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 	//	if (pSetup->cShowInstructions.bits.showOther)
 	//		printk("tarakernel: PR: To or from me or mine: %s -> %s\n", pPacket->cSourceIp, pPacket->cDestIp); 
 	
-	kfree(pPacket);
+	checkFree(pPacket, false /*bLeavingPostRouting*/);
 	return NF_ACCEPT;
 }// PRE ROUTING
 
@@ -367,22 +487,23 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 	if (!skb)
 		return NF_ACCEPT;
 
-	struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
-	initPacket(pPacket, skb, state);
+	//struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
+	//initPacket(pPacket, skb, state);asdf
+	struct _PacketInspection *pPacket = getPacketInfo(priv, skb, state);
 
 	if (pPacket->ip_header->protocol != IPPROTO_TCP)
 	{
-	        kfree(pPacket);
+		checkFree(pPacket, true);	//Now leaving POST_ROUTING - so kfree the memory
 		return NF_ACCEPT;
 	}
 
-        //cGlobalStatistics.nPostRouting++;
+    //cGlobalStatistics.nPostRouting++;
         
 	if (!bReceivedConfiguration)
 	{
 	        //Only warn in pre routing...
 		//printk("tarakernel: Start abmonitor to send configuration! %s -> %s\n", pPacket->cSourceIp, pPacket->cDestIp); 
-		kfree(pPacket);
+		checkFree(pPacket, true);	//Now leaving POST_ROUTING - so kfree the memory
 		return NF_ACCEPT;
 	}
 
@@ -391,7 +512,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 	    //To or from the router itself (not to be forwarded to other..). This is probably not interesting to anybody. (except my firewall.....)
 		//OT_Changed: 260225 - incoming traffic is interesting to "SampleBank" or "HoneyPot"... Start logging this....
 		//reportInboundTraffic(pPacket);	//ØT 260305 - NOw report everything prerouting..//OT_Changed: 260225 - added this... 
-		kfree(pPacket);
+		checkFree(pPacket, true);	//Now leaving POST_ROUTING - so kfree the memory
 		return NF_ACCEPT;
 	}
         
@@ -399,7 +520,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 	if (pPacket->ip_header->daddr == pSetup->nMyIp)//ipMyAddress)
 	//if (isMeOrMine(pPacket->ip_header->daddr))
 	{
-                bToOrFromMe = 1;
+        bToOrFromMe = 1;
               
 		if (isPartner(pPacket->ip_header->saddr)) 	
 		{
@@ -426,9 +547,9 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
         if (isPartner(pPacket->ip_header->daddr)) //If outbound traffic for partner.	
 		{
 		        //***** Do tagging in case it's a server and not only a router (routers are tagging while forwarding. See T001)
-		        bool bForwarding = false;   //This is PRE ROUTING, not forwarding
+		    bool bForwarding = false;   //This is PRE ROUTING, not forwarding
 			int nRetval = checkFixTagging(pPacket, bForwarding);  //Defined in module_forwarding.c
-			kfree(pPacket);
+			checkFree(pPacket, true);	//Now leaving POST_ROUTING - so kfree the memory
 			return nRetval;
 		
         	        /* Code below is now fixed by checkFixTagging()
@@ -461,12 +582,12 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 		//Check if it's package to be forwarded to subnet
 		char *lpTag = (pPacket->tcp_header->urg_ptr > 0 ? "" : "NOT ");
 		
-    		if (isMeOrMine(pPacket->ip_header->saddr))
-    		{
-	        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
-					if (!dropFromLogging(pPacket))
-						printk("tarakernel: POST ROUTING From subnet to external (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
-	        }
+    	if (isMeOrMine(pPacket->ip_header->saddr))
+    	{
+        	if (pSetup->cShowInstructions.bits.showPreRouteNonPartner)
+				if (!dropFromLogging(pPacket))
+					printk("tarakernel: POST ROUTING From subnet to external (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
+	    }
 		else
     		if (isMeOrMine(pPacket->ip_header->daddr))
   			{
@@ -483,25 +604,24 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 	        				printk("tarakernel: POST ROUTING to forwarded port (was %stagged) %s:%d -> %s:%d\n", lpTag, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort); 
 		    	}
     	    	else
-    	        	{
-        		        //asdf
-    	                char *lpTemp = kmalloc(200, GFP_KERNEL);
-       	        	    if (lpTemp)
-       	                {
-       	        	        getMeAndMine(lpTemp, 200);
-							if (!dropFromLogging(pPacket))
-        				    	printk("tarakernel: **** WARNING **** PR None of mine.. Probably partner malconfiguration? (%s:%d->%s:%d %s)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, lpTemp);
-        				}
-        				else
-							printk("tarakernel: **** ERROR allocating buffer in post routing handling\n");
-						
-					kfree(lpTemp);
+    	       	{
+        	        //asdf
+    	    		char *lpTemp = kmalloc(200, GFP_KERNEL);
+       	        	if (lpTemp)
+       	            {
+       	                getMeAndMine(lpTemp, 200);
+						if (!dropFromLogging(pPacket))
+        			    	printk("tarakernel: **** WARNING **** PR None of mine.. Probably partner malconfiguration? (%s:%d->%s:%d %s)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, lpTemp);
+    				}
+    				else
+					{
+						printk("tarakernel: **** ERROR allocating buffer in post routing handling\n");
+						kfree(lpTemp);
         			}
+				}
   			}
 	}
-	kfree(pPacket);
-        return NF_ACCEPT;
+	checkFree(pPacket, true);	//Now leaving POST_ROUTING - so kfree the memory
+    return NF_ACCEPT;
 }
-
-
 

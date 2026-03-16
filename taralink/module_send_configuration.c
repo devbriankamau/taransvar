@@ -380,7 +380,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		        lpHandledWhere = " and active = b'1'";
 		        
 		sprintf(szSQL, "select requestId, hex(ip), port, requestQuality, CAST(wantSpoofed AS UNSIGNED) as wantSpoofed, handled, CAST(active AS UNSIGNED) as active from assistanceRequest where purpose = 'fromPartner' %s order by ip", lpHandledWhere);
-		printf("Assist requests: %s\n", szSQL);
+		//printf("Assist requests: %s\n", szSQL);
 		
 		if (mysql_query(conn, szSQL)) {
 		    fprintf(stderr, "taralink: %s\n", mysql_error(conn));
@@ -412,7 +412,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
                 }
 
 		//************** Add setup *****************
-		printf("Reading setup...\n");
+		//printf("Reading setup...\n");
 		char *lpSQL = "select hex(ifnull(adminIp,0)), hex(ifnull(internalIP,0)), hex(ifnull(nettmask,0)), if (handled,1,0), ifnull(blockIncomingTaggedTrafficThreshold,0), if(showStatus,1,0) as showStatus, if (showPreRoutePartner,1,0), if (showPreRouteNonPartner,1,0), if (showForwardPartner,1,0), if (showForwardNonPartner,1,0), if (showUrgentPtrUsage,1,0), if (showOwnerless,1,0), if (showOther,1,0), if (showNew1,1,0), if (showNew2,1,0), if (doTagging,1,0), if (doReportTraffic,1,0), if (doInspection,1,0), if (doBlocking,1,0), if (doOther,1,0), dontDmesgIPs from setup";
 		
 		if (mysql_query(conn, lpSQL)) {
@@ -425,7 +425,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		
 		if ((row = mysql_fetch_row(res)) != NULL)
 		{
-			printf("Found setup row...\n");
+			//printf("Found setup row...\n");
 			if (!bReadChangesOnly || !atoi(row[3]))
 			{
 				printf("processing it...\n");
@@ -458,7 +458,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 				{
 					strcpy(szDontDmesgIPs, row[nDontMsgFldNo]);
 					if (strlen(szDontDmesgIPs) > N_MAX_DONT_DMSG_IPs - 50)
-						printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %d (currently in use: %d)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
+						printf("************ WARNING **** Consider increasing buffer for IPs not to log to dmesg from %u (currently in use: %zu)\n", N_MAX_DONT_DMSG_IPs, strlen(szDontDmesgIPs));
 
 					//NOTE! For now only handles one IP address
 					if (strlen(szDontDmesgIPs))
@@ -482,10 +482,10 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 						return 0;
 					}
 			  	}
-				printf("Finished processing it...\n");
+				//printf("Finished processing it...\n");
 			}  
-			else
-				printf("Not adding setup.. handled was: %s\n", row[13]);
+			//else
+			//	printf("Not adding setup.. handled was: %s\n", row[13]);
 		}
 		else
 		{
@@ -505,7 +505,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 			printf("************ ERROR! Unable to read the setup\n");
 		}
 			
-		printf("Freeing up connections\n");
+		//printf("Freeing up connections\n");
     	mysql_free_result(res);
 
         //***************** Finish it up 
@@ -521,12 +521,12 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 	else
 		sprintf(cReply, "%d|EOF", nSequenceNumber); //For now only handles one sequence.. but will requri more in future....
 
-        nThreadId = syscall(SYS_gettid);//sys_gettid(); // //gettid()
-        printf("Setup before sending: %s\n", cReply); 
+    nThreadId = syscall(SYS_gettid);//sys_gettid(); // //gettid()
+    //printf("Setup before sending: %s\n", cReply); 
         
-        if (bFoundData)
-        {
-        	sendMessage(pSockData, cReply);
+    if (bFoundData)
+    {
+        sendMessage(pSockData, cReply);
 		printf("Configuration sent(%ld chars): %s.\nPreparing to read again\n", strlen(cReply), cReply);
 		return 1; //Did send data
 	}

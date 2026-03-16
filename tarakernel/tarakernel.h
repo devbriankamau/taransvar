@@ -23,6 +23,7 @@ struct _PacketInspection
     int nTotLen;
     char *lpPayload;        
 	union _TagUnion cTagUnion;
+	bool bSetupOwned;	//If not in setup, then it should be freed at every hook (otherwise at end of POST_ROUTING)
 };
 
 
@@ -144,6 +145,9 @@ struct _CheckIp {
 };
 
 #define C_CHECK_ARRAY_SIZE 5
+#define N_MAX_PACKETS_PROCESSING 10
+#define N_MAX_PACKETS_PROCESS N_MAX_PACKETS_PROCESSING -2
+
 
 struct _Setup {
 	bool bTrafficReportsBeingHandled;
@@ -161,6 +165,8 @@ struct _Setup {
 	void *pConfigurationPointerList[BLOCK_DESCRIPTIOR_LAST+1];    //NOTE! About to take over from pConfiguration 
 	unsigned int nConfigurationArraySize[BLOCK_DESCRIPTIOR_LAST+1]; //Max number of elements in array... NOTE! To be dropped later??
 	unsigned int nElementsInArray[BLOCK_DESCRIPTIOR_LAST+1];      //Number of elemens currently in arrayNOTE! To be dropped
+
+	struct _PacketInspection *cPacketsProcessing[N_MAX_PACKETS_PROCESSING];
 	
 	//Traffic warnings waiting to be sent to ABMonitor
   
@@ -175,6 +181,8 @@ struct _Setup {
 	unsigned char nBlockIncomingTaggedTrafficLevel;
 	
 	struct _CheckIp cCheckThese[C_CHECK_ARRAY_SIZE];
+
+	struct _PacketInspection *pStolenPackage[10];	//Now owning these packages after returning NF_STOLEN
 };
 
 typedef struct _Node _Node;

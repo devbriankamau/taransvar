@@ -63,7 +63,7 @@ typedef enum et_wgetCategories et_wgetCategories;
 #include "../tarakernel/module_globals.h" 
 
 struct _SocketData *getSockData();
-void getKernelSocket(struct _SocketData *pSockData);
+int getKernelSocket(struct _SocketData *pSockData);
 void sendMessage(struct _SocketData *pSockData, char *lpMsg);
 int isConfigurationRequest(char *lpPayload, int *lpSequenceNumber);
 void checkRequestAssistance(void);
@@ -189,7 +189,7 @@ void logAccessRequest(char *lpFromIP, char *lpFromPort, char *lpToIP, char *lpTo
 static int processId = 0; //The result of getpid() but not working when using gettid() from threads... supposed to be the same?
 //ot:struct msghdr msg;
 
-void getKernelSocket(struct _SocketData *pSockData)
+int getKernelSocket(struct _SocketData *pSockData)
 {
   //ot:struct sockaddr_nl src_addr;
   int count=0;
@@ -205,6 +205,7 @@ void getKernelSocket(struct _SocketData *pSockData)
   pSockData->src_addr.nl_pid = getpid(); /* self pid */
 
   bind(pSockData->sock_fd, (struct sockaddr*)&pSockData->src_addr, sizeof(pSockData->src_addr));
+  return pSockData->sock_fd;
 }
 
 struct _SocketData *getSockData()
@@ -288,11 +289,12 @@ void checkReportStatus(char *lpPayload)
 				if (mysql_query(conn, lpSQL)) {
 			        	strcpy(cNickName, "Unable to read setup");
 			        	bSetupOk = 0; //Don't read the result below....
-			        } else {
+			    } else 
+				{
 			        
-				      fprintf(stderr, "taralink: %s\n", mysql_error(conn));
-            	                      addWarningRecord("***** ERROR ***** taralink couldn't read setup");
-            	                      return;
+					fprintf(stderr, "taralink: %s\n", mysql_error(conn));
+            	    addWarningRecord("***** ERROR ***** taralink couldn't read setup");
+            	    return;
 				}
 			}
 			
@@ -301,74 +303,75 @@ void checkReportStatus(char *lpPayload)
 				res = mysql_use_result(conn);
 				if ((row = mysql_fetch_row(res)) != NULL)
 				{
-			        	strcpy(cNickName, row[0]);
+			        strcpy(cNickName, row[0]);
 				} else {
-			        	strcpy(cNickName, "Unable to read setup");
+			        strcpy(cNickName, "Unable to read setup");
 				}
-  		                mysql_free_result(res);
+  		        mysql_free_result(res);
 			}
 	      
-	              char *lpFound;
-	              while ((lpFound = strchr(lpPayload, '\t')))
-	                      *lpFound = '_';
-	              while ((lpFound = strchr(lpPayload, '\r')))
-	                      *lpFound = '_';
-	              while ((lpFound = strchr(lpPayload, '\n')))
-	                      *lpFound = '_';
-	              while ((lpFound = strchr(lpPayload, ' ')))
-	                      *lpFound = '_';
-	              setPing();
-    	              char szUrl[255];
+	        char *lpFound;
+	        while ((lpFound = strchr(lpPayload, '\t')))
+	            *lpFound = '_';
+	        while ((lpFound = strchr(lpPayload, '\r')))
+	            *lpFound = '_';
+	        while ((lpFound = strchr(lpPayload, '\n')))
+	            *lpFound = '_';
+	    	while ((lpFound = strchr(lpPayload, ' ')))
+	            *lpFound = '_';
+	        setPing();
+    	    char szUrl[255];
     	              
-                      CURL *payloadCurl = curl_easy_init();
-                      if(!payloadCurl) {
-                            printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
-                            return;
-                      }
+            CURL *payloadCurl = curl_easy_init();
+            if(!payloadCurl) {
+                printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
+                return;
+            }
                       
-                      char *lpPayloadEncoded = curl_easy_escape(payloadCurl, lpPayload, strlen(lpPayload));
-                      if(!lpPayloadEncoded) {
-                            printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
-                            return;
-                      }
+            char *lpPayloadEncoded = curl_easy_escape(payloadCurl, lpPayload, strlen(lpPayload));
+            if(!lpPayloadEncoded) {
+                printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
+                return;
+            }
 
-                      CURL *nickNamecurl = curl_easy_init();
-                      if(!nickNamecurl) {
-                            printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
-                            return;
-                      }
+            CURL *nickNamecurl = curl_easy_init();
+            if(!nickNamecurl) {
+                printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
+                return;
+            }
                       
-                      char *lpNickNameUrlEncoded = curl_easy_escape(nickNamecurl, cNickName, strlen(cNickName));
-                      if(!lpNickNameUrlEncoded) {
-                            printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
-                            return;
-                      }
+            char *lpNickNameUrlEncoded = curl_easy_escape(nickNamecurl, cNickName, strlen(cNickName));
+            if(!lpNickNameUrlEncoded) {
+                printf("******* ERROR: curl_easy_init() returned false in checkReportStatus().. Aborting..\n");
+                return;
+            }
 
-                      printf("\nSending status to global DB servers:\n");
-                      for (int n = 0; n < 3; n++)
-                      {
-                            char *lpGlobalDbIp = row[n+2];
-                            if (lpGlobalDbIp && strlen(lpGlobalDbIp) > 7)
-                            {
-  		                  sprintf(szUrl, "http://%s/script/config_update.php?f=ping&nick=%s&status=%s", lpGlobalDbIp, lpNickNameUrlEncoded, lpPayloadEncoded);
-  		                  *szWgetBuff = 0;
-		                  wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
-		                  printf("%s\n", szUrl);
-		            } else {
-		                  char szBuf[256];
-		                  printf("****** Skipping wrong IP address for global DB server: %s\n", lpGlobalDbIp);
-      	                          //addWarningRecord(conn, szBuf);
-      	                    }
+            printf("\nSending status to global DB servers:\n");
+            for (int n = 0; n < 3; n++)
+            {
+                char *lpGlobalDbIp = row[n+2];
+                if (lpGlobalDbIp && strlen(lpGlobalDbIp) > 7)
+                {
+  		            sprintf(szUrl, "http://%s/script/config_update.php?f=ping&nick=%s&status=%s", lpGlobalDbIp, lpNickNameUrlEncoded, lpPayloadEncoded);
+  		            *szWgetBuff = 0;
+		            wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
+		            printf("%s\n", szUrl);
+		        } 
+				else 
+				{
+					if (lpGlobalDbIp && *lpGlobalDbIp)
+		            	printf("****** Skipping wrong IP address for global DB server: %s\n", lpGlobalDbIp);
+      	                //addWarningRecord(conn, szBuf);
+      	        }
 		                  
-                      }
-		      mysql_close(conn);
+            }
+		    mysql_close(conn);
 		      
-		      curl_free(lpPayloadEncoded);
-                      curl_easy_cleanup(payloadCurl);
-		      curl_free(lpNickNameUrlEncoded);
-                      curl_easy_cleanup(nickNamecurl);
-
-	     }
+		    curl_free(lpPayloadEncoded);
+            curl_easy_cleanup(payloadCurl);
+		    curl_free(lpNickNameUrlEncoded);
+            curl_easy_cleanup(nickNamecurl);
+	    }
  	    printf("Minutes (status): %lu (%s)\n", nMinutes, szWgetBuff);
 	}
 	else {
@@ -378,13 +381,128 @@ void checkReportStatus(char *lpPayload)
 
 void testingTesting(char *lpPayload, int nSize)
 {
-        char cBuf[200];
-        bufferToHex(lpPayload, nSize, cBuf, 200);
-        printf("**** Received: %s\n", lpPayload);
-        printf("%s\n", cBuf);
+    char cBuf[200];
+    bufferToHex(lpPayload, nSize, cBuf, 200);
+    printf("**** Received: %s\n", lpPayload);
+    printf("%s\n", cBuf);
 }
 
-int main()
+
+
+int old_main()		// ... before trying to receive both UDP and NL in same main()
+{
+	char *lpPayload;
+
+  init_timer();
+
+  char *lpMsg = "Hello kernel...";
+  char buffer[1024] = { 0 };
+  int new_socket;
+  processId = getpid();
+  printf("Saving process id: %d\n", processId);
+  addWarningRecord("Taralink starting...");
+  struct _SocketData *pSockData = getSockData();
+
+  getKernelSocket(pSockData);
+
+  printf("Sending message to kernel: %s\n", lpMsg);
+  sendMessage(pSockData, lpMsg);
+
+  while (1)
+  {
+    //struct nlmsghdr *nlh = NULL;
+
+	printf("Waiting for message from kernel\n");
+
+	// Read message from kernel 
+    //nlh = (struct nlmsghdr *)malloc(NLMSG_SPACE(MAX_PAYLOAD));
+    memset(pSockData->nlh, 0, NLMSG_SPACE(MAX_PAYLOAD)); //Initialize the buffer, otherwise previous msg will remain at end of string.
+	int nDataLength = recvmsg(pSockData->sock_fd, &pSockData->msg, 0);
+	lpPayload = (char *)NLMSG_DATA(pSockData->nlh);
+	//printf("Received message: %s\n", lpPayload);
+
+	//char *lpSeparator;  
+	//insertLog(lpPayload);
+	int nSequenceNumber = -1;
+
+    if (isConfigurationRequest(lpPayload, &nSequenceNumber))
+    {
+      	int bReadChangesOnly;
+
+		printf("Configuration requested..\n");
+		sentConfiguration(pSockData, nSequenceNumber, 1, bReadChangesOnly = 0);
+	} 
+	else
+	{
+	    //This is better way to find keyword at start....
+	    char *lpSeparator = strchr(lpPayload, '|');
+	    char cKeyword[20];
+	    if (lpSeparator && lpSeparator - lpPayload < sizeof(cKeyword))
+	    {
+	        strncpy(cKeyword, lpPayload, lpSeparator - lpPayload);
+	        cKeyword[lpSeparator - lpPayload] = 0;  //Terminate the string.
+	    }
+	    else
+	        *cKeyword = 0;
+	        
+	    //Check if it's status report from Taransvar kernel module
+	    //char *lpSearchKey = "status|";
+		//lpSeparator = strstr(lpPayload, lpSearchKey);
+		//if (lpSeparator == lpPayload)
+		if (!strcmp(cKeyword, "status"))
+		{
+		    char *lpStatus = lpSeparator+1;//lpPayload+strlen(lpSearchKey); 
+			printf("%s\n", lpStatus);
+			
+			checkReportStatus(lpStatus);
+		}
+		else
+		{
+		        if (!strcmp(cKeyword, "TRAFFIC"))
+		        {
+                    char cBuf[400];	//was 200
+                    int nTrafficLen = strlen(lpSeparator+1); 
+                    //bufferToHex((char*)lpPayload, (nDataLength>60?60:nDataLength), cBuf, 200);
+                    //printf("**** Traffic hex dump: %s\n", cBuf);
+                    strncpy(cBuf, lpSeparator+1, (nTrafficLen>250?250:nTrafficLen+1));	//was (nTrafficLen>50?50:nTrafficLen+1));
+                    if (nTrafficLen > 250)	//was 50
+                    {
+                        sprintf(cBuf+250," *** truncated, len: %d *** ", nTrafficLen);	//was 50
+                        strcpy(cBuf+strlen(cBuf), lpSeparator+1+nTrafficLen-50);
+                    }
+
+                    printf("**** Traffic received: %s\n", cBuf);//lpSeparator+1);
+		        
+		            //handleTrafficReportFromKernel(lpPayload+strlen(lpSearchKey), nDataLength - strlen(lpSearchKey));
+		            handleTrafficReportFromKernel(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
+		        }
+    		        else if (!strcmp(cKeyword, "CHECK"))
+    		        {
+    		              checkIpAddresses(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
+    		        }
+    		        else if (!strcmp(cKeyword, "DUMMY"))
+    		        {
+    		              testingTesting(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
+    		        }
+		        else
+		              printf("Unhandled msg (keyword: %s) from kernel (%d bytes): %s\n", cKeyword, nDataLength, lpPayload);
+		}
+	}	
+    }
+
+//OT 1109
+//  close(pSockData->sock_fd); //  Gives compiler error for some reason...?????
+//  free(pSockData->nlh);
+//  free(pSockData);
+}//old_main() ... before trying to receive both UDP and NL in same main()
+
+
+
+
+
+
+
+int main(void)
 {
 	char *lpPayload;
 
@@ -490,4 +608,5 @@ int main()
 //  free(pSockData->nlh);
 //  free(pSockData);
 }
+
 

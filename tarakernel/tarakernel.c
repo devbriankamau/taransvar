@@ -24,11 +24,15 @@ partners or whatever before freezing. We should figure out why and find the opti
 #include <linux/kernel.h>
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
+#include <net/netfilter/nf_conntrack.h>
+#include <net/netfilter/nf_conntrack_ecache.h>
+
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/udp.h>
 #include <linux/string.h>
 #include <linux/timekeeping.h>
+
 
 #include "module_globals.h"
 #include "tarakernel.h"
@@ -50,7 +54,10 @@ static unsigned int bReceivedConfiguration = 0;
 void warn(char *lpMsg);
 int isprintable(char ch);
 //int packetInterpreter(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
-void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const struct nf_hook_state *state);
+void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const struct nf_hook_state *state, bool bSetupOwned);
+struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
+void checkFree(struct _PacketInspection *pPacket, bool bLeavingPostRouting);
+
 
 void getTcpPayload(struct sk_buff *skb, char *lpBuffer, u32 nBufSize);
 void sendMessage(int pid, char *msg);
@@ -68,6 +75,14 @@ void removeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, 
 bool trafficReportToTaralinkFound(int nProcessId);
 void sendCheckRequests(int nProcessId);
 void checkPartner(u32 nIp);
+void tagThePacket(struct _PacketInspection *pPacket);	//module_tagging.c
+int isNewConnection(struct sk_buff *skb);
+void saveStolenPackage(struct _PacketInspection *pPacket);
+
+
+
+static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
+static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);
 
 #define IPADDRESS(addr) \
 	((unsigned char *)&addr)[3], \
@@ -94,6 +109,7 @@ static struct _Setup *pSetup;
 #include "module_forwarding.c"
 #include "module_configuration.c"
 #include "module_pointer_list.c"
+#include "module_tagging.c"
 
 #define NETLINK_USER 31
 
@@ -147,7 +163,7 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 	nlhead = (struct nlmsghdr*)skb->data;    //nlhead message comes from skb's data... (sk_buff: unsigned char *data)
 	lpPayload = (char*)nlmsg_data(nlhead);    
 
-	if (pSetup->cShowInstructions.bits.showOther)
+	//if (!bReceivedConfiguration || pSetup->cShowInstructions.bits.showOther)
 		printk(KERN_INFO "tarakernel: Received: %s\n",lpPayload);
 
 	//Check if it's config info (starts with CONFIG 0..n)
@@ -231,7 +247,7 @@ static int __init hello_init(void)
 			pSetup->nf_PRE_ROUTING_hook_ops->hook = (nf_hookfn*)module_ip4_pre_routing_handler;//nf_blockipaddr_handler;
 			pSetup->nf_PRE_ROUTING_hook_ops->hooknum = NF_INET_PRE_ROUTING;
 			pSetup->nf_PRE_ROUTING_hook_ops->pf = NFPROTO_IPV4;
-			pSetup->nf_PRE_ROUTING_hook_ops->priority = NF_IP_PRI_FIRST;
+			pSetup->nf_PRE_ROUTING_hook_ops->priority = NF_IP_PRI_CONNTRACK + 1; //NF_IP_PRI_FIRST;	NOTE! Start it after CONNTRACK is attached to the queue
 
 			nf_register_net_hook(&init_net, pSetup->nf_PRE_ROUTING_hook_ops);
 		}
@@ -274,11 +290,11 @@ static int __init hello_init(void)
 
 static void __exit hello_exit(void) 
 {
-        if (pSetup->nf_PRE_ROUTING_hook_ops != NULL) {
+    if (pSetup->nf_PRE_ROUTING_hook_ops != NULL) {
 		nf_unregister_net_hook(&init_net, pSetup->nf_PRE_ROUTING_hook_ops);
 		kfree(pSetup->nf_PRE_ROUTING_hook_ops);
 	}
-        if (pSetup->nf_POST_ROUTING_hook_ops != NULL) {
+    if (pSetup->nf_POST_ROUTING_hook_ops != NULL) {
 		nf_unregister_net_hook(&init_net, pSetup->nf_POST_ROUTING_hook_ops);
 		kfree(pSetup->nf_POST_ROUTING_hook_ops);
 	}
@@ -287,7 +303,7 @@ static void __exit hello_exit(void)
 		kfree(pSetup->nf_FORWARDING_hook_ops);
 	}
 
-        printk(KERN_INFO "tarakernel: Exiting hello module\n");
+    printk(KERN_INFO "tarakernel: Tarakernel stopped.\n");
 	netlink_kernel_release(pSetup->nl_sk);
 }
 

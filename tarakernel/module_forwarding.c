@@ -92,6 +92,8 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 
 	//Just checking if mark is set in PRE_ROUTING
 
+	#ifdef ALTERNATIVE_TAGGING
+	
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
 
@@ -106,6 +108,8 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 	}
 	else
 		printk("tarakernel: ****** ERROR - Unable to get conntrack info\n");
+	#endif
+
 
 	//pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
 	//initPacket(pPacket, skb, state);
@@ -119,6 +123,9 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 	{
 		bool bForwarding = true;
 		int nRetval = checkFixTagging(pPacket, bForwarding);
+
+
+		#ifdef ALTERNATIVE_TAGGING
 
 		//For now, always set this for test..
 		bool set_tsval = 1;
@@ -138,6 +145,8 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		}
 		else
 			printk("tarakernel: **** Unable to read TSval\n");
+
+		#endif
 
 		checkFree(pPacket, nRetval != NF_ACCEPT /*bLeavingPostRouting*/);
 		return nRetval;

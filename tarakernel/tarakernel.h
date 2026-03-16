@@ -1,4 +1,4 @@
-//absecurity.h
+//#define ALTERNATIVE_TAGGING
 
 #ifndef INCLUDED_ABSECURITY_H
 #define INCLUDED_ABSECURITY_H

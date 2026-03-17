@@ -359,7 +359,39 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
               
 		if (isPartner(pPacket->ip_header->saddr)) 	
 		{
-		    //Check tagging based on DSCP part of ToS (Type of Service)
+			/*
+		    This is probably traffic both to this node and to nodes inside this network (NAT will translate to local IP address). Meaning the same
+		    traffic will also show up in module_forwardning.c...
+	        */
+			union _TagUnion cUnion;
+			cUnion.nBe16 = pPacket->tcp_header->urg_ptr;
+			
+			if (cUnion.nBe16)
+			{
+			    if (cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel)
+			    {
+                    printk("tarakernel: ******* WARNING ***** Dropping tagged data with presumed severity (%u) exceeding blocking threshold (%u). (%s -> %s)\n", cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp); 
+					checkFree(pPacket, true /*bLeavingPostRouting*/);	//leaving POST_ROUTING or returning NF_DROP doesn't matter.. it's leaving the system.
+                    return NF_DROP;
+			    }
+
+		        //Remove the tag by default. This is traffic to the server (forwarded traffic doesn't come here..??????)
+		        //Note! Sometimes (always?) even a Ubuntu computer droppes the package if tagged this way... (maybe because of checksum error?)
+		        sprintf(pSetup->c100, "Tag was (but removed): (%08X) Infected: %u, botnetId: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id, pSetup->nBlockIncomingTaggedTrafficLevel);
+		              
+				pPacket->tcp_header->urg_ptr = 0; //Removing tag. 
+			    recalcChecksum(pPacket);
+
+				//When an incoming packet on a Linux system is tagged using the urg_ptr field, often, the package
+			    //still doesn't go through if the urg_ptr field is cleared at the receiver end. Is this because the URG flag is set somewhere?
+			    //The line below gives compiler error. Is the URG flag somewhere else?
+                //pPacket->tcp_header->URG = 0;
+				//NOTE! THIS IS MOST LIKELY BECASE THE CHECKSUM WAS WRONG. IT'S NOW BEING CALCULATED ABOVE
+			}
+			else
+			    strcpy(pSetup->c100, "(Not tagged)");
+
+			//Check tagging based on DSCP part of ToS (Type of Service)
 			uint8_t dscp = getDscp(pPacket);
 			
 			if (dscp)
@@ -374,40 +406,10 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 
 				if(bBlock)
 				{
-					checkFree(pPacket, false /*bLeavingPostRouting*/);
+					checkFree(pPacket, true /*bLeavingPostRouting*/);	//POST_ROUTING or NF_DROP doesn't matter.. it's leaving the system.
 					return NF_DROP;
 				}
 			}
-			/*
-		    This is probably traffic both to this node and to nodes inside this network (NAT will translate to local IP address). Meaning the same
-		    traffic will also show up in module_forwardning.c...
-	        */
-			union _TagUnion cUnion;
-			cUnion.nBe16 = pPacket->tcp_header->urg_ptr;
-			
-			if (cUnion.nBe16)
-			{
-			    if (cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel)
-			    {
-                    printk("tarakernel: ******* WARNING ***** Dropping tagged data with presumed severity (%u) exceeding blocking threshold (%u). (%s -> %s)\n", cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp); 
-					checkFree(pPacket, false /*bLeavingPostRouting*/);
-                    return NF_DROP;
-			    }
-
-		        //Remove the tag by default. This is traffic to the server (forwarded traffic doesn't come here..??????)
-		        //Note! Sometimes (always?) even a Ubuntu computer droppes the package if tagged this way...
-		        sprintf(pSetup->c100, "Tag was (but removed): (%08X) Infected: %u, botnetId: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id, pSetup->nBlockIncomingTaggedTrafficLevel);
-		              
-				pPacket->tcp_header->urg_ptr = 0; //Removing tag. 
-			    recalcChecksum(pPacket);
-
-				//When an incoming packet on a Linux system is tagged using the urg_ptr field, often, the package
-			    //still doesn't go through if the urg_ptr field is cleared at the receiver end. Is this because the URG flag is set somewhere?
-			    //The line below gives compiler error. Is the URG flag somewhere else?
-                //pPacket->tcp_header->URG = 0;
-			}
-			else
-			    strcpy(pSetup->c100, "(Not tagged)");
 			
 			
 	        if (pSetup->cShowInstructions.bits.showPreRoutePartner)

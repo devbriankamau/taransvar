@@ -107,6 +107,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 
 	if (isPartner(pPacket->ip_header->daddr))
 	{
+		//Packet from our own subnet going to a partner and their subnet.
 		bool bForwarding = true;
 		int nRetval = checkFixTagging(pPacket, bForwarding, state);	//state may be NF_INET_FORWARD??
 
@@ -155,7 +156,8 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		else
   			pSetup->cGlobalStatistics.nFromPartnerUntagged++;
 
-		pPacket->tcp_header->urg_ptr = 0;  //Remove the tag.. This is confidential information..
+		pPacket->tcp_header->urg_ptr = 0;  //Remove the tag when forwarded to subnet.. This is confidential information..
+	    recalcChecksum(pPacket);
 		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}	    

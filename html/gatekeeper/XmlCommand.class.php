@@ -17,7 +17,7 @@ public function __construct()
 static function encoded($szTxt)
 {
     //$szTxt = htmlEncoded($szTxt); //ØT 140207 - removed... required extensive testing...
-    return rawurlencode($szTxt);
+    return (isset($szTxt)?rawurlencode($szTxt):"");
     //return escape($szTxt);
 }
 

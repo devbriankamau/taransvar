@@ -144,10 +144,21 @@ struct _CheckIp {
         u32   ip;
 };
 
+struct syn_seen_key {
+        __be32 saddr;
+        __be32 daddr;
+        __be16 sport;
+        __be16 dport;
+        u32 seq;
+        unsigned long expires;
+    };    
+
+
 #define C_CHECK_ARRAY_SIZE 5
 #define N_MAX_PACKETS_PROCESSING 10
 #define N_MAX_PACKETS_PROCESS N_MAX_PACKETS_PROCESSING -2
-
+#define N_MAX_STOLEN_PACKETS 10
+#define N_MAX_SYN_SEEN 20
 
 struct _Setup {
 	bool bTrafficReportsBeingHandled;
@@ -182,7 +193,11 @@ struct _Setup {
 	
 	struct _CheckIp cCheckThese[C_CHECK_ARRAY_SIZE];
 
-	struct _PacketInspection *pStolenPacket[10];	//Now owning these packages after returning NF_STOLEN
+	//NOTE! Was planning to keep pPackets in memory, but for now, they're being deleted on each hook.. (check this...)... So maybe better save skb???
+	struct _PacketInspection *pStolenPacket[N_MAX_STOLEN_PACKETS];	//Now owning these packages after returning NF_STOLEN
+	struct syn_seen_key *pSynSeen[N_MAX_SYN_SEEN];
+
+
 };
 
 typedef struct _Node _Node;

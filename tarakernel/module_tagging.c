@@ -14,8 +14,82 @@
 static void queue_udp_send_from_skb(struct sk_buff *skb);       //Defined in module_stolen.c
 
 
-int isNewConnection(struct sk_buff *skb)
+int isNewTcpConnection(struct sk_buff *skb);
+int isNewTcpConnection(struct sk_buff *skb)
 {
+    struct iphdr *iph;
+    struct tcphdr _tcph, *tcph;
+
+    if (!skb)
+        return 0;
+
+    if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+        return 0;
+
+    iph = ip_hdr(skb);
+    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+        return 0;
+
+    tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
+    if (!tcph)
+        return 0;
+
+    if (tcph->syn && !tcph->ack) {
+        //printk("tarakernel: TCP SYN seen\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+#define CTMARK_THREAT_SENT 0x100
+
+int shouldSendThreatUdp(struct sk_buff *skb);
+int shouldSendThreatUdp(struct sk_buff *skb)
+{
+    struct nf_conn *ct;
+    enum ip_conntrack_info ctinfo;
+    struct iphdr *iph;
+    struct tcphdr _tcph, *tcph;
+
+    if (!skb)
+        return 0;
+
+    iph = ip_hdr(skb);
+    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+        return 0;
+
+    tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
+    if (!tcph)
+        return 0;
+
+    ct = nf_ct_get(skb, &ctinfo);
+    if (!ct)
+        return 0;
+
+    /* only on SYN */
+    if (!(tcph->syn && !tcph->ack))
+        return 0;
+
+    printk("tarakernel: ct=%px ctinfo=%d mark(before)=0x%x\n", ct, ctinfo, ct->mark);
+
+    if (ct->mark & CTMARK_THREAT_SENT) {
+        printk("tarakernel: threat UDP already sent for this conntrack\n");
+        return 0;
+    }
+
+    ct->mark |= CTMARK_THREAT_SENT;
+
+    printk("tarakernel: ct=%px mark(after)=0x%x\n", ct, ct->mark);
+    printk("tarakernel: first SYN for this conntrack, sending threat UDP\n");
+    return 1;
+}
+
+int isNew(struct sk_buff *skb);
+int isNew(struct sk_buff *skb)
+{
+    //This way of figuring out if it's a new connection cause trouble because we steal packets and retransmit them causing it to always be new...
+
 	//Check if new connection
 	struct nf_conn *ct;
 	enum ip_conntrack_info ctinfo;
@@ -34,7 +108,129 @@ int isNewConnection(struct sk_buff *skb)
 		//else
 		//	printk("tarakernel: ************* related connection **********\n");
 	}
+
+    printk("tarakernel: ************* Established connection.\n");
     return 0;
+
+}
+
+#define SYN_SEEN_TIMEOUT (5 * HZ)
+
+int seen_recently(struct sk_buff *skb);
+int seen_recently(struct sk_buff *skb)
+{
+    struct iphdr *iph;
+    struct tcphdr _tcph, *tcph;
+    int nAvailable = -1;
+    int n;
+    unsigned long now = jiffies;
+
+    if (!skb)
+        return 0;
+
+    iph = ip_hdr(skb);
+    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+        return 0;
+
+    tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
+    if (!tcph)
+        return 0;
+
+    for (n = 0; n < N_MAX_SYN_SEEN; n++)
+    {
+        struct syn_seen_key *pCheck = pSetup->pSynSeen[n];
+
+        if (!pCheck) {
+            if (nAvailable == -1)
+                nAvailable = n;
+            continue;
+        }
+
+        if (time_after(now, pCheck->expires)) {
+            kfree(pCheck);
+            pSetup->pSynSeen[n] = NULL;
+            if (nAvailable == -1)
+                nAvailable = n;
+            continue;
+        }
+
+        if (iph->saddr == pCheck->saddr &&
+            iph->daddr == pCheck->daddr &&
+            tcph->source == pCheck->sport &&
+            tcph->dest == pCheck->dport)
+        {
+            return 1;
+        }
+    }
+
+    if (nAvailable > -1)
+    {
+        struct syn_seen_key *pNew;
+
+        pNew = kmalloc(sizeof(*pNew), GFP_ATOMIC);
+        if (!pNew) {
+            printk("tarakernel: WARNING failed to allocate syn_seen_key\n");
+            return 1;
+        }
+
+        pNew->saddr = iph->saddr;
+        pNew->daddr = iph->daddr;
+        pNew->sport = tcph->source;
+        pNew->dport = tcph->dest;
+        pNew->expires = now + SYN_SEEN_TIMEOUT;
+
+        pSetup->pSynSeen[nAvailable] = pNew;
+        printk("tarakernel: Address saved at slot %d\n", nAvailable);
+        return 0;
+    }
+
+    printk("tarakernel: WARNING table is full\n");
+    return 1;
+}
+
+int isNewConnectionBasedOnStoredIpPortCombo(struct sk_buff *skb);
+int isNewConnectionBasedOnStoredIpPortCombo(struct sk_buff *skb)
+{
+    struct iphdr *iph;
+    struct tcphdr _tcph, *tcph;
+
+    if (!skb)
+        return 0;
+
+    iph = ip_hdr(skb);
+    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+        return 0;
+
+    tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
+
+    if (!tcph)
+        return 0;
+
+    if (!(tcph->syn && !tcph->ack))
+        return 0;
+
+    if (seen_recently(skb)) {
+        printk("tarakernel: SYN already seen recently\n");
+        return 0;
+    }
+
+    printk("tarakernel: first SYN seen recently, send threat UDP\n");
+    return 1;
+}
+
+
+int isNewConnection(struct sk_buff *skb)
+{
+
+    //bool bNew = isNew(skb);       Not working... they're all new
+    //bool bNew = isNewTcpConnection(skb);  NOT WORKING... said all packets are new connection
+    bool bNew = shouldSendThreatUdp(skb);
+    if (bNew)
+		printk("tarakernel: ************* NEW connection ********** Add spceial handling..\n");
+    else
+		printk("tarakernel: ************* related connection **********\n");
+
+    return bNew;
 }
 
 
@@ -288,6 +484,29 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
     if (isNewConnection(pPacket->skb))
     {
+        int nAvailable = -1;
+        //Mark this as stolen so not getting handled again...
+        for (int n = 0; n< N_MAX_STOLEN_PACKETS; n++)
+            if (pSetup->pStolenPacket[n] == pPacket->skb)
+            {
+                printk("Already sent UDP to this.. Dropping it\n");
+                return NF_ACCEPT;
+            }
+            else
+                if (nAvailable == -1 && pSetup->pStolenPacket[n] == 0)
+                    nAvailable = n;
+                    
+        if (nAvailable == -1)
+        {
+            //No available spots found
+            printk("Too many packets stolen.. Dropping it..\n");
+            return NF_ACCEPT;
+        }
+
+        //Note! Meaning only 10 messages will be sent... and probably the same one again and again....
+        pSetup->pStolenPacket[nAvailable] = pPacket;
+
+
         //sendUdpPacketToReceiver(pPacket);
         printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.");
         return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);

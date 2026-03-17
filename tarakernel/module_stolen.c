@@ -157,7 +157,7 @@ static void udp_send_work_cb(struct work_struct *work)
     kfree(job);
 }
 
-
+/* Dave this for later.... may be interesting to queue a UDP package from tarakernel
 static void queue_udp_send_from_skb(struct sk_buff *skb)
 {
     struct iphdr *iph;
@@ -216,6 +216,7 @@ static void queue_udp_send_from_skb(struct sk_buff *skb)
     schedule_work(&job->work);
     printk("tarakernel SENDING: Sending UDP is scheduled!\n");
 }
+    */
 
 
 struct delayed_fwd_job {
@@ -236,7 +237,9 @@ static void delayed_forward_cb(struct work_struct *work)
 
     ret = dev_queue_xmit(job->skb);
     if (ret)
-        printk("tarakernel FORWARD: dev_queue_xmit failed: %d\n", ret);
+        printk("tarakernel SENDING: dev_queue_xmit failed: %d\n", ret);
+    else
+        printk("tarakernel SENDING: Original packet retransmitted\n");
 
 out:
     if (job->outdev)

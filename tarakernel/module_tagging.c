@@ -229,7 +229,7 @@ void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
     //NOTE! Caller return NF_STOLEN
 }//sendUdpPacketToReceiver()
 
-unsigned int tagThePacket(struct _PacketInspection *pPacket)
+unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state)
 {
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
 
@@ -290,16 +290,17 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket)
     {
         //sendUdpPacketToReceiver(pPacket);
         printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.");
-        queue_udp_send_from_skb(pPacket->skb);       //Defined in module_stolen.c
-        return NF_STOLEN;
+        return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);
+        //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
     }
     else
         if (pPacket != pSetup->pStolenPacket[0])
         {
             printk("tarakernel SENDING: Not a new session, but seems not sent before... so sending UDP with threat info to receiver.");
             pSetup->pStolenPacket[0] = pPacket;
-            queue_udp_send_from_skb(pPacket->skb);       //Defined in module_stolen.c
-            return NF_STOLEN;
+            //queue_udp_send_from_skb(pPacket->skb);       //Defined in module_stolen.c
+            //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
+            return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);
         }
 
     printk("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");

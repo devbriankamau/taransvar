@@ -583,7 +583,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 		{
 		        //***** Do tagging in case it's a server and not only a router (routers are tagging while forwarding. See T001)
 		    bool bForwarding = false;   //This is PRE ROUTING, not forwarding
-			int nRetval = checkFixTagging(pPacket, bForwarding);  //Defined in module_forwarding.c
+			int nRetval = checkFixTagging(pPacket, bForwarding, state);  //Defined in module_forwarding.c
 			checkFree(pPacket, true);	//Now leaving POST_ROUTING - so kfree the memory
 			return nRetval;
 		

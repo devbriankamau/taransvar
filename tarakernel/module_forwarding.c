@@ -8,7 +8,7 @@ struct _tagSpecification {
 	unsigned int botNetId;	//Assigned by AkiliBomba
 };
 
-int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
+int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const struct nf_hook_state *state)
 {
 	char *lpPrOrFw = (bForwarding?"FW":"PR");
 	int nSenderIsInfected = isInfected(pPacket->ip_header->saddr);
@@ -42,7 +42,7 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
 			}
                               
 			if (nSenderIsInfected)
-				if (tagThePacket(pPacket) == NF_STOLEN)
+				if (tagThePacket(pPacket, state) == NF_STOLEN)
 					return NF_STOLEN;
 		}
 
@@ -53,7 +53,7 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
   		if (!bCommentPrinted) //Already printed on this package... no need for more.	
        		if (pSetup->cShowInstructions.bits.showForwardPartner)
 				printk("tarakernel: %s: to partner - %s - TAGGING DISABLED\n", lpPrOrFw, lpInfectionStatus);
-								
+
 	if (!bCommentPrinted)		
 		if (nSenderIsInfected || nRequestedAssistance)
 			printk("tarakernel: %s: ****** %s (sending package)\n", lpPrOrFw, lpInfectionStatus);
@@ -108,7 +108,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 	if (isPartner(pPacket->ip_header->daddr))
 	{
 		bool bForwarding = true;
-		int nRetval = checkFixTagging(pPacket, bForwarding);
+		int nRetval = checkFixTagging(pPacket, bForwarding, state);	//state may be NF_INET_FORWARD??
 
 
 		#ifdef ALTERNATIVE_TAGGING

@@ -88,42 +88,6 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 }*/
 
 
-void saveStolenPacket(struct _PacketInspection *pPacket)
-{
-
-    /*
-PRE_ROUTING
-  -> clone/copy if needed
-  -> return NF_STOLEN
-your code later:
-  -> dev_queue_xmit() / ip_local_out() / nf_reinject() equivalent path if you built one
-  OR
-  -> kfree_skb()
-*/
-
-    //pSetup->pStolenPacket[0] = pPacket;    //Only handle one for now...
-
-
-    //struct sk_buff *clone = skb_clone(skb, GFP_ATOMIC);
-    //if (!clone) {
-    //    kfree_skb(skb);
-    //    return NF_STOLEN;
-    //}
-
-    //queue_my_clone(clone);
-
-    //kfree_skb(skb);
-    //return NF_STOLEN;
-
-
-
-
-	//sendUdfPackage(pPacket);
-
-}
-
-
-
 
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -201,30 +165,49 @@ static void queue_udp_send_from_skb(struct sk_buff *skb)
     struct udp_send_job *job;
 
     if (!skb)
+    {
+      printk("tarakernel SENDING: ** ERROR no skb\n");
         return;
+    }
 
     if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-        return;
+    {
+      printk("tarakernel SENDING: ** may not pull skb\n");
+      return;
+    }
 
     iph = ip_hdr(skb);
-    if (!iph || iph->protocol != IPPROTO_UDP)
-        return;
+    if (!iph || iph->protocol != IPPROTO_TCP)
+    {
+      printk("tarakernel SENDING: ** ERROR original packet is not TCP\n");
+      return;
+    }
 
     if (!pskb_may_pull(skb, ip_hdrlen(skb) + sizeof(struct udphdr)))
-        return;
+    {
+      printk("tarakernel SENDING: ** ERROR may not pull payload(?)\n");
+      return;
+    }
 
     udph = udp_hdr(skb);
     if (!udph)
-        return;
+    {
+      printk("tarakernel SENDING: ** ERROR no udph\n");
+      return;
+    }
 
     job = kzalloc(sizeof(*job), GFP_ATOMIC);
     if (!job)
-        return;
+    {
+      printk("tarakernel SENDING: ** ERROR no job\n");
+      return;
+    }
 
     INIT_WORK(&job->work, udp_send_work_cb);
 
     job->daddr = iph->daddr;
-    job->dport = udph->dest;
+    //Change the destination port.... was: job->dport = udph->dest;
+    job->dport = htons(TARALINK_LISTENING_TO_PORT);
 
     snprintf(job->json, sizeof(job->json),
              "{\"event\":\"new-session\",\"dst_port\":%u}",
@@ -233,3 +216,79 @@ static void queue_udp_send_from_skb(struct sk_buff *skb)
     schedule_work(&job->work);
     printk("tarakernel SENDING: Sending UDP is scheduled!\n");
 }
+
+
+struct delayed_fwd_job {
+    struct work_struct work;
+    struct sk_buff *skb;
+    struct net_device *outdev;
+};
+
+static void delayed_forward_cb(struct work_struct *work)
+{
+    struct delayed_fwd_job *job = container_of(work, struct delayed_fwd_job, work);
+    int ret;
+
+    if (!job->skb)
+        goto out;
+
+    job->skb->dev = job->outdev;
+
+    ret = dev_queue_xmit(job->skb);
+    if (ret)
+        printk("tarakernel FORWARD: dev_queue_xmit failed: %d\n", ret);
+
+out:
+    if (job->outdev)
+        dev_put(job->outdev);
+    kfree(job);
+}
+
+
+static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state)
+{
+    struct delayed_fwd_job *job;
+    struct iphdr *iph;
+    struct tcphdr _tcph, *tcph;
+
+    if (!skb || !state)
+    {
+      printk("tarakernel SENDING: No skb or wrong state\n");
+        return NF_ACCEPT;   /* fail open */
+    }
+
+    iph = ip_hdr(skb);
+    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+    {
+      printk("tarakernel SENDING: Not IPv4 TCP\n");
+        return NF_ACCEPT;   /* fail open */
+    }
+
+    tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
+    if (!tcph)
+        return NF_ACCEPT;
+
+    /* send UDP immediately */
+    send_udp_json(iph->daddr, htons(TARALINK_LISTENING_TO_PORT),
+                  "{\"event\":\"tcp_seen\"}");
+
+    /* hold original packet */
+    job = kzalloc(sizeof(*job), GFP_ATOMIC);
+    if (!job)
+    {
+      printk("tarakernel SENDING: Failed to alloc memory\n");
+        return NF_ACCEPT;   /* fail open */
+    }
+
+    INIT_WORK(&job->work, delayed_forward_cb);
+    job->skb = skb;
+    job->outdev = state->out;
+    if (job->outdev)
+        dev_hold(job->outdev);
+
+    schedule_work(&job->work);
+    printk("tarakernel SENDING: Job for sending original packet scheduled\n");
+    return NF_STOLEN;
+}
+
+

@@ -202,7 +202,7 @@ void getMeAndMine(char *lpBuf, int nBufSize);
 int isMeOrMine(unsigned int nIp);
 int isSubNet(unsigned int nIp);
 void debugRoutine(void);  //Defined in module_timing_operations.c, called in tarakernel.c when receiving request for status from taralink.
-int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding);   //module_forwarding.c
+int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const struct nf_hook_state *state);   //module_forwarding.c
 void *memAlloc(int nSize);  //Defined in module_pointer_list.c
 _Node *getNewBefore(_Node *pPointer, int nStructSize);
 _Node *getNewAfter(_Node *pPointer, int nStructSize); //Defined in module_pointer_list.c

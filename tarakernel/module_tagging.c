@@ -146,7 +146,8 @@ int seen_recently(struct sk_buff *skb)
             continue;
         }
 
-        if (time_after(now, pCheck->expires)) {
+        if (0)//time_after(now, pCheck->expires)) 
+        {
             kfree(pCheck);
             pSetup->pSynSeen[n] = NULL;
             if (nAvailable == -1)
@@ -159,6 +160,7 @@ int seen_recently(struct sk_buff *skb)
             tcph->source == pCheck->sport &&
             tcph->dest == pCheck->dport)
         {
+            printk("tarakernel: Record found at slot %d\n",n);
             return 1;
         }
     }
@@ -210,27 +212,32 @@ int isNewConnectionBasedOnStoredIpPortCombo(struct sk_buff *skb)
         return 0;
 
     if (seen_recently(skb)) {
-        printk("tarakernel: SYN already seen recently\n");
+        printk("tarakernel: (from array) SYN already seen recently\n");
         return 0;
     }
 
-    printk("tarakernel: first SYN seen recently, send threat UDP\n");
+    printk("tarakernel: (from array) first SYN seen recently, send threat UDP\n");
     return 1;
 }
 
 
 int isNewConnection(struct sk_buff *skb)
 {
+    //return false;   //ØT 260317 - not working...
 
     //bool bNew = isNew(skb);       Not working... they're all new
     //bool bNew = isNewTcpConnection(skb);  NOT WORKING... said all packets are new connection
-    bool bNew = shouldSendThreatUdp(skb);
+    //bool bNew = shouldSendThreatUdp(skb);
+
+    
+    bool bNew = isNewConnectionBasedOnStoredIpPortCombo(skb);
     if (bNew)
 		printk("tarakernel: ************* NEW connection ********** Add spceial handling..\n");
     else
 		printk("tarakernel: ************* related connection **********\n");
 
     return bNew;
+   
 }
 
 
@@ -512,7 +519,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);
         //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
     }
-    else
+    /*else
         if (pPacket != pSetup->pStolenPacket[0])
         {
             printk("tarakernel SENDING: Not a new session, but seems not sent before... so sending UDP with threat info to receiver.");
@@ -521,6 +528,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
             //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
             return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);
         }
+    */
 
     printk("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");
     return NF_ACCEPT;

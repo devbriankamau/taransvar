@@ -88,7 +88,7 @@ void timer_callback(union sigval timer_data)
 	//Check assistanceRequest mysql table (misc/install.sql) 
 	//printf("About to check for requests for assistance..\n");
 	checkRequestAssistance();
-	//printf("Finished checking for requests for assistance..\n");
+	printf("Finished checking for requests for assistance..\n");
                 
     checkHackReports();   //Checks if there's reported attacks by units in our network  (module_hack_reports.c)              
                 

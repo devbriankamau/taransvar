@@ -182,7 +182,7 @@ struct _Setup {
 	
 	struct _CheckIp cCheckThese[C_CHECK_ARRAY_SIZE];
 
-	struct _PacketInspection *pStolenPackage[10];	//Now owning these packages after returning NF_STOLEN
+	struct _PacketInspection *pStolenPacket[10];	//Now owning these packages after returning NF_STOLEN
 };
 
 typedef struct _Node _Node;

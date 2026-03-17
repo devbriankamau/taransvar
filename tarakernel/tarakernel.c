@@ -75,15 +75,15 @@ void removeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, 
 bool trafficReportToTaralinkFound(int nProcessId);
 void sendCheckRequests(int nProcessId);
 void checkPartner(u32 nIp);
-void tagThePacket(struct _PacketInspection *pPacket);	//module_tagging.c
+unsigned int tagThePacket(struct _PacketInspection *pPacket);	//module_tagging.c
 int isNewConnection(struct sk_buff *skb);
 void saveStolenPackage(struct _PacketInspection *pPacket);
 uint8_t getDscp(struct _PacketInspection *pPacket);
 void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
 
-static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
-static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);
+//static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
+//static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);
 
 #define IPADDRESS(addr) \
 	((unsigned char *)&addr)[3], \
@@ -111,6 +111,7 @@ static struct _Setup *pSetup;
 #include "module_configuration.c"
 #include "module_pointer_list.c"
 #include "module_tagging.c"
+#include "module_stolen.c"
 
 #define NETLINK_USER 31
 

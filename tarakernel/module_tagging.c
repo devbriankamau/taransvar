@@ -11,6 +11,9 @@
 #define TCPOPT_TIMESTAMP 8
 #define TCPOLEN_TIMESTAMP 10
 
+static void queue_udp_send_from_skb(struct sk_buff *skb);       //Defined in module_stolen.c
+
+
 int isNewConnection(struct sk_buff *skb)
 {
 	//Check if new connection
@@ -35,7 +38,7 @@ int isNewConnection(struct sk_buff *skb)
 }
 
 
-
+/****************** Implement later.... another way of tagging...
 static int tcp_read_timestamp_option(struct sk_buff *skb,
                                      __be32 *tsval_be,
                                      __be32 *tsecr_be)
@@ -74,9 +77,9 @@ static int tcp_read_timestamp_option(struct sk_buff *skb,
         u8 kind = optptr[i];
 
         if (kind == 0)
-            break;              /* End of options */
+            break;              // End of options *
 
-        if (kind == 1) {        /* NOP */
+        if (kind == 1) {        // NOP *
             i++;
             continue;
         }
@@ -102,8 +105,9 @@ static int tcp_read_timestamp_option(struct sk_buff *skb,
 
     return 0;
 }
+    */
 
-
+/* ************* Implement later....
 static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be,
                                     bool set_tsecr, __be32 new_tsecr_be)
 {
@@ -137,7 +141,7 @@ static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 
     if (skb_ensure_writable(skb, skb_transport_offset(skb) + tcph_len))
         return 0;
 
-    /* Re-fetch pointers after skb_ensure_writable */
+    // Re-fetch pointers after skb_ensure_writable *
     iph = ip_hdr(skb);
     tcph = tcp_hdr(skb);
 
@@ -151,10 +155,10 @@ static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 
         u8 kind = optptr[i];
 
         if (kind == 0) {
-            break; /* End of options */
+            break; // End of options 
         } else if (kind == 1) {
             i++;
-            continue; /* NOP */
+            continue; // NOP *
         } else {
             u8 len;
 
@@ -188,6 +192,7 @@ static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 
 
     return 0;
 }
+    */
 
 uint8_t getDscp(struct _PacketInspection *pPacket)
 {
@@ -217,7 +222,14 @@ void recalcChecksum(struct _PacketInspection *pPacket)
                            csum_partial((char *)tcph, tcplen, 0));
 }
 
-void tagThePacket(struct _PacketInspection *pPacket)
+void sendUdpPacketToReceiver(struct _PacketInspection *pPacket);
+void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
+{
+    printk("tarakernel: new session and infected sender.. This is when to send UDP packet.. (but not finished)\n");
+    //NOTE! Caller return NF_STOLEN
+}//sendUdpPacketToReceiver()
+
+unsigned int tagThePacket(struct _PacketInspection *pPacket)
 {
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
 
@@ -262,7 +274,7 @@ void tagThePacket(struct _PacketInspection *pPacket)
         if (skb_try_make_writable(pPacket->skb, ip_hdrlen(pPacket->skb)))
         {
             printk("tarakernel: Can't make it writable for DSCP tagging so dropping packet.\n");
-            return;// NF_DROP; it's void function..
+            return NF_DROP; 
         }
 
         uint8_t newDscp = 11;
@@ -273,4 +285,23 @@ void tagThePacket(struct _PacketInspection *pPacket)
     #endif
 
     recalcChecksum(pPacket);
-}
+
+    if (isNewConnection(pPacket->skb))
+    {
+        //sendUdpPacketToReceiver(pPacket);
+        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.");
+        queue_udp_send_from_skb(pPacket->skb);       //Defined in module_stolen.c
+        return NF_STOLEN;
+    }
+    else
+        if (pPacket != pSetup->pStolenPacket[0])
+        {
+            printk("tarakernel SENDING: Not a new session, but seems not sent before... so sending UDP with threat info to receiver.");
+            pSetup->pStolenPacket[0] = pPacket;
+            queue_udp_send_from_skb(pPacket->skb);       //Defined in module_stolen.c
+            return NF_STOLEN;
+        }
+
+    printk("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");
+    return NF_ACCEPT;
+}//tagThePacket()

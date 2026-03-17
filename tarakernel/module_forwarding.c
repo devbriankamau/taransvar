@@ -39,39 +39,25 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding)
 			{       
 				char *lpThisComputer = (!nSenderIsInfected?"not infected": "less severely tagged");       //nRequestedAssistance < nSenderIsInfected
 				printk("tarakernel: %s Target has requested assistance, but this unit is %s (so sending)..: %s->%s, request: %d, this IP: %d\n", lpPrOrFw, lpThisComputer, pPacket->cSourceIp, pPacket->cDestIp, nRequestedAssistance, nSenderIsInfected);
-                                    
 			}
                               
 			if (nSenderIsInfected)
-			{
-				tagThePacket(pPacket);
-
-			    if (isNewConnection(pPacket->skb))
-    			{
-					//module_stolen.c not yet included
-					//saveStolenPackage(pPacket);
-					//ØT 260314 - not yet ready
-					//return NF_STOLEN;	//Return without freeing pPacket because we'll handle it from callback...
-			    }
-			}
-
+				if (tagThePacket(pPacket) == NF_STOLEN)
+					return NF_STOLEN;
 		}
+
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
-		{
 			printk("tarakernel: %s to partner: %s->%s: Tag: (%08X)\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
-		}
 	}
 	else
-        {
   		if (!bCommentPrinted) //Already printed on this package... no need for more.	
-        		if (pSetup->cShowInstructions.bits.showForwardPartner)
+       		if (pSetup->cShowInstructions.bits.showForwardPartner)
 				printk("tarakernel: %s: to partner - %s - TAGGING DISABLED\n", lpPrOrFw, lpInfectionStatus);
-                
-	}
-
+								
 	if (!bCommentPrinted)		
 		if (nSenderIsInfected || nRequestedAssistance)
 			printk("tarakernel: %s: ****** %s (sending package)\n", lpPrOrFw, lpInfectionStatus);
+
 	kfree(lpInfectionStatus);
 	return NF_ACCEPT;
 }

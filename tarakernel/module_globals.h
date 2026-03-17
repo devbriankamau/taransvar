@@ -10,6 +10,7 @@
 //Structs that are used both by absecurity kernel module and abmonitor user space program
 
 #define C_TRAFFIC_REPORT_PREFIX "TRAFFIC|"
+#define TARALINK_LISTENING_TO_PORT      5551
 
 //For some reason, netlink messages seems not to be able to exceed 1050 byte or so, wich equals to around 50 messages. According to google, minimum should be 16kb, some say 4GB
 #define C_TRAFFIC_REPORT_ARRAY_SIZE 49

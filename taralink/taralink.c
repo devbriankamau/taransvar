@@ -87,7 +87,7 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength);
 
 
 
-#define UDP_PORT 5555
+//#define UDP_PORT 5555         now using TARALINK_LISTENING_TO_PORT (tarakernel/module_globals.h)
 #define NETLINK_USER 31   /* example only */
 
 int fd = 0;
@@ -404,7 +404,7 @@ void handle_udp(int udp_fd)
 
     buf[n] = '\0';
 
-    printf("UDP from %s:%d -> %s\n",
+    printf("\n************************ WARNING ***************************\n\nUDP from %s:%d -> %s\n\n",
            inet_ntoa(src.sin_addr),
            ntohs(src.sin_port),
            buf);
@@ -582,7 +582,7 @@ int main(void)
 	init_timer();
 
     int nl_fd = create_netlink_socket();
-    int udp_fd = create_udp_socket(UDP_PORT);
+    int udp_fd = create_udp_socket(TARALINK_LISTENING_TO_PORT);
 
     if (nl_fd < 0 || udp_fd < 0) {
         if (nl_fd >= 0) close(nl_fd);
@@ -590,7 +590,7 @@ int main(void)
         return 1;
     }
 
-    printf("Listening on netlink fd=%d and UDP port %d fd=%d\n", nl_fd, UDP_PORT, udp_fd);
+    printf("Listening on netlink fd=%d and UDP port %d fd=%d\n", nl_fd, TARALINK_LISTENING_TO_PORT, udp_fd);
 
     const char *text = "hello kernel";
 

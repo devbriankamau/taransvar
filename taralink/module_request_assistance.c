@@ -111,12 +111,12 @@ void checkRequestAssistance()
 	MYSQL_ROW row, setupRow;
 	conn = getConnection();
 	updateConn = setupConn = NULL;
-	//printf("Checking requests for assistance.....\n");
+	printf("Checking requests for assistance.....\n");
 
         //Select unhandled (handled is null) assistance requests  
 	char *szSQL = "select hex(ip) as ip, port, category, comment, requestQuality, wantSpoofed, requestId, senderIp, hex(senderIp) as senderIpHex, purpose from assistanceRequest where handled is null";
 
-	//printf("About to loop..... %s\n", szSQL);
+	printf("About to loop..... %s\n", szSQL);
 
 	if (mysql_query(conn, szSQL)) {
 		fprintf(stderr, "%s\n", mysql_error(conn));
@@ -275,7 +275,7 @@ void checkRequestAssistance()
 		}
         }
 
-	//printf("Finished checking requests for assistance.....\n");
+	printf("Finished checking requests for assistance.....\n");
 
 	mysql_free_result(res);
 	mysql_close(conn);

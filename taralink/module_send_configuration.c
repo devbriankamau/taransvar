@@ -79,11 +79,10 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
         //printf("About to check setup\n");
 
-        if (!bReadChangesOnly)
-	    if (fileConfigurationSent(pSockData, nSequenceNumber, bIsInbound))
-	  	return 0;
+	if (!bReadChangesOnly)
+		if (fileConfigurationSent(pSockData, nSequenceNumber, bIsInbound))
+			return 0;
 
-#ifdef USE_MYSQL 
 	MYSQL *conn, *updateConn;
 	MYSQL_RES *res;
 	MYSQL_ROW row;
@@ -535,5 +534,4 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 	
 	
 	return 0;
-      #endif
 }

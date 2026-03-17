@@ -1,6 +1,12 @@
 #ifndef MODULE_GLOBALS_H
 #define MODULE_GLOBALS_H
 
+#ifdef __KERNEL__
+#include <linux/types.h>
+#else
+#include <stdint.h>
+#endif
+
 //Structs that are used both by absecurity kernel module and abmonitor user space program
 
 #define C_TRAFFIC_REPORT_PREFIX "TRAFFIC|"
@@ -52,12 +58,13 @@ struct _Tag { //2 bytes - for use with the tcp_header->urg_ptr until we decide t
 
 union _TagUnion {
 	struct _Tag cTag;
-	__be16 nBe16;
+	//__be16 nBe16; /Unavailable in user space
+        uint16_t nBe16; 
 };
 
 struct _ipPort2 {
 	//volatile uint32_t ip;
-        volatile uint32_t sIp, dIp;
+        volatile uint32_t sIp, dIp;   //NOTE! Probably shouldn't user volatile in kernel....
 	//uint32_t sPort, dPort, nCount;
         unsigned short int sPort, dPort, nCount;  //u32
         union _TagUnion cTagUnion;

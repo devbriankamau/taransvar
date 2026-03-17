@@ -130,7 +130,7 @@ void addWarningRecord_PREPARED_STATEMENT_NOT_WORKING(char *szWarning) //Now work
 
 void addWarningRecord(char *szWarning)
 {
-        MYSQL *conn;
+    MYSQL *conn;
 	int status;
 	//MYSQL_RES *res;
 	MYSQL_ROW row;
@@ -145,9 +145,9 @@ void addWarningRecord(char *szWarning)
 	char szSafeString[2050];
 	if (strlen(szWarning)>=1900) 
 	{
-	        strncpy(szTempMsg, szWarning, 1898);
-	        *(szTempMsg+1898) = 0;
-      	        szWarning = szTempMsg;  //Make szWarning point to the truncated buffer instead.. 
+	    strncpy(szTempMsg, szWarning, 1898);
+	    *(szTempMsg+1898) = 0;
+      	szWarning = szTempMsg;  //Make szWarning point to the truncated buffer instead.. 
 	} 
 		    
 	mysql_real_escape_string(conn, szSafeString, szWarning, strlen(szWarning));
@@ -157,45 +157,47 @@ void addWarningRecord(char *szWarning)
 		fprintf(stderr, "**** ERROR ******* While finding warning: %s\n%s\n", szSQL, mysql_error(conn));
 		return;
 	}
-        MYSQL_RES *res = mysql_use_result(conn);
-        mysql_free_result(res);
+    
+	MYSQL_RES *res = mysql_use_result(conn);
+    mysql_free_result(res);
 
 	if (row = mysql_fetch_row(res)) {
-                int nWarningId = atoi(row[0]);
-	        char szSQL[200];
+        int nWarningId = atoi(row[0]);
+	    char szSQL[200];
 		sprintf(szSQL, "update warning set lastWarned = now(), count = count + 1 where warningId = %d", nWarningId);
-    	        if (mysql_query(conn, szSQL)) {
+    	if (mysql_query(conn, szSQL)) {
 		    fprintf(stderr, "**** ERROR ******* While updating warning: %s\n", mysql_error(conn));
 		    return;
-	        }
+	    }
 	} else {
 		snprintf(szSQL, sizeof(szSQL), "insert into warning (warning) values ('%s')", szSafeString);
-    	        if (mysql_query(conn, szSQL)) {
+    	if (mysql_query(conn, szSQL)) {
 		    fprintf(stderr, "**** ERROR ******* While inserting warning: %s\n", mysql_error(conn));
 		    return;
-	        }
+	    }
 	}
 
-        mysql_close(conn);
+	mysql_close(conn);
 }
+
 
 int addPendingWgetOk(et_wgetCategories eCategory, char *lpUrl, int nRegardingId)  //et_wgetCategories are defined in tarallink.c
 {
-        char szSafeString[2000];
-        if (strlen(lpUrl) >= sizeof(szSafeString) -100)
-        {
-                char *lpMsg = "********* ERROR ******** Url is too long in taralink addPendingWget()"; 
+    char szSafeString[2000];
+    if (strlen(lpUrl) >= sizeof(szSafeString) -100)
+    {
+            char *lpMsg = "********* ERROR ******** Url is too long in taralink addPendingWget()"; 
 	        fprintf(stderr, "%s\n", lpMsg);
 	        return 0;
-        } 
-        else
-        {
-		char szSQL[2500];
-		MYSQL *conn = getConnection();
-		mysql_real_escape_string(conn, szSafeString, lpUrl, strlen(lpUrl));
-		char *lpCategory;
-		switch (eCategory) 
-		{
+    } 
+    else
+    {
+			char szSQL[2500];
+			MYSQL *conn = getConnection();
+			mysql_real_escape_string(conn, szSafeString, lpUrl, strlen(lpUrl));
+			char *lpCategory;
+			switch (eCategory) 
+			{
 		      case e_wget_assistanceRequest:
 		            lpCategory = "'AssistanceRequest'";
 		            break;
@@ -204,8 +206,8 @@ int addPendingWgetOk(et_wgetCategories eCategory, char *lpUrl, int nRegardingId)
 		            break;
 		      default: 
 		            lpCategory = "NULL";
-		}
-		sprintf(szSQL, "insert into pendingWget(url, category, regardingId) values('%s', %s, %d)", szSafeString, lpCategory, nRegardingId);
+			}
+			sprintf(szSQL, "insert into pendingWget(url, category, regardingId) values('%s', %s, %d)", szSafeString, lpCategory, nRegardingId);
 		if (mysql_query(conn, szSQL)) {
 			fprintf(stderr, "**** ERROR ******* While finding warning: %s\n%s\n", szSQL, mysql_error(conn));
 		        return 0;

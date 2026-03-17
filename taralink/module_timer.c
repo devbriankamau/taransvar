@@ -7,6 +7,9 @@
 #include <string.h>
 #include <errno.h>
 
+#include "../tarakernel/module_globals.h" 
+
+
 /*
   This function is deactivated because not able to receive the result.. The reply from tarakernel is the same as sent by abmonitor (request_absecurity_status)
   */
@@ -76,9 +79,9 @@ void timer_callback(union sigval timer_data)
 {
 	char *lpPayload;
 	//struct t_eventData *data = timer_data.sival_ptr;
-	//printf("Timer fired - thread-id: %d\n", gettid());
+	printf("Timer fired - thread-id: %d\n", gettid());
 
-        struct _SocketData *pSockData = 0;
+    struct _SocketData *pSockData = 0;
         
 	
 	//Check if there's unhandled requests for assistance (under d-dos or brute force attack)
@@ -87,21 +90,20 @@ void timer_callback(union sigval timer_data)
 	checkRequestAssistance();
 	//printf("Finished checking for requests for assistance..\n");
                 
-        checkHackReports();   //Checks if there's reported attacks by units in our network  (module_hack_reports.c)              
+    checkHackReports();   //Checks if there's reported attacks by units in our network  (module_hack_reports.c)              
                 
-#ifndef MEMORY_LEAK
 	pSockData = getSockData();
 	getKernelSocket(pSockData);
-#endif	
-	int nSequenceNumber, bIsInbound, bReadChangesOnly;
+
+    int nSequenceNumber, bIsInbound, bReadChangesOnly;
 	int nRetval = sentConfiguration(pSockData, nSequenceNumber=0, bIsInbound=0, bReadChangesOnly=1); 
 	//printf("After sentConfiguration\n");
 
-#ifndef MEMORY_LEAK
-        if (!nRetval)
-        {
-                //NOTE! Reply to messages sent here is picked up by recvmsg called by main() function (see abmonitor.c)... That's why code below is commented out. 
-		sendMessage(pSockData, "request_tarakernel_status");
+    if (!nRetval)
+    {
+        //NOTE! Reply to messages sent here is picked up by recvmsg called by main() function (see abmonitor.c)... That's why code below is commented out. 
+    	printf("Requesting status\n");
+	    sendMessage(pSockData, "request_tarakernel_status");
 	}
 
 //*************** NOTE! Try to comment out to fix big time memory leak.....
@@ -130,7 +132,6 @@ void timer_callback(union sigval timer_data)
 	close (pSockData->sock_fd);
 	free(pSockData->nlh);
 	free(pSockData);
-#endif
 }
     
  

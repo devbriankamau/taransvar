@@ -448,18 +448,16 @@ function addAssistanceRequest()
 	{
 		if(filter_var($_GET["ip"], FILTER_VALIDATE_IP))
 		{
-        		//    echo '(invalid ip: '.$ip.' ('.$_GET["ip"].')';
-	
-			$szSQL = "insert into assistanceRequest(ip, port, category, comment) values (inet_aton('".$_GET["ip"]."'), ?, 'bruteForce', 'Added through dashboard')";
+			$szSQL = "insert into assistanceRequest(ip, port, category, comment, purpose) values (inet_aton(?), ?, 'bruteForce', 'Added through dashboard', 'internalRequest')";
 			$conn = getConnection();
 			$stmt = $conn->prepare($szSQL);
-			$stmt->bind_param("i", $_GET["port"]); //$_GET["ip"], 
-	                $stmt->execute();
-        	        print "I think it's registered...".$_GET["ip"].":".$_GET["port"]."<br><br><a href=\"index.php?f=attack\">See list</a>";
-        	        return;
-        	}
-        	else
-        		print '<font color="red">Error in IP adderss: '.$_GET["ip"].'</font>';
+			$stmt->bind_param("si", $_GET["ip"],$_GET["port"]); //$_GET["ip"], 
+	        $stmt->execute();
+        	print "I think it's registered...".$_GET["ip"].":".$_GET["port"]."<br><br><a href=\"index.php?f=attack\">See list</a>";
+        	return;
+        }
+        else
+        	print '<font color="red">Error in IP adderss: '.$_GET["ip"].'</font>';
 	}
 	?>
         <h2>New assistance request</h2>

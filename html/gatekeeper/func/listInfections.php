@@ -87,7 +87,7 @@ var szUpdateRoutine = "hackReport";
 
     print "<h2>Hacking attempts reported by partners and fans:</h2>";
 
-	$sql = "SELECT reportId, inet_ntoa(ip) as ip, port, inet_ntoa(partnerIp) as partnerIp, partnerPort, status, h.created, hostname, description from hackReport h left outer join unit u on u.unitId = h.unitId order by h.created desc";
+	$sql = "SELECT reportId, inet_ntoa(ip) as ip, port, inet_ntoa(partnerIp) as partnerIp, partnerPort, status, h.created, hostname, description from hackReport h left outer join unit u on u.unitId = h.unitId order by h.created desc limit 50";
 	$result = $conn->query($sql);
 
 	if ($result) 

@@ -614,7 +614,7 @@ sub handleConntrack {
 sub sendPendingWgets {
 	my $dbh = getConnection();
 	my $szSQL = "select wgetId, url, category, regardingId from pendingWget where handled is null";
-        my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
+    my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
 	$sth->execute() or die "execution failed: $sth->errstr()";
 	my $dbhUpdate = 0;
 	print "\nProcessing pending wgets:\n";

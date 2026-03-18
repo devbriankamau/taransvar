@@ -7,8 +7,8 @@
 #Great if you test the generic ones.. If they're not working, you may have to hard code (like I had to).  
 #NOTE! Since this script is run as cron task, and from other dir, the path has to be hardcoded. diagnose.pl will change <developer> to /<your user name>/
 
-#use lib ('.');
-use lib ('/root/taransvar/perl');
+#use lib ('/root/taransvar/perl');
+use lib ('.');
 		
 use strict;
 use warnings;
@@ -42,7 +42,7 @@ if (!runningAsCron() && !runningBootCheck())	#Run "sudo perl crontasks.pl whatev
 
 	#print (networkSetupOk()?"Network set up properly":"Failed to set up network!");
 
-checkRequests();
+	#checkRequests();
 	#startTaraLinkOk();
         #handleConntrack($dbh);
 	#process_dhcpdump($dbh);	#NOTE! Maybe it's risky to run it this often?
@@ -53,7 +53,7 @@ checkRequests();
 	#doKill("taralink");
 	#logDmesg();
 	#checkWhoIs($dbh, $nNumberOfWhoIsLookupsPerIteration);
-	#sendPendingWgets();
+	sendPendingWgets();
 	#checkNetworkSetup();
 	#startFirewall();
 	#dhcpServerStatusOk();

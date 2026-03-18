@@ -215,7 +215,35 @@ function hackReport()
 }
 
 
-include "func/include_getAcivateInfectionLinks.php";
+function getActivateInfectionsLinks($row)
+{
+    //NOTE! Same function probably both here and in func/listInfections.php (because of typing error in include instruction below...)
+	switch ($row["active"])
+	{
+		case "1":
+			$szAction = "deactivate";
+			$szExtraAction = '';
+			break;
+		case "0":
+			$szAction = "activate";
+			$szExtraAction = '<a href="index.php?f=delInfection&action=delete&id='.$row["infectionId"].'">[delete]</a>';
+			break;
+        default:
+            $szAction = $szExtraAction = "ERROR (unknown active)";
+            break;
+	}
+
+	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
+}
+
+/*$szIncFile = "include_printActivateInfectionLinks.php";
+
+if (file_exists($szIncFile))
+    include $szIncFile;
+else
+    if (file_exists("func/".$szIncFile))
+        include "func/".$szIncFile;
+*/
 
 function internalInfections()
 {
@@ -233,19 +261,7 @@ function internalInfections()
         
 		$szActivateLinks = getActivateInfectionsLinks($row); //($row["active"])?"Active":"Disabled"
 
-		$szWho = $row["hostname"].$row["description"];
-
-        if ($row["active"]==0)
-        {
-        	$szF = '<font color="red">';
-			$szFE = "</font>";
-        }
-        else
-        {
-            $szF = $szFE = "";
-        }
-
-        $cArr = array($szF.$row["lastSeen"].$szFE,$szF.$row["ip"].$szFE,$szF.$row["nettmask"].$szFE,$szF.$szWho.$szFE,$szF.$row["status"].$szFE,$szF.$szActivateLinks.$szFE); //
+        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],"&nbsp;","&nbsp;",$szActivateLinks); //
         $szRowId = "inf".$row["infectionId"];
         CXmlCommand::addTableRow("infectionsTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
     }

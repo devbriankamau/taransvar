@@ -1,6 +1,6 @@
 <?php
 
-
+/*
 function getActivateInfectionsLinks($row)
 {
 	switch ($row["active"])
@@ -19,16 +19,16 @@ function getActivateInfectionsLinks($row)
 	}
 
 	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
-}
+}*/
 
-/*$szIncFile = "include_printAcivateInfectionLinks_xxx.php";
+$szIncFile = "include_printActivateInfectionLinks.php";
 
 if (file_exists($szIncFile))
     include $szIncFile;
 else
     if (file_exists("func/".$szIncFile))
         include "func/".$szIncFile;
-*/
+
 
 function listInfections()
 {

@@ -24,7 +24,8 @@ function assistance()
 		$nCount=0;
 		while($row = $result->fetch_assoc()) 
 		{
-	        $cArr = array($row["created"],$row["aIp"],$row["port"],$row["category"],$row["comment"],$row["requestQuality"]); 
+	        $cArr = array($row["requestId"],$row["created"],$row["aIp"],$row["port"],$row["category"],
+						$row["comment"],$row["requestQuality"],$row["purpose"],$row["handled"]); 
     	    $szRowId = "ar".$row["requestId"];
         	CXmlCommand::addTableRow("assistanceTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
 			$nCount++;

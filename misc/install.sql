@@ -55,6 +55,9 @@ update setup set dbVersion = 50;
 alter table setup add nickname varchar(100);
 update setup set dbVersion = 51;
 
+#******** NEXT TIME ALSO add *****
+#alter table pendingWget add reply varchar(255);
+
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 
 #can import DB changes automatically based on the content of this file...

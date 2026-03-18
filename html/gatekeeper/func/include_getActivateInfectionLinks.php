@@ -1,5 +1,5 @@
 <?php
-//To be include by both http and ajax function
+//To be include by both www (func/listInfections.php) and ajax (ajax.php) function
 
 function getActivateInfectionsLinks($row)
 {

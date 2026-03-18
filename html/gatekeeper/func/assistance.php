@@ -7,8 +7,7 @@ function assistance()
 {
 
 	// output data of each row  
-	print '<h2>Assistance Requests:</h2><table id="assistanceTbl">
-		<tr><th colspan=\"2\">Id</td><th colspan=\"2\">Created</td><td>IP</td><td>Port</td></tr>';
+	print '<h2>Assistance Requests:</h2><table id="assistanceTbl"><tr><th>Id</td><th>Created</th><th>IP</th><th>Port</th><th>Category</th><th>Comment</th><th>Quality</th><th>Purpose</th><th>Handled</th></tr>';
 		print "</table>";
 }
 

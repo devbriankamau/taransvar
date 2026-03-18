@@ -1,12 +1,8 @@
 <?php
-//To be include by both http and ajax function
+//To be include by both www (func/listInfections.php) and ajax (ajax.php) function
 
-//Unable to include, so moved to func/listInfections.php and ajax.php
-
-
-function getActivateInfectionLinks($row)
+function getActivateInfectionsLinks($row)
 {
-    //NOTE! Same function probably both here and in func/listInfections.php (because of typing error in include instruction below...)
 	switch ($row["active"])
 	{
 		case "1":

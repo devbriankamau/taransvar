@@ -215,35 +215,14 @@ function hackReport()
 }
 
 
-function getActivateInfectionsLinks($row)
-{
-    //NOTE! Same function probably both here and in func/listInfections.php (because of typing error in include instruction below...)
-	switch ($row["active"])
-	{
-		case "1":
-			$szAction = "deactivate";
-			$szExtraAction = '';
-			break;
-		case "0":
-			$szAction = "activate";
-			$szExtraAction = '<a href="index.php?f=delInfection&action=delete&id='.$row["infectionId"].'">[delete]</a>';
-			break;
-        default:
-            $szAction = $szExtraAction = "ERROR (unknown active)";
-            break;
-	}
-
-	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
-}
-
-/*$szIncFile = "include_printActivateInfectionLinks.php";
+$szIncFile = "include_getActivateInfectionLinks.php";
 
 if (file_exists($szIncFile))
     include $szIncFile;
 else
     if (file_exists("func/".$szIncFile))
         include "func/".$szIncFile;
-*/
+
 
 function internalInfections()
 {
@@ -259,7 +238,7 @@ function internalInfections()
     while ($row = $result->fetch_assoc()) {    
         $szDesc = "-".$row["description"]."-";
         
-		$szActivateLinks = getActivateInfectionsLinks($row); //($row["active"])?"Active":"Disabled"
+		$szActivateLinks = getActivateInfectionLinks($row); //($row["active"])?"Active":"Disabled"
 
         $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],"&nbsp;","&nbsp;",$szActivateLinks); //
         $szRowId = "inf".$row["infectionId"];

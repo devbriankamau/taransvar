@@ -21,7 +21,7 @@ function getActivateInfectionsLinks($row)
 	return '<a href="index.php?f=delInfection&action='.$szAction.'&id='.$row["infectionId"].'">['.$szAction.']</a>'.$szExtraAction.'</td>';
 }*/
 
-$szIncFile = "include_printActivateInfectionLinks.php";
+$szIncFile = "include_getActivateInfectionLinks.php";
 
 if (file_exists($szIncFile))
     include $szIncFile;
@@ -69,7 +69,7 @@ var szUpdateRoutine = "hackReport";
 			}
 			$szWho = $row["hostname"].$row["description"];
 			print '<tr id="inf'.$row["infectionId"].'"><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'</td><td>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td>';
-			$szActivateLinks = getActivateInfectionsLinks($row);
+			$szActivateLinks = getActivateInfectionLinks($row);
 			print $szActivateLinks;
 			print '</td>';
 			//print '<tr><td>'.$row["ip"].'</td><td>'.$row["nettmask"].'</td><td>'.$row["status"].'</td><td></td>';

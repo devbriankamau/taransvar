@@ -7,8 +7,8 @@
 #Great if you test the generic ones.. If they're not working, you may have to hard code (like I had to).  
 #NOTE! Since this script is run as cron task, and from other dir, the path has to be hardcoded. diagnose.pl will change <developer> to /<your user name>/
 
-#use lib ('/root/taransvar/perl');
-use lib ('.');
+use lib ('/root/taransvar/perl');
+#use lib ('.');
 		
 use strict;
 use warnings;

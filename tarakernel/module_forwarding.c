@@ -157,7 +157,8 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
   			pSetup->cGlobalStatistics.nFromPartnerUntagged++;
 
 		pPacket->tcp_header->urg_ptr = 0;  //Remove the tag when forwarded to subnet.. This is confidential information..
-	    recalcChecksum(pPacket);
+		pPacket->tcp_header->urg = 0;		//260318 This may have been forgotten elsewhere....
+	    recalcChecksum(pPacket);	//ØT 260318 - test remove
 		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}	    

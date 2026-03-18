@@ -410,8 +410,59 @@ void setDscp(struct iphdr *iph, uint8_t newDscp)
         ip_send_check(iph);     //unlike urg_ptr, tos is in IP header so have to recalc check sum
 }
 
+void recalc_tcp_checksum(struct sk_buff *skb)
+{
+    struct iphdr *iph;
+    struct tcphdr *tcph;
+    unsigned int ihl;
+    unsigned int tcplen;
+
+    if (!skb)
+    {
+        printk("tarakernel: ** ERROR ** No skb\n");
+        return;
+    }
+
+    if (!pskb_may_pull(skb, sizeof(struct iphdr)))
+    {
+        printk("tarakernel: ** ERROR ** unable to pskb_may_pull()\n");
+        return;
+    }
+
+    iph = ip_hdr(skb);
+    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+    {
+        printk("tarakernel: ** ERROR ** Not ipv4\n");
+        return;
+    }
+
+    ihl = iph->ihl * 4;
+
+    if (!pskb_may_pull(skb, ihl + sizeof(struct tcphdr)))
+    {
+        printk("tarakernel: ** ERROR ** may not pull (2)\n");
+        return;
+    }
+
+    tcph = tcp_hdr(skb);
+
+    /* TCP length from IP total length, not skb->len */
+    tcplen = ntohs(iph->tot_len) - ihl;
+
+    tcph->check = 0;
+    skb->ip_summed = CHECKSUM_NONE;
+
+    tcph->check = tcp_v4_check(tcplen,
+                               iph->saddr,
+                               iph->daddr,
+                               csum_partial((char *)tcph, tcplen, 0));
+}
+
+
 void recalcChecksum(struct _PacketInspection *pPacket)
 {
+    recalc_tcp_checksum(pPacket->skb);
+    /* old version not safe...
     //Recalculate check sums. Wrong check sum is most likely reason why packets are being dropped after setting urg_ptr
 
     struct iphdr *iph = ip_hdr(pPacket->skb);
@@ -423,7 +474,11 @@ void recalcChecksum(struct _PacketInspection *pPacket)
                            iph->saddr,
                            iph->daddr,
                            csum_partial((char *)tcph, tcplen, 0));
+            */
 }
+
+
+
 
 void sendUdpPacketToReceiver(struct _PacketInspection *pPacket);
 void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
@@ -465,7 +520,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
     //15    botnet
     //16    botnet command & control
 
-    #define DO_DSCP_TAGGING
+    //#define DO_DSCP_TAGGING
     
     #ifdef DO_DSCP_TAGGING
     struct iphdr *iph = ip_hdr(pPacket->skb);   //NOTE! Not necessary... iph is already in pPacket scruct????

@@ -116,20 +116,21 @@ void checkRequestAssistance()
         //Select unhandled (handled is null) assistance requests  
 	char *szSQL = "select hex(ip) as ip, port, category, comment, requestQuality, wantSpoofed, requestId, senderIp, hex(senderIp) as senderIpHex, purpose from assistanceRequest where handled is null";
 
-	printf("About to loop..... %s\n", szSQL);
+	//printf("About to loop..... %s\n", szSQL);
 
-	if (mysql_query(conn, szSQL)) {
+	if (mysql_query(conn, szSQL)) 
+	{
 		fprintf(stderr, "%s\n", mysql_error(conn));
-        	printf("Exiting (mysql_query error)...\n");
-        	addWarningRecord("***** ERROR ***** selecting requests for assistance..");
-        	return;
+        printf("Exiting (mysql_query error)...\n");
+        addWarningRecord("***** ERROR ***** selecting requests for assistance..");
+    	return;
 	}
 	res = mysql_use_result(conn);
 
 	while ((row = mysql_fetch_row(res)) != NULL)
 	{
-	        char *lpRequestId = row[6];
-	        char *lpPurpose = row[9];
+        char *lpRequestId = row[6];
+	    char *lpPurpose = row[9];
 		char szUrl[255];
 		char cSQL[255];
 		int bHandled = 0;
@@ -138,10 +139,9 @@ void checkRequestAssistance()
 		//if (!row[7])
 		if (lpPurpose && !strcmp(lpPurpose, "internalRequest"))
 		{
+			printf ("Handling internal request.. %s\n", lpRequestId);
 		
-                        printf ("Handling internal request.. %s\n", lpRequestId);
-		
-        		if (!setupConn) 
+        	if (!setupConn) 
 			{
 				//char cSQL;
 				setupConn = getConnection();
@@ -149,56 +149,58 @@ void checkRequestAssistance()
 				if (!updateConn)
 				      updateConn = getConnection();
 				      
-				if (mysql_query(setupConn, "select inet_ntoa(globalDb1ip) as ip1, inet_ntoa(globalDb2ip) as ip2, inet_ntoa(globalDb3ip) as ip3, inet_ntoa(adminIP) as adminIP from setup")) {
+				if (mysql_query(setupConn, "select inet_ntoa(globalDb1ip) as ip1, inet_ntoa(globalDb2ip) as ip2, inet_ntoa(globalDb3ip) as ip3, inet_ntoa(adminIP) as adminIP from setup")) 
+				{
 					fprintf(stderr, "%s\n", mysql_error(conn));
 					printf("Exiting (setup, mysql_query error)...\n");
-              	                        addWarningRecord("***** ERROR ***** selecting internal requests for assistance..");
+              		addWarningRecord("***** ERROR ***** selecting internal requests for assistance..");
 					return;
 				}
-        	          	setupRes = mysql_use_result(setupConn);
-        	          	if(!setupRes){
-        	          	        printf("Error reading setup... Aborting\n");
-              	                        addWarningRecord("***** ERROR ***** reading setup..");
-        	          	        return;
-        	          	}
+
+        	    setupRes = mysql_use_result(setupConn);
+        	    if(!setupRes){
+        	        printf("Error reading setup... Aborting\n");
+              	    addWarningRecord("***** ERROR ***** reading setup..");
+        	        return;
+        	    }
 				setupRow = mysql_fetch_row(setupRes);
-        	          	if (!setupRow)
-        	          	{
+        	    if (!setupRow)
+        	    {
 					fprintf(stderr, "%s\n", mysql_error(setupConn));
-        	      	                printf("Exiting (setup, mysql_fetch_row error)...\n");
-              	                        addWarningRecord("***** ERROR ***** reading setup row..");
+        	      	printf("Exiting (setup, mysql_fetch_row error)...\n");
+              	    addWarningRecord("***** ERROR ***** reading setup row..");
 					return;
-        	          	}
+        	    }
 			}
 
-                        //This record originatet on this computer.. Probably from misc/checkload.pl
+            //This record originatet on this computer.. Probably from misc/checkload.pl
   			//Send request for assistance to global DB servers (listed in setup).. 
 			bHandled = 1; //Maybe be set to 0 if add pendingWget fails
 			for (int n = 0; n < 3; n++) {
-		        	if (setupRow[n] != NULL) {
+		        if (setupRow[n] != NULL) {
 					char szUrl[255];
 					char *lpMyIp = (row[0]?row[0]:setupRow[3]); //Use assistanceRequest->ip if set, otherwise setup->adminIP (my public IP)
-                        	        int nPort = (row[1]?atoi(row[1]):0);
-                        	        short nWantSpoofed = (row[5]?atoi(row[5]):0);
+                    int nPort = (row[1]?atoi(row[1]):0);
+                    short nWantSpoofed = (row[5]?atoi(row[5]):0);
 					sprintf(szUrl, "http://%s/script/requestAssistance.php?f=request&ip=%s&port=%d&cat=%s&qual=%s&sp=%d",
-						setupRow[n], lpMyIp, nPort, row[2], row[4], nWantSpoofed);
+					setupRow[n], lpMyIp, nPort, row[2], row[4], nWantSpoofed);
 
 					printf("Sending request for assistance (changed): %s\n", szUrl);
-                                  	//MYSQL *handleConn = getConnection();
+                    //MYSQL *handleConn = getConnection();
 			                //updateHandled(handleConn, "assistanceRequest", "requestId", lpRequestId);
   	  			        //mysql_close(handleConn);
   	  			        
-	                  	        bHandled = addPendingWgetOk(e_wget_assistanceRequest, szUrl, atoi(lpRequestId));
+	      	        bHandled = addPendingWgetOk(e_wget_assistanceRequest, szUrl, atoi(lpRequestId));
 					
-                        	        //wget(szUrl, szWgetBuff, sizeof(szWgetBuff));	//Reply may not come immediately(??) so shouldn't use buffers on stack that may no longer be there at the time of reply... (so using static variable defined in abmonitor.c)
+                	//wget(szUrl, szWgetBuff, sizeof(szWgetBuff));	//Reply may not come immediately(??) so shouldn't use buffers on stack that may no longer be there at the time of reply... (so using static variable defined in abmonitor.c)
                         	        
-                        	        //Gets here now because no longer doing wget here.....
-                        	        //printf("******** NEVER GETS HERE\n");
-              	                        //addWarningRecord("***** ERROR ***** ******** NEVER GETS HERE");
+                    //Gets here now because no longer doing wget here.....
+                    //printf("******** NEVER GETS HERE\n");
+              	    //addWarningRecord("***** ERROR ***** ******** NEVER GETS HERE");
 				}
 				else
 				{
-				        printf("Global server %d not specified. Skipping.\n", n+1);
+				    printf("Global server %d not specified. Skipping.\n", n+1);
 				}
 			}
 		}
@@ -212,15 +214,15 @@ void checkRequestAssistance()
 				partnerConn = getConnection();
 				if (mysql_query(partnerConn, "select inet_ntoa(ip) as ip from partnerRouter")) {	
 					fprintf(stderr, "%s\n", mysql_error(partnerConn));
-	       	      	                printf("Exiting (error fetching partners, mysql_query error)...\n");
-              	                        addWarningRecord( "***** ERROR ***** Exiting (error fetching partners, mysql_query error)");
-              	                        return;
+	                printf("Exiting (error fetching partners, mysql_query error)...\n");
+              	    addWarningRecord( "***** ERROR ***** Exiting (error fetching partners, mysql_query error)");
+              	    return;
 				}
-	        	        partnerRes = mysql_use_result(partnerConn);
-    			        bHandled = 1; //Maybe be set to 0 if add pendingWget fails
+	            partnerRes = mysql_use_result(partnerConn);
+    	        bHandled = 1; //Maybe be set to 0 if add pendingWget fails
 	        	        
-	        	        while (partnerRow = mysql_fetch_row(partnerRes))
-	        	        {
+	        	while (partnerRow = mysql_fetch_row(partnerRes))
+	        	{
 		        	        //select hex(ip) as ip, port, category, comment, requestQuality, wantSpoofed, requestId, senderIp, hex(senderIp) as senderIpHex from assistanceRequest where handled is null
 	        	                char cUrl[256];
 					char *lpRequesterIp = (row[0]?row[0]:row[8]); //Use assistanceRequest->ip if set, otherwise senderIpHex 
@@ -241,13 +243,13 @@ void checkRequestAssistance()
 	  			        //mysql_close(partnerConn);
 
 	                  	        //printf("******** WARNING ********* Can't do wget in while loop because never returns...: %s\n", cUrl);
-	                  	        bHandled = addPendingWgetOk(e_wget_assistanceRequest, cUrl, atoi(lpRequestId));
+	                bHandled = addPendingWgetOk(e_wget_assistanceRequest, cUrl, atoi(lpRequestId));
 	                                //wget(cUrl, szWgetBuff, sizeof(szWgetBuff));
               		                //printf("***** ERROR ********* NEVER GETS HERE... wget() never returns...\n");
-	                                //return; 
-	        	        }
+	                        //return; 
+	            }
 			
-	                  	mysql_free_result(partnerRes);
+	          	mysql_free_result(partnerRes);
 	  			mysql_close(partnerConn);
 			}
 			else
@@ -273,9 +275,9 @@ void checkRequestAssistance()
 		{
 			addWarningRecord( "***** ERROR ***** Unhandled record in checkRequestAssistance()");
 		}
-        }
+    }
 
-	printf("Finished checking requests for assistance.....\n");
+	//printf("Finished checking requests for assistance.....\n");
 
 	mysql_free_result(res);
 	mysql_close(conn);

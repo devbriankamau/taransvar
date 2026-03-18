@@ -99,7 +99,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 	        char *lpHandledWhere;
 		conn = getConnection();
 		updateConn = getConnection();
-		printf("Reading configuration.....\n");
+		//printf("Reading configuration.....\n");
 		sprintf(cReply, "CONFIG %d|", nSequenceNumber);
 		
 		//***************** Internal servers **********************

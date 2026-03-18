@@ -192,27 +192,28 @@ int addPendingWgetOk(et_wgetCategories eCategory, char *lpUrl, int nRegardingId)
     } 
     else
     {
-			char szSQL[2500];
-			MYSQL *conn = getConnection();
-			mysql_real_escape_string(conn, szSafeString, lpUrl, strlen(lpUrl));
-			char *lpCategory;
-			switch (eCategory) 
-			{
-		      case e_wget_assistanceRequest:
-		            lpCategory = "'AssistanceRequest'";
-		            break;
-		      case e_wget_other:
-		            lpCategory = "'Other'";
-		            break;
-		      default: 
-		            lpCategory = "NULL";
-			}
-			sprintf(szSQL, "insert into pendingWget(url, category, regardingId) values('%s', %s, %d)", szSafeString, lpCategory, nRegardingId);
+		char szSQL[2500];
+		MYSQL *conn = getConnection();
+		mysql_real_escape_string(conn, szSafeString, lpUrl, strlen(lpUrl));
+		char *lpCategory;
+		switch (eCategory) 
+		{
+		    case e_wget_assistanceRequest:
+		        lpCategory = "'AssistanceRequest'";
+		        break;
+		    case e_wget_other:
+		        lpCategory = "'Other'";
+		        break;
+		    default: 
+		        lpCategory = "NULL";
+		}
+		sprintf(szSQL, "insert into pendingWget(url, category, regardingId) values('%s', %s, %d)", szSafeString, lpCategory, nRegardingId);
+		
 		if (mysql_query(conn, szSQL)) {
 			fprintf(stderr, "**** ERROR ******* While finding warning: %s\n%s\n", szSQL, mysql_error(conn));
-		        return 0;
+		    return 0;
 		}
-  	        return 1;
+  	    return 1;
 	}
 }
 

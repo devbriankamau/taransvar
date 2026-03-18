@@ -11,7 +11,7 @@
 #define TCPOPT_TIMESTAMP 8
 #define TCPOLEN_TIMESTAMP 10
 
-static void queue_udp_send_from_skb(struct sk_buff *skb);       //Defined in module_stolen.c
+//static void queue_udp_send_from_skb(struct sk_buff *skb);       //Defined in module_stolen.c
 
 
 int isNewTcpConnection(struct sk_buff *skb);
@@ -491,6 +491,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
     if (isNewConnection(pPacket->skb))
     {
+        /*  Don't do this for now... Sending it directly for callback
         int nAvailable = -1;
         //Mark this as stolen so not getting handled again...
         for (int n = 0; n< N_MAX_STOLEN_PACKETS; n++)
@@ -509,10 +510,9 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
             printk("Too many packets stolen.. Dropping it..\n");
             return NF_ACCEPT;
         }
-
         //Note! Meaning only 10 messages will be sent... and probably the same one again and again....
         pSetup->pStolenPacket[nAvailable] = pPacket;
-
+            */
 
         //sendUdpPacketToReceiver(pPacket);
         printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.");

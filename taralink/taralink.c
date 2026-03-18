@@ -415,7 +415,7 @@ void interpretFromKernel(char *lpPayload, int nDataLength)
 {
    	int nSequenceNumber = -1;   //Implemented in case needs to send in several portions... But that's not an issue yet...
 
-    printf("About to interpret message from kernel: %s", lpPayload);
+    //printf("About to interpret message from kernel: %s", lpPayload);
 
     if (isConfigurationRequest(lpPayload, &nSequenceNumber))
     {
@@ -509,16 +509,15 @@ void handle_netlink(int nl_fd)
     struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
 
     printf("Netlink message received: %d bytes\n", nDataLength);
-    printf("nlmsg_len=%u nlmsg_pid=%u nlmsg_type=%u nlmsg_flags=0x%x\n",
-           nlh->nlmsg_len, nlh->nlmsg_pid, nlh->nlmsg_type, nlh->nlmsg_flags);
+    //printf("nlmsg_len=%u nlmsg_pid=%u nlmsg_type=%u nlmsg_flags=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_pid, nlh->nlmsg_type, nlh->nlmsg_flags);
 
     if (NLMSG_OK(nlh, nDataLength)) {
 
         int payload_len = NLMSG_PAYLOAD(nlh, 0);
         char *payload = (char *)NLMSG_DATA(nlh);
 
-        printf("payload length = %d\n", payload_len);
-        printf("payload = %.*s\n", payload_len, payload); 
+        //printf("payload length = %d\n", payload_len);
+        //printf("payload = %.*s\n", payload_len, payload); 
         
         interpretFromKernel(payload, payload_len);
         //asdf 

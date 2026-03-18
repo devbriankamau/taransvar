@@ -13,6 +13,7 @@
 #include <net/sock.h>
 */
 
+/*
 static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 {
   struct iphdr *iph;
@@ -48,8 +49,8 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
     }
 
     addr.sin_family = AF_INET;
-    addr.sin_addr.s_addr = iph->daddr;   /* skb destination IP */
-    addr.sin_port = TARALINK_LISTENING_TO_PORT;//udph->dest;          /* skb destination UDP port */
+    addr.sin_addr.s_addr = iph->daddr;   // skb destination IP 
+    addr.sin_port = TARALINK_LISTENING_TO_PORT;//udph->dest;          // skb destination UDP port 
 
     msg.msg_name = &addr;
     msg.msg_namelen = sizeof(addr);
@@ -67,7 +68,7 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 
     sock_release(sock);
     return ret;
-}
+}*/
 
 /*unsigned int hookfnHandleStolenPacket(...) 
 {
@@ -146,6 +147,7 @@ static int send_udp_json(__be32 daddr, __be16 dport, const char *json)
     return ret;
 }
 
+/*
 static void udp_send_work_cb(struct work_struct *work)
 {
   //This is the callback function...
@@ -155,7 +157,7 @@ static void udp_send_work_cb(struct work_struct *work)
     send_udp_json(job->daddr, job->dport, job->json);
 
     kfree(job);
-}
+}*/
 
 /* Dave this for later.... may be interesting to queue a UDP package from tarakernel
 static void queue_udp_send_from_skb(struct sk_buff *skb)

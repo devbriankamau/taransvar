@@ -250,7 +250,7 @@ out:
 }
 
 
-static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state)
+static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString)
 {
     struct delayed_fwd_job *job;
     struct iphdr *iph;
@@ -274,8 +274,7 @@ static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const 
         return NF_ACCEPT;
 
     /* send UDP immediately */
-    send_udp_json(iph->daddr, htons(TARALINK_LISTENING_TO_PORT),
-                  "{\"event\":\"tcp_seen\"}");
+    send_udp_json(iph->daddr, htons(TARALINK_LISTENING_TO_PORT), "{\"event\":\"tcp_seen\"}");   //ØT asdfasdf
 
     /* hold original packet */
     job = kzalloc(sizeof(*job), GFP_ATOMIC);

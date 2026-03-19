@@ -492,14 +492,14 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 {
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
 
-    #define DO_URG_PTR_TAGGING
-
-    #ifdef DO_URG_PTR_TAGGING
-    //***************Using urg_ptr **************************
 	union _TagUnion cUnion;
 	cUnion.cTag.version_no = TAG_VERSION_NO;
 	cUnion.cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
 	cUnion.cTag.botnet_id = 99; //To be assigned by Taransvar.. To be implemented later...
+
+    #define DO_URG_PTR_TAGGING
+    #ifdef DO_URG_PTR_TAGGING
+    //***************Using urg_ptr **************************
 	pPacket->tcp_header->urg_ptr= cUnion.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 	pSetup->cGlobalStatistics.nOutboundTagged++;
     #endif
@@ -547,6 +547,11 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
     if (isNewConnection(pPacket->skb))
     {
+        char cUdpTagString[100];
+
+        //cUdpTagString is the string to send as UDP packet to receiver if it's a new connection... 
+        //Search "Tagging UDP msg coding/decoding" for usage in source
+        sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
         /*  Don't do this for now... Sending it directly for callback
         int nAvailable = -1;
         //Mark this as stolen so not getting handled again...
@@ -571,8 +576,8 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
             */
 
         //sendUdpPacketToReceiver(pPacket);
-        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.\n");
-        return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);
+        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver: %s.\n", cUdpTagString);
+        return sendUdpPackageAndQueueRetransmit(pPacket->skb, state, cUdpTagString);
         //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
     }
     /*else

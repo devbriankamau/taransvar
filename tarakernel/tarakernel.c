@@ -81,7 +81,7 @@ void saveStolenPackage(struct _PacketInspection *pPacket);
 uint8_t getDscp(struct _PacketInspection *pPacket);
 void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
-static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state);
+static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
 
 
 //static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
@@ -164,6 +164,17 @@ int udpMsgFromSender(char *lpPayload)
 	if (strstr(lpPayload, UDP_MSG_PREFIX)== lpPayload)
 	{
 		printk("tarakernel SENDING: ***** RECEIVED UDP message from sender via taralink: %s\n", lpPayload);
+
+        //Search "Tagging UDP msg coding/decoding" for usage in source
+        //Coded by: sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
+		unsigned int dIp, dPort, dVersion, dInfected, dBotnet;
+		int nFlds;
+
+		if ((nFlds = sscanf(lpPayload, "%d:%d^%d^%d^%d", &dIp, &dPort, &dVersion, &dInfected, &dBotnet)) == 5) 
+			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %d:%d^%d^%d^%d\n", dIp, dPort, dVersion, dInfected, dBotnet);
+		else
+			printk("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);
+
 		return 1;
 	}
 

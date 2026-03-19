@@ -38,10 +38,10 @@ void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const st
 	pPacket->state = state;
 	pPacket->ip_header = ip_hdr(skb); 
 
-        ip = pPacket->sIp = ntohl(pPacket->ip_header->saddr);
+    ip = pPacket->sIp = ntohl(pPacket->ip_header->saddr);
 	sprintf(pPacket->cSourceIp, "%u.%u.%u.%u", IPADDRESS(ip));
 
-        ip = pPacket->dIp = ntohl(pPacket->ip_header->daddr);
+    ip = pPacket->dIp = ntohl(pPacket->ip_header->daddr);
 	sprintf(pPacket->cDestIp, "%u.%u.%u.%u", IPADDRESS(ip));
 
 	pPacket->nTotLen = pPacket->ip_header->tot_len;

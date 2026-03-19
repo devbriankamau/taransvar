@@ -392,26 +392,25 @@ int create_netlink_socket(void)
 
 void handle_udp(int udp_fd)
 {
+    //#define UDP_MSG_PREFIX "UDP_JSON:"    Defined in tarakernel/module_globals.h
     char buf[2048+strlen(UDP_MSG_PREFIX)];
     struct sockaddr_in src;
     socklen_t slen = sizeof(src)-strlen(UDP_MSG_PREFIX);
     strcpy(buf, UDP_MSG_PREFIX);
 
-    #define UDP_MSG_PREFIX "UDP_JSON"
-    int n = recvfrom(udp_fd, buf + strlen(UDP_MSG_PREFIX), sizeof(buf) - 1 - strlen(UDP_MSG_PREFIX), 0, (struct sockaddr *)&src, &slen);
+    int n = recvfrom(udp_fd, buf + strlen(UDP_MSG_PREFIX), sizeof(buf) - 1, 0, (struct sockaddr *)&src, &slen);
     if (n < 0) {
         perror("recvfrom");
         return;
     }
 
-    buf[n] = '\0';
+    buf[n+strlen(UDP_MSG_PREFIX)] = '\0';
 
     printf("\n************************ WARNING ***************************\n\nUDP from %s:%d -> %s\n\n",
            inet_ntoa(src.sin_addr),
            ntohs(src.sin_port),
            buf);
 
-    //    #define UDP_MSG_PREFIX "UDP_JSON"
     send_to_kernel(fd, buf, strlen(buf) + 1);
 }
 

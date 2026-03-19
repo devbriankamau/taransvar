@@ -571,7 +571,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
             */
 
         //sendUdpPacketToReceiver(pPacket);
-        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.");
+        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver.\n");
         return sendUdpPackageAndQueueRetransmit(pPacket->skb, state);
         //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
     }
@@ -586,6 +586,6 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         }
     */
 
-    printk("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");
+    //printk("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");
     return NF_ACCEPT;
 }//tagThePacket()

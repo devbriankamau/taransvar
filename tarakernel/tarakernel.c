@@ -167,7 +167,7 @@ int udpMsgFromSender(char *lpPayload)
 		return 1;
 	}
 
-	printk("tarakernel SENDING: Not UDP message: %s\n", lpPayload);
+	//printk("tarakernel SENDING: Not UDP message: %s\n", lpPayload);
 	return 0;
 }
 

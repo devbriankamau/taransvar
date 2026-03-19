@@ -573,11 +573,11 @@ int send_to_kernel(int fd, const void *data, size_t len)
     if (ret < 0)
     {
         perror("sendmsg");
-        printf("\n***** ERROR sending message to kernel: %s\n", (char*)data));
+        printf("\n***** ERROR sending message to kernel: %s\n", (char*)data);
     }
 
     free(nlh);
-    printf("\n***** Probably successfull sending message to kernel: %s\n", (char*)data));
+    printf("\n***** Probably successfull sending message to kernel: %s\n", (char*)data);
     return ret;
 }
 

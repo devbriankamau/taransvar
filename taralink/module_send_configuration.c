@@ -30,9 +30,7 @@ int fileConfigurationSent(struct _SocketData *pSockData, int nSequenceNumber, in
 	FILE *file;
 	int nThreadId;
 
-	#define CONFIG_FILENAME "NO_LONGER_IN USE.cfg"
-
-	if ((file = fopen(CONFIG_FILENAME, "r")))
+		if ((file = fopen(CONFIG_FILENAME, "r")))
 	{
 		char cBuf[C_BUF_SIZE];
 		fgets(cBuf, C_BUF_SIZE, file);	

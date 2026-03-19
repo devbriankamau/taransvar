@@ -114,7 +114,7 @@ void checkRequestAssistance()
 	printf("Checking requests for assistance.....\n");
 
         //Select unhandled (handled is null) assistance requests  
-	char *szSQL = "select hex(ip) as ip, port, category, comment, requestQuality, wantSpoofed, requestId, senderIp, hex(senderIp) as senderIpHex, purpose from assistanceRequest where handled is null";
+	char *szSQL = "select hex(ip) as ip, port, category, comment, coalesce(requestQuality,0) as requestQuality, wantSpoofed, requestId, senderIp, hex(senderIp) as senderIpHex, purpose from assistanceRequest where handled is null";
 
 	//printf("About to loop..... %s\n", szSQL);
 
@@ -147,7 +147,7 @@ void checkRequestAssistance()
 				setupConn = getConnection();
 				
 				if (!updateConn)
-				      updateConn = getConnection();
+				    updateConn = getConnection();
 				      
 				if (mysql_query(setupConn, "select inet_ntoa(globalDb1ip) as ip1, inet_ntoa(globalDb2ip) as ip2, inet_ntoa(globalDb3ip) as ip3, inet_ntoa(adminIP) as adminIP from setup")) 
 				{
@@ -259,13 +259,14 @@ void checkRequestAssistance()
 					bHandled = 1; //Set it to handle.. Don't want them to accumulate.
 				}
 				else
-				{
-					printf("************* ERROR - unknown assistanceRequest.purpose: %s... Not supposed to happen.\n", lpPurpose);
-					bHandled = 1; //Set it to handle.. Don't want them to accumulate.
-				}
-                              //else: What's not handled here is purpose == 'fromPartner'.. Determins if outbound presumed infected traffic is dropped 
-                if (bHandled)
-                {
+					if (strcmp(lpPurpose, "fromPartner"))
+					{
+						printf("************* ERROR - unknown assistanceRequest.purpose: %s... Not supposed to happen.\n", lpPurpose);
+						bHandled = 1; //Set it to handle.. Don't want them to accumulate.
+					}
+            		
+		if (bHandled)
+        {
 			//This is a request from partner to relieve ddos or brute force attack. Distribute to all partners...
 			MYSQL *conn = getConnection();
 			updateHandled(conn, "assistanceRequest", "requestId", lpRequestId);
@@ -283,8 +284,8 @@ void checkRequestAssistance()
 	mysql_close(conn);
 	
 	if (setupConn) {
-        	if (setupRes)
-          	      mysql_free_result(setupRes);
+        if (setupRes)
+        	mysql_free_result(setupRes);
 		mysql_close(setupConn);
 	}
 	

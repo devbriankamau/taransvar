@@ -15,6 +15,7 @@
 #include <sys/syscall.h>
 #include <netdb.h>
 #include <sys/types.h>
+
 #include <netinet/in.h>
 
 
@@ -391,12 +392,13 @@ int create_netlink_socket(void)
 
 void handle_udp(int udp_fd)
 {
-    char buf[2048];
+    char buf[2048+strlen(UDP_MSG_PREFIX)];
     struct sockaddr_in src;
-    socklen_t slen = sizeof(src);
+    socklen_t slen = sizeof(src)-strlen(UDP_MSG_PREFIX);
+    strcpy(buf, UDP_MSG_PREFIX);
 
-    int n = recvfrom(udp_fd, buf, sizeof(buf) - 1, 0,
-                     (struct sockaddr *)&src, &slen);
+    #define UDP_MSG_PREFIX "UDP_JSON"
+    int n = recvfrom(udp_fd, buf + strlen(UDP_MSG_PREFIX), sizeof(buf) - 1 - strlen(UDP_MSG_PREFIX), 0, (struct sockaddr *)&src, &slen);
     if (n < 0) {
         perror("recvfrom");
         return;
@@ -408,6 +410,9 @@ void handle_udp(int udp_fd)
            inet_ntoa(src.sin_addr),
            ntohs(src.sin_port),
            buf);
+
+    //    #define UDP_MSG_PREFIX "UDP_JSON"
+    send_to_kernel(fd, buf, strlen(buf) + 1);
 }
 
 void interpretFromKernel(char *lpPayload, int nDataLength);

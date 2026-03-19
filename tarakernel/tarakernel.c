@@ -158,6 +158,19 @@ void sendTestMessage(int nProcessId)
 {
 }
 
+int udpMsgFromSender(char *lpPayload);
+int udpMsgFromSender(char *lpPayload)
+{
+	if (strstr(lpPayload, UDP_MSG_PREFIX)== lpPayload)
+	{
+		printk("tarakernel SENDING: ***** RECEIVED UDP message from sender via taralink: %s\n", lpPayload);
+		return 1;
+	}
+
+	printk("tarakernel SENDING: Not UDP message: %s\n", lpPayload);
+	return 0;
+}
+
 static void hello_nl_recv_msg(struct sk_buff *skb)
 {
         //The idea here is that taralink manages the traffic by directing tarakernel on what to do. (lpPayload will hold the instructions)
@@ -187,18 +200,21 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 	{
 	    sendCheckRequests(nlhead->nlmsg_pid);    //Defined in module_timed_operations.c 
 	    debugRoutine(); //Defined in module_timed_operations.c
-	        
-	    //*************** NOTE! Make changes here... probably never sends status as long as there's traffic....
-		if (trafficReportToTaralinkFound(nlhead->nlmsg_pid)) //Defined in module_timed_operations.c
-		{
-		        //Also logged by trafficReportToTaralinkFound()
-			//if (pSetup->cShowInstructions.bits.showOther)
-			//	printk(KERN_INFO "tarakernel: Traffic report sent to taralink\n");
-					
+
+		if (udpMsgFromSender(lpPayload))
 			return;
-		}
 		else
-			if (!strcmp(lpPayload, "request_tarakernel_status"))
+		    //*************** NOTE! Make changes here... probably never sends status as long as there's traffic....
+			if (trafficReportToTaralinkFound(nlhead->nlmsg_pid)) //Defined in module_timed_operations.c
+			{
+			        //Also logged by trafficReportToTaralinkFound()
+				//if (pSetup->cShowInstructions.bits.showOther)
+				//	printk(KERN_INFO "tarakernel: Traffic report sent to taralink\n");
+					
+				return;
+			}
+			else
+				if (!strcmp(lpPayload, "request_tarakernel_status"))
 			{
 			        //sendTestMessage(nlhead->nlmsg_pid); //Or do other debug stuff...
 				checkRequestForStatus(nlhead->nlmsg_pid, lpPayload);   //Defined in module_status.c

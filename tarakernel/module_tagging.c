@@ -410,6 +410,7 @@ void setDscp(struct iphdr *iph, uint8_t newDscp)
         ip_send_check(iph);     //unlike urg_ptr, tos is in IP header so have to recalc check sum
 }
 
+void recalc_tcp_checksum(struct sk_buff *skb);
 void recalc_tcp_checksum(struct sk_buff *skb)
 {
     struct iphdr *iph;

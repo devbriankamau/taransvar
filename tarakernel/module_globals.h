@@ -9,6 +9,7 @@
 
 //Structs that are used both by absecurity kernel module and abmonitor user space program
 
+#define UDP_MSG_PREFIX "UDP_JSON:"
 #define C_TRAFFIC_REPORT_PREFIX "TRAFFIC|"
 #define TARALINK_LISTENING_TO_PORT      5551
 

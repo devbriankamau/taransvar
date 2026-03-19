@@ -30,6 +30,8 @@ int fileConfigurationSent(struct _SocketData *pSockData, int nSequenceNumber, in
 	FILE *file;
 	int nThreadId;
 
+	#define CONFIG_FILENAME "NO_LONGER_IN USE.cfg"
+
 	if ((file = fopen(CONFIG_FILENAME, "r")))
 	{
 		char cBuf[C_BUF_SIZE];
@@ -392,14 +394,14 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		
 		while ((row = mysql_fetch_row(res)) != NULL)
 		{
-		        int nActive;
-        		if (!nFound)
+		    int nActive;
+        	if (!nFound)
 				strcpy(cReply+strlen(cReply), "ASSIST|");
 				
 			nActive = (atoi(row[6])? 1 : 0);
 
-                        //printf("Assistance request: %s:%s-%s-%s-%d\n", row[1], row[2], row[3], row[4], nActive);
-			sprintf(cReply+strlen(cReply), "%s:%s-%s-%s-%d^", row[1], row[2], row[3], row[4], nActive);
+            //printf("Assistance request: %s:%s-%s-%s-%d\n", row[1], row[2], row[3], row[4], nActive);
+			sprintf(cReply+strlen(cReply), "%s:%s-%s-%s-%d^", row[1], (row[2]?row[2]:"0"), row[3], row[4], nActive);
 			nFound++;
 			updateHandled(updateConn, "assistanceRequest", "requestId", row[0]);
 		}

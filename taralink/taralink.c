@@ -513,7 +513,7 @@ void handle_netlink(int nl_fd)
 
     struct nlmsghdr *nlh = (struct nlmsghdr *)buf;
 
-    printf("Netlink message received: %d bytes\n", nDataLength);
+    //printf("Netlink message received: %d bytes\n", nDataLength);
     //printf("nlmsg_len=%u nlmsg_pid=%u nlmsg_type=%u nlmsg_flags=0x%x\n", nlh->nlmsg_len, nlh->nlmsg_pid, nlh->nlmsg_type, nlh->nlmsg_flags);
 
     if (NLMSG_OK(nlh, nDataLength)) {
@@ -571,9 +571,13 @@ int send_to_kernel(int fd, const void *data, size_t len)
 
     ret = sendmsg(fd, &msg, 0);
     if (ret < 0)
+    {
         perror("sendmsg");
+        printf("\n***** ERROR sending message to kernel: %s\n", (char*)data));
+    }
 
     free(nlh);
+    printf("\n***** Probably successfull sending message to kernel: %s\n", (char*)data));
     return ret;
 }
 

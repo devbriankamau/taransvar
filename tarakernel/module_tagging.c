@@ -155,10 +155,9 @@ int seen_recently(struct sk_buff *skb)
             continue;
         }
 
-        if (iph->saddr == pCheck->saddr &&
-            iph->daddr == pCheck->daddr &&
-            tcph->source == pCheck->sport &&
-            tcph->dest == pCheck->dport)
+        //NOTE! No need to save from- to combination... we're only interested in infections on source.. no matter who they're communicating with
+//        if (iph->saddr == pCheck->saddr && iph->daddr == pCheck->daddr && tcph->source == pCheck->sport && tcph->dest == pCheck->dport)
+        if (iph->saddr == pCheck->saddr && tcph->source == pCheck->sport)
         {
             printk("tarakernel: Record found at slot %d\n",n);
             return 1;
@@ -176,13 +175,14 @@ int seen_recently(struct sk_buff *skb)
         }
 
         pNew->saddr = iph->saddr;
-        pNew->daddr = iph->daddr;
+        //pNew->daddr = iph->daddr;
         pNew->sport = tcph->source;
-        pNew->dport = tcph->dest;
+        //pNew->dport = tcph->dest;
         pNew->expires = now + SYN_SEEN_TIMEOUT;
 
         pSetup->pSynSeen[nAvailable] = pNew;
-        printk("tarakernel: Address saved at slot %d\n", nAvailable);
+
+        printk("tarakernel: Address saved at slot %d (%pI4:%d)\n", nAvailable, &iph->saddr, ntohs(tcph->source));   
         return 0;
     }
 
@@ -433,7 +433,7 @@ void recalc_tcp_checksum(struct sk_buff *skb)
     iph = ip_hdr(skb);
     if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
     {
-        printk("tarakernel: ** ERROR ** Not ipv4\n");
+        printk("tarakernel: ** ERROR ** Not ipv4 when recalcing TPC checksum\n");
         return;
     }
 
@@ -540,20 +540,32 @@ int isRequestForThreatElaboration(struct _PacketInspection *pPacket)
     unsigned int payload_len;
 
     if (!pPacket->skb)
+    {
+        printk("tarakernel SENDING: *** ERROR ***  No skb\n");
         return 0;//NF_ACCEPT;
+    }
 
     /* Ensure we can access IP header */
     if (!pskb_may_pull(pPacket->skb, sizeof(struct iphdr)))
+    {
+        printk("tarakernel SENDING: *** ERROR ***  May not pull\n");
         return 0;//NF_ACCEPT;
+    }
 
     iph = ip_hdr(pPacket->skb);
 
     if (iph->protocol != IPPROTO_UDP)
+    {
+        printk("tarakernel SENDING: *** ERROR *** Not UDP\n");
         return 0;//NF_ACCEPT;
+    }
 
     /* Ensure we can access UDP header */
     if (!pskb_may_pull(pPacket->skb, ip_hdrlen(pPacket->skb) + sizeof(struct udphdr)))
+    {
+        printk("tarakernel SENDING: *** ERROR ***  May not pull(2)\n");
         return 0;//NF_ACCEPT;
+    }
 
     udph = udp_hdr(pPacket->skb);
 
@@ -565,7 +577,10 @@ int isRequestForThreatElaboration(struct _PacketInspection *pPacket)
 
     /* Safety check */
     if (payload_len <= 0)
-        return NF_ACCEPT;
+    {
+        printk("tarakernel SENDING: *** ERROR ***  No payload\n");
+        return 0;//NF_ACCEPT;
+    }
 
     /* Now you can read payload[0..payload_len-1] */
     printk("tarakernel: ******* NOT HANDLED! ***** Probably request for elaborated threat info????: %s\n", payload);
@@ -661,7 +676,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
             */
 
         //sendUdpPacketToReceiver(pPacket);
-        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver: %s.\n", cUdpTagString);
+        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &pPacket->ip_header->daddr, ntohs(TARALINK_LISTENING_TO_PORT), cUdpTagString);
         return sendUdpPackageAndQueueRetransmit(pPacket->skb, state, cUdpTagString);
         //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
     }

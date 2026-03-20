@@ -186,7 +186,7 @@ int seen_recently(struct sk_buff *skb)
         return 0;
     }
 
-    printk("tarakernel: WARNING table is full\n");
+    printk("tarakernel: WARNING setup->pSynSeen table is full (%d slots)\n", N_MAX_SYN_SEEN);
     return 1;
 }
 
@@ -212,11 +212,11 @@ int isNewConnectionBasedOnStoredIpPortCombo(struct sk_buff *skb)
         return 0;
 
     if (seen_recently(skb)) {
-        printk("tarakernel: (from array) SYN already seen recently\n");
+        printk("tarakernel: SYN already seen recently (based on stored info)\n");
         return 0;
     }
 
-    printk("tarakernel: (from array) first SYN seen recently, send threat UDP\n");
+    printk("tarakernel: Not a stored ip/port combo. Send threat UDP\n");
     return 1;
 }
 

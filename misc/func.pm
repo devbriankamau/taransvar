@@ -8,9 +8,7 @@
 package func;
 use strict;
 use warnings;
-use Exporter;
-
-our @ISA= qw( Exporter );
+use Exporter qw(import);
 
 # these CAN be exported.
 our @EXPORT_OK = qw();

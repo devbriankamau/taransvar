@@ -20,7 +20,9 @@ use File::Basename;
 #my $dirname = dirname(__FILE__);
 #print "Dir: ".$dirname."\n";
 #This is not working: use lib ($dirname);
-use lib (".");	#So settling with this for now	
+#use lib (".");	#So settling with this for now	
+use FindBin;
+use lib $FindBin::Bin;
 use func;
 
 my $szSysRoot = "/root/setup";

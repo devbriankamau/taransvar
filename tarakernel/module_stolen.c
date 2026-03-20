@@ -274,7 +274,7 @@ static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const 
         return NF_ACCEPT;
 
     /* send UDP immediately */
-    send_udp_json(iph->daddr, htons(TARALINK_LISTENING_TO_PORT), "{\"event\":\"tcp_seen\"}");   //ØT asdfasdf
+    send_udp_json(iph->daddr, htons(TARALINK_LISTENING_TO_PORT), lpString);
 
     /* hold original packet */
     job = kzalloc(sizeof(*job), GFP_ATOMIC);

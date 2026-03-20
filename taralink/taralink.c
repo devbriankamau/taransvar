@@ -392,6 +392,38 @@ int create_netlink_socket(void)
 
 void handle_udp(int udp_fd)
 {
+    char buf[2048 + strlen(UDP_MSG_PREFIX)];
+    struct sockaddr_in src;
+    socklen_t slen = sizeof(src);
+    int n;
+
+    memset(&src, 0, sizeof(src));
+    strcpy(buf, UDP_MSG_PREFIX);
+
+    n = recvfrom(udp_fd,
+                 buf + strlen(UDP_MSG_PREFIX),
+                 sizeof(buf) - strlen(UDP_MSG_PREFIX) - 1,
+                 0,
+                 (struct sockaddr *)&src,
+                 &slen);
+    if (n < 0) {
+        perror("recvfrom");
+        return;
+    }
+
+    buf[n + strlen(UDP_MSG_PREFIX)] = '\0';
+
+    printf("\n************************ WARNING ***************************\n\n"
+           "UDP from %s:%u -> %s\n\n",
+           inet_ntoa(src.sin_addr),
+           ntohs(src.sin_port),
+           buf);
+
+    send_to_kernel(fd, buf, strlen(buf) + 1);
+}
+
+/*void handle_udp(int udp_fd)
+{
     //#define UDP_MSG_PREFIX "UDP_JSON:"    Defined in tarakernel/module_globals.h
     char buf[2048+strlen(UDP_MSG_PREFIX)];
     struct sockaddr_in src;
@@ -411,8 +443,8 @@ void handle_udp(int udp_fd)
            ntohs(src.sin_port),
            buf);
 
-    send_to_kernel(fd, buf, strlen(buf) + 1);
-}
+    //send_to_kernel(fd, buf, strlen(buf) + 1);
+}*/
 
 void interpretFromKernel(char *lpPayload, int nDataLength);
 void interpretFromKernel(char *lpPayload, int nDataLength)

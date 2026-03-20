@@ -303,7 +303,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			//Should we also check IP address here?
 			//TO_DO - This is where to catch request elaboration from other partner about infected traffic
 			//Could also catch such info here instead of letting it go to user space and then sent back to kernel? ()
-			if (isRequestForThreatElaboration(payload))	//module_tagging.c
+			if (isRequestForThreatElaboration(payload, pPacket->ip_header, udph))	//module_tagging.c
 				return NF_DROP;
 
 			printk("tarakernel: ********* WARNING ****** Unknown content to thread info service port.. Port scanning?\n");

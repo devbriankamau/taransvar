@@ -533,19 +533,100 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
         }        
 
         char cBuf[200];
-        sprintf(cBuf, "%s-%pI4:%d", UDP_THREAT_INFO_REQUEST_PREFIX, &iph->saddr, ntohs(TARAKERNEL_LISTENING_TO_PORT));
-        send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
+//        sprintf(cBuf, "%s-%pI4:%d->%pI4:%d", UDP_THREAT_INFO_REQUEST_PREFIX, &iph->saddr, pPacket->tcp_header->source,  &iph->daddr, pPacket->tcp_header->dest);
+        sprintf(cBuf, "%s-%X:%d->%X:%d", UDP_THREAT_INFO_REQUEST_PREFIX, iph->saddr, pPacket->tcp_header->source,  iph->daddr, pPacket->tcp_header->dest);
+        send_udp_json(iph->saddr, TARAKERNEL_LISTENING_TO_PORT, cBuf);
         printk("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
     }
 }
 
-int isRequestForThreatElaboration(char *lpPayload)
+
+#include <linux/netfilter.h>
+#include <linux/netfilter/nf_conntrack_tuple_common.h>
+#include <net/netfilter/nf_conntrack.h>
+#include <net/netfilter/nf_conntrack_core.h>
+#include <net/netfilter/nf_conntrack_tuple.h>
+
+static struct nf_conn *tara_ct_lookup_v4(__be32 saddr, __be16 sport, __be32 daddr, __be16 dport, u8 protonum)
+{
+    struct nf_conntrack_tuple tuple = {};
+    const struct nf_conntrack_tuple_hash *h;
+    struct nf_conn *ct;
+
+    tuple.src.u3.ip = saddr;
+    tuple.src.u.all = 0;
+    tuple.src.l3num = AF_INET;
+
+    tuple.dst.u3.ip = daddr;
+    tuple.dst.dir = IP_CT_DIR_ORIGINAL;
+    tuple.dst.protonum = protonum;
+
+    if (protonum == IPPROTO_TCP) {
+        tuple.src.u.tcp.port = sport;
+        tuple.dst.u.tcp.port = dport;
+    } else if (protonum == IPPROTO_UDP) {
+        tuple.src.u.udp.port = sport;
+        tuple.dst.u.udp.port = dport;
+    } else {
+        return NULL;
+    }
+
+    h = nf_conntrack_find_get(&init_net, NULL, &tuple);
+    if (!h)
+        return NULL;
+
+    ct = nf_ct_tuplehash_to_ctrack(h);
+    return ct;   /* caller must drop ref */
+}
+
+int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct udphdr *udph)
 {
     /* Now you can read payload[0..payload_len-1] */
-    printk("tarakernel: ******* NOT HANDLED! ***** Probably request for elaborated threat info????: %s\n", lpPayload);
+    if (strstr(lpPayload, UDP_THREAT_INFO_REQUEST_PREFIX) == lpPayload)
+    {
+        printk("tarakernel: ******* NOT HANDLED! ***** Probably request for elaborated threat info????: %s\n", lpPayload);
+        char szFromIp[100], szFromPort[100], szToIp[100], szToPort[100];
 
-    return 1;
+        if (sscanf(lpPayload + strlen(UDP_THREAT_INFO_REQUEST_PREFIX) , "%100s:%100s^%100s:%100s", szFromIp, szFromPort, szToIp, szToPort)!=2)
+        {
+            printk("******** WARNING ****** Unable to decode ip and port.\n");
+            return 0;
+        }
+
+        return 1;
+    }
+    else
+    {
+        printk("******** WARNING ****** Unknown UDP packet to my port.\n");
+        return 0;
+    }
 }
+
+
+/*
+        //Valid payload: THREAT_INFO_REQUEST-10.10.10.10:45077
+        //Reconstruct the original 5-tuple:
+        __be32 src_ip = hexstr_to_ip(szFromIp);
+        __be16 src_port = atoi(szFromPort);
+        __be32 dst_ip = iph->saddr;
+        __be16 dst_port = hexstr_to_ip(szToIp);
+        u8 proto = IPPROTO_TCP;
+
+        struct nf_conn *ct;
+
+        ct = tara_ct_lookup_v4(src_ip, src_port, dst_ip, dst_port, proto);
+        if (ct)
+        {
+            char cBuf[200];
+            printk("tarakernel: conntrack returned: %pI4:%d -> %pI4:%d\n", ct->)
+            free(ct);
+        }
+
+        // Try reversed direction too 
+        //return tara_ct_lookup_v4(dst_ip, dst_port, src_ip, src_port, proto);
+        */
+
+
 
 void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere)
 {

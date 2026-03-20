@@ -266,22 +266,36 @@ struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const s
 
 static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *skb, const struct nf_hook_state *state)
 {
-        int bToOrFromMe = 0;
+    int bToOrFromMe = 0;
 
-        checkTimedOperation();  //module_timed_operations.h
+    checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
 
 	if (!skb)
 		return NF_ACCEPT;
 
-	//struct _PacketInspection *pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
-	struct _PacketInspection *pPacket = getPacketInfo(priv, skb, state); (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
-	//initPacket(pPacket, skb, state, bSetupOwned);
+	struct _PacketInspection *pPacket = getPacketInfo(priv, skb, state); 
 
-	if (pPacket->ip_header->protocol != IPPROTO_TCP)
+	if (pPacket->ip_header->protocol == IPPROTO_UDP)
 	{
+		if  (pPacket->tcp_header->dest == TARAKERNEL_LISTENING_TO_PORT)
+		{
+			//Should we also check IP address here?
+			//TO_DO - This is where to catch request elaboration from other partner about infected traffic
+			//Could also catch such info here instead of letting it go to user space and then sent back to kernel? ()
+			if (isRequestForThreatElaboration(pPacket))	//module_tagging.c
+				return NF_DROP;
+
+			printk("tarakernel: ********* WARNING ****** Unknown content to thread info service port.. Port scanning?\n");
+		}
 		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}
+	else
+		if (pPacket->ip_header->protocol != IPPROTO_TCP)
+		{
+			checkFree(pPacket, false /*bLeavingPostRouting*/);
+			return NF_ACCEPT;
+		}
 	else
 	{
 	  //ØT 240103 - delete this section.....
@@ -337,8 +351,8 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 	if (isListedForInspection(pPacket->dIp) || isListedForInspection(pPacket->sIp))
 		packetInterpreter(pPacket);
 
-        //if (pPacket->ip_header->saddr == pSetup->nInternalIp || pPacket->ip_header->daddr == pSetup->nInternalIp)
-        if (isSubNet(pPacket->ip_header->saddr) && isSubNet(pPacket->ip_header->daddr))
+    //if (pPacket->ip_header->saddr == pSetup->nInternalIp || pPacket->ip_header->daddr == pSetup->nInternalIp)
+    if (isSubNet(pPacket->ip_header->saddr) && isSubNet(pPacket->ip_header->daddr))
 	{
 		if (pSetup->cShowInstructions.bits.showOther)
 			printk("tarakernel: PR: Traffic with subnet %s:%d -> %s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);
@@ -350,12 +364,12 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 	//Can we check here if inbound traffic to this computer (nettwork)?
 	if (isMeOrMine(pPacket->ip_header->daddr))
 	{
-              /*
+        /*
                     Is this where we check for tagging and match with information about servers in the network?
                     probably not because it has to be run through the NAT first to see where the packages are heading. 
                     Meaning the matching will be in module_forwarding.c
-              */
-                bToOrFromMe = 1;
+        */
+        bToOrFromMe = 1;
               
 		if (isPartner(pPacket->ip_header->saddr)) 	
 		{
@@ -368,6 +382,8 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			
 			if (cUnion.nBe16)
 			{
+				initElaboratedThreatInfo(pPacket);	//module_tagging.c
+
 			    if (cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel)
 			    {
                     printk("tarakernel: ******* WARNING ***** Dropping tagged data with presumed severity (%u) exceeding blocking threshold (%u). (%s -> %s)\n", cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp); 
@@ -386,7 +402,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			    //still doesn't go through if the urg_ptr field is cleared at the receiver end. Is this because the URG flag is set somewhere?
 			    //The line below gives compiler error. Is the URG flag somewhere else?
                 //pPacket->tcp_header->URG = 0;
-				//NOTE! THIS IS MOST LIKELY BECASE THE CHECKSUM WAS WRONG. IT'S NOW BEING CALCULATED ABOVE
+				//NOTE! THIS WAS MOST LIKELY BECASE THE CHECKSUM WAS WRONG. IT'S NOW BEING CALCULATED ABOVE
 			}
 			else
 			    strcpy(pSetup->c100, "(Not tagged)");

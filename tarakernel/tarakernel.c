@@ -57,6 +57,9 @@ int isprintable(char ch);
 void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const struct nf_hook_state *state, bool bSetupOwned);
 struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 void checkFree(struct _PacketInspection *pPacket, bool bLeavingPostRouting);
+int isRequestForThreatElaboration(struct _PacketInspection *pPacket);
+void initElaboratedThreatInfo(struct _PacketInspection *pPacket);
+
 
 
 void getTcpPayload(struct sk_buff *skb, char *lpBuffer, u32 nBufSize);
@@ -165,13 +168,35 @@ int udpMsgFromSender(char *lpPayload)
 	{
 		printk("tarakernel SENDING: ***** RECEIVED UDP message from sender via taralink: %s\n", lpPayload);
 
-        //Search "Tagging UDP msg coding/decoding" for usage in source
+        //Search "Tagging UDP msg coding/decoding" for usage in source	(in module_tagging.c)
         //Coded by: sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
-		unsigned int dIp, dPort, dVersion, dInfected, dBotnet;
-		int nFlds;
+		unsigned int sIp, sPort, dVersion, dInfected, dBotnet;
+		int nFlds, nAvailable;
+		nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
 
-		if ((nFlds = sscanf(lpPayload, "%d:%d^%d^%d^%d", &dIp, &dPort, &dVersion, &dInfected, &dBotnet)) == 5) 
-			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %d:%d^%d^%d^%d\n", dIp, dPort, dVersion, dInfected, dBotnet);
+		if ((nFlds = sscanf(lpPayload, "%d:%d^%d^%d^%d", &sIp, &sPort, &dVersion, &dInfected, &dBotnet)) == 5) 
+		{
+			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %d:%d^%d^%d^%d\n", sIp, sPort, dVersion, dInfected, dBotnet);
+			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(sIp, sPort, &nAvailable);
+
+			if (pAlreadyHave)
+				printk("tarakernel SENDING: Already have info for %d:%d - ignoring\n", sIp, sPort);
+			else
+			{
+				//Store the new info if available slot...
+				if (nAvailable >= 0)
+				{
+					//findRemoteInfectionInfoReceived() found an available slot
+					pAlreadyHave = pSetup->cRemoteInfectionInfoReceived[nAvailable] = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
+				}
+				else
+				{
+					printk("tarakernel: ***** ERROR **** No available threat info slots.. Should deleted the oldest.\n");
+				}
+			}
+
+
+		}
 		else
 			printk("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);
 

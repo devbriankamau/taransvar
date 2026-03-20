@@ -479,14 +479,89 @@ void recalcChecksum(struct _PacketInspection *pPacket)
 }
 
 
-
-
 void sendUdpPacketToReceiver(struct _PacketInspection *pPacket);
 void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
 {
     printk("tarakernel: new session and infected sender.. This is when to send UDP packet.. (but not finished)\n");
     //NOTE! Caller return NF_STOLEN
 }//sendUdpPacketToReceiver()
+
+
+struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, unsigned int *pAvailable)
+{
+	int n;
+	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
+	{
+		struct _Remote_infection *pInfection = pSetup->cRemoteInfectionInfoReceived[n];
+		if (pInfection->saddr == sIp && pInfection->sport == sPort)
+			return pInfection;
+
+		if (!pInfection && *pAvailable == -1)
+			*pAvailable = n;
+	}			
+
+	return NULL;	//Not found
+}
+
+
+void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
+{
+	int nAvailable;
+	nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
+
+	struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(pPacket->ip_header->saddr, pPacket->tcp_header->source, &nAvailable);
+
+	if (pAlreadyHave)
+		printk("tarakernel SENDING: Already have info for %pI4:%d (implement usage??)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));    
+	else
+	{
+		printk("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival??) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
+		//Store the new info if available slot...
+
+        //asfdasdf Request it....
+    }
+}
+
+int isRequestForThreatElaboration(struct _PacketInspection *pPacket)
+{
+    struct iphdr *iph = pPacket->ip_header;
+    struct udphdr *udph;
+    unsigned char *payload;
+    unsigned int payload_len;
+
+    if (!pPacket->skb)
+        return 0;//NF_ACCEPT;
+
+    /* Ensure we can access IP header */
+    if (!pskb_may_pull(pPacket->skb, sizeof(struct iphdr)))
+        return 0;//NF_ACCEPT;
+
+    iph = ip_hdr(pPacket->skb);
+
+    if (iph->protocol != IPPROTO_UDP)
+        return 0;//NF_ACCEPT;
+
+    /* Ensure we can access UDP header */
+    if (!pskb_may_pull(pPacket->skb, ip_hdrlen(pPacket->skb) + sizeof(struct udphdr)))
+        return 0;//NF_ACCEPT;
+
+    udph = udp_hdr(pPacket->skb);
+
+    /* Calculate payload start */
+    payload = (unsigned char *)udph + sizeof(struct udphdr);
+
+    /* Calculate payload length */
+    payload_len = ntohs(udph->len) - sizeof(struct udphdr);
+
+    /* Safety check */
+    if (payload_len <= 0)
+        return NF_ACCEPT;
+
+    /* Now you can read payload[0..payload_len-1] */
+    printk("tarakernel: ******* NOT HANDLED! ***** Probably request for elaborated threat info????: %s\n", payload);
+
+    return NF_ACCEPT;
+}
 
 unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state)
 {
@@ -550,7 +625,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         char cUdpTagString[100];
 
         //cUdpTagString is the string to send as UDP packet to receiver if it's a new connection... 
-        //Search "Tagging UDP msg coding/decoding" for usage in source
+        //Search "Tagging UDP msg coding/decoding" for usage in source (in tarakernel.c??)
         sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
         /*  Don't do this for now... Sending it directly for callback
         int nAvailable = -1;

@@ -11,7 +11,12 @@
 
 #define UDP_MSG_PREFIX "UDP_JSON:"
 #define C_TRAFFIC_REPORT_PREFIX "TRAFFIC|"
+
+//Used by sender when there's a new connection from infected unit to transmit elaborated threat information (this could just as well have been picket up by kernel as sent to user space and back to kernel)
 #define TARALINK_LISTENING_TO_PORT      5551
+
+//Used when receiver requests lacking information about infected unit sending traffic (normally just after restart or because expiring info has already been dropped)
+#define TARAKERNEL_LISTENING_TO_PORT      5552  
 
 //For some reason, netlink messages seems not to be able to exceed 1050 byte or so, wich equals to around 50 messages. According to google, minimum should be 16kb, some say 4GB
 #define C_TRAFFIC_REPORT_ARRAY_SIZE 49

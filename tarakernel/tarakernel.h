@@ -153,12 +153,20 @@ struct syn_seen_key {
         unsigned long expires;
     };    
 
+struct _Remote_infection {
+        __be32 saddr;
+        __be16 sport;
+		union _TagUnion cTag;
+        u32 seq;
+        unsigned long expires;
+};
 
 #define C_CHECK_ARRAY_SIZE 5
 #define N_MAX_PACKETS_PROCESSING 10
 #define N_MAX_PACKETS_PROCESS N_MAX_PACKETS_PROCESSING -2
 #define N_MAX_STOLEN_PACKETS 10
 #define N_MAX_SYN_SEEN 20
+#define N_MAX_REMOTE_INFECTION_INFOS 20
 
 struct _Setup {
 	bool bTrafficReportsBeingHandled;
@@ -196,7 +204,7 @@ struct _Setup {
 	//NOTE! Was planning to keep pPackets in memory, but for now, they're being deleted on each hook.. (check this...)... So maybe better save skb???
 	struct _PacketInspection *pStolenPacket[N_MAX_STOLEN_PACKETS];	//Now owning these packages after returning NF_STOLEN
 	struct syn_seen_key *pSynSeen[N_MAX_SYN_SEEN];
-
+	struct _Remote_infection *cRemoteInfectionInfoReceived[N_MAX_REMOTE_INFECTION_INFOS];
 
 };
 
@@ -223,5 +231,6 @@ _Node *getNewBefore(_Node *pPointer, int nStructSize);
 _Node *getNewAfter(_Node *pPointer, int nStructSize); //Defined in module_pointer_list.c
 _Node *getLast(_Node *pPointer);  //Defined in module_pointer_list.c
 void doInfectionsPointerListTest(void); //Remove this when tested..
+struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, unsigned int *nAvailable);
 
 #endif

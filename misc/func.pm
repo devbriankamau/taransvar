@@ -461,11 +461,6 @@ sub getSetup {
 	return $cSetup;
 }
 
-
-sub getLogRoot {
-	return "/root/setup/log/";
-}
-
 sub resetSetup {
 	#Force re-read from database next time
 	$cSetup = ();	

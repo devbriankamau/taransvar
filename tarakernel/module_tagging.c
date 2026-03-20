@@ -493,7 +493,7 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsi
 	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
 	{
 		struct _Remote_infection *pInfection = pSetup->cRemoteInfectionInfoReceived[n];
-		if (pInfection->saddr == sIp && pInfection->sport == sPort)
+		if (pInfection && pInfection->saddr == sIp && pInfection->sport == sPort)
 			return pInfection;
 
 		if (!pInfection && *pAvailable == -1)

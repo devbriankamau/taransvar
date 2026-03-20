@@ -32,6 +32,8 @@ partners or whatever before freezing. We should figure out why and find the opti
 #include <linux/udp.h>
 #include <linux/string.h>
 #include <linux/timekeeping.h>
+#include <linux/skbuff.h>
+
 
 
 #include "module_globals.h"
@@ -57,10 +59,8 @@ int isprintable(char ch);
 void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const struct nf_hook_state *state, bool bSetupOwned);
 struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 void checkFree(struct _PacketInspection *pPacket, bool bLeavingPostRouting);
-int isRequestForThreatElaboration(struct _PacketInspection *pPacket);
+int isRequestForThreatElaboration(char *lpPayload);
 void initElaboratedThreatInfo(struct _PacketInspection *pPacket);
-
-
 
 void getTcpPayload(struct sk_buff *skb, char *lpBuffer, u32 nBufSize);
 void sendMessage(int pid, char *msg);
@@ -87,6 +87,7 @@ void recalcChecksum(struct _PacketInspection *pPacket);
 static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
 
+void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere);	//260320 - asdf... got problem with this....
 
 //static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
 //static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);

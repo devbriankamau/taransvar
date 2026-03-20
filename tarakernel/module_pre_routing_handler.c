@@ -277,16 +277,38 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 
 	if (pPacket->ip_header->protocol == IPPROTO_UDP)
 	{
-		if  (pPacket->tcp_header->dest == TARAKERNEL_LISTENING_TO_PORT)
+		//This is UDP packet.. Can't use TCP methods to find port and other info...
+
+		struct udphdr *udph;
+
+		if (!pskb_may_pull(skb, (ip_hdr(skb)->ihl * 4) + sizeof(struct udphdr))) 
+		    return NF_ACCEPT;
+
+		udph = udp_hdr(skb);
+
+		if  (ntohs(udph->dest) == TARAKERNEL_LISTENING_TO_PORT)
 		{
+
+			printk("UDP %pI4:%u -> %pI4:%u\n", &pPacket->ip_header->saddr, ntohs(udph->source), &pPacket->ip_header->daddr, ntohs(udph->dest));
+
+			/* Payload start */
+			char *payload = (unsigned char *)udph + sizeof(struct udphdr);
+
+			/* Payload length */
+			unsigned int payload_len = ntohs(udph->len) - sizeof(struct udphdr);
+
+			if (payload_len <= 0)
+    			return NF_ACCEPT;
+
 			//Should we also check IP address here?
 			//TO_DO - This is where to catch request elaboration from other partner about infected traffic
 			//Could also catch such info here instead of letting it go to user space and then sent back to kernel? ()
-			if (isRequestForThreatElaboration(pPacket))	//module_tagging.c
+			if (isRequestForThreatElaboration(payload))	//module_tagging.c
 				return NF_DROP;
 
 			printk("tarakernel: ********* WARNING ****** Unknown content to thread info service port.. Port scanning?\n");
 		}
+
 		checkFree(pPacket, false /*bLeavingPostRouting*/);
 		return NF_ACCEPT;
 	}
@@ -296,11 +318,8 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			checkFree(pPacket, false /*bLeavingPostRouting*/);
 			return NF_ACCEPT;
 		}
-	else
-	{
-	  //ØT 240103 - delete this section.....
-		//return NF_ACCEPT;
-	}
+
+    checkThatTcp(pPacket,"start of pre_routing");	//260320 - asdf... got problem with this....
 
 	pSetup->cGlobalStatistics.nPreRouting++;
         
@@ -396,6 +415,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		        sprintf(pSetup->c100, "Tag was (but removed): (%08X) Infected: %u, botnetId: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id, pSetup->nBlockIncomingTaggedTrafficLevel);
 		              
 				pPacket->tcp_header->urg_ptr = 0; //Removing tag. 
+			    checkThatTcp(pPacket,"after clearing urg_ptr");	//260320 - asdf... got problem with this....
 			    recalcChecksum(pPacket);
 
 				//When an incoming packet on a Linux system is tagged using the urg_ptr field, often, the package
@@ -418,6 +438,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 						dscp, pSetup->nBlockIncomingTaggedTrafficLevel, (bBlock?"BLOCKING" : "NOT blocking"));
 
 				setDscp(ip_hdr(pPacket->skb), 0);	
+			    checkThatTcp(pPacket,"after setting DSCP");	//260320 - asdf... got problem with this....
 			    recalcChecksum(pPacket);
 
 				if(bBlock)

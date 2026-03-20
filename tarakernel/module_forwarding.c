@@ -74,8 +74,6 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 	if (!skb)
 		return NF_ACCEPT;
 
-
-
 	//Just checking if mark is set in PRE_ROUTING
 
 	#ifdef ALTERNATIVE_TAGGING
@@ -96,10 +94,14 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		printk("tarakernel: ****** ERROR - Unable to get conntrack info\n");
 	#endif
 
-
 	//pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
 	//initPacket(pPacket, skb, state);
 	struct _PacketInspection *pPacket = getPacketInfo(priv, skb, state);
+
+	if (pPacket->ip_header->protocol != IPPROTO_TCP)
+		return NF_ACCEPT;	//260320 - not sure about this......
+
+    checkThatTcp(pPacket,"start of forward handler");	//260320 - asdf... got problem with this....
 
 	if (pPacket->tcp_header->urg)
 		if (pSetup->cShowInstructions.bits.showUrgentPtrUsage)

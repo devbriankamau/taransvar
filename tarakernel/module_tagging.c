@@ -431,11 +431,18 @@ void recalc_tcp_checksum(struct sk_buff *skb)
     }
 
     iph = ip_hdr(skb);
-    if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+    if (!iph || iph->version != 4)
     {
         printk("tarakernel: ** ERROR ** Not ipv4 when recalcing TPC checksum\n");
         return;
     }
+
+    if (iph->protocol != IPPROTO_TCP)
+    {
+        printk("tarakernel: ** ERROR ** Not TCP when recalcing TPC checksum\n");
+        return;
+    }
+
 
     ihl = iph->ihl * 4;
 
@@ -532,64 +539,28 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
     }
 }
 
-int isRequestForThreatElaboration(struct _PacketInspection *pPacket)
+int isRequestForThreatElaboration(char *lpPayload)
 {
-    struct iphdr *iph = pPacket->ip_header;
-    struct udphdr *udph;
-    unsigned char *payload;
-    unsigned int payload_len;
-
-    if (!pPacket->skb)
-    {
-        printk("tarakernel SENDING: *** ERROR ***  No skb\n");
-        return 0;//NF_ACCEPT;
-    }
-
-    /* Ensure we can access IP header */
-    if (!pskb_may_pull(pPacket->skb, sizeof(struct iphdr)))
-    {
-        printk("tarakernel SENDING: *** ERROR ***  May not pull\n");
-        return 0;//NF_ACCEPT;
-    }
-
-    iph = ip_hdr(pPacket->skb);
-
-    if (iph->protocol != IPPROTO_UDP)
-    {
-        printk("tarakernel SENDING: *** ERROR *** Not UDP\n");
-        return 0;//NF_ACCEPT;
-    }
-
-    /* Ensure we can access UDP header */
-    if (!pskb_may_pull(pPacket->skb, ip_hdrlen(pPacket->skb) + sizeof(struct udphdr)))
-    {
-        printk("tarakernel SENDING: *** ERROR ***  May not pull(2)\n");
-        return 0;//NF_ACCEPT;
-    }
-
-    udph = udp_hdr(pPacket->skb);
-
-    /* Calculate payload start */
-    payload = (unsigned char *)udph + sizeof(struct udphdr);
-
-    /* Calculate payload length */
-    payload_len = ntohs(udph->len) - sizeof(struct udphdr);
-
-    /* Safety check */
-    if (payload_len <= 0)
-    {
-        printk("tarakernel SENDING: *** ERROR ***  No payload\n");
-        return 0;//NF_ACCEPT;
-    }
-
     /* Now you can read payload[0..payload_len-1] */
-    printk("tarakernel: ******* NOT HANDLED! ***** Probably request for elaborated threat info????: %s\n", payload);
+    printk("tarakernel: ******* NOT HANDLED! ***** Probably request for elaborated threat info????: %s\n", lpPayload);
 
-    return NF_ACCEPT;
+    return 1;
+}
+
+void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere)
+{
+    struct iphdr *iph = ip_hdr(pPacket->skb);
+
+    if (iph->protocol != IPPROTO_TCP)
+    {
+        printk("tarakernel: ** ERROR ** Not TCP when (%s\n", lpFromWhere);
+    }
 }
 
 unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state)
 {
+    checkThatTcp(pPacket,"start of tagThePacket");	//260320 - asdf... got problem with this....
+
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
 
 	union _TagUnion cUnion;
@@ -642,6 +613,8 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
     else
         printk("tarakernel: DSCP field was already set. Dropping altering.\n");
     #endif
+
+    checkThatTcp(pPacket,"in tagThePacket");	//260320 - asdf... got problem with this....
 
     recalcChecksum(pPacket);
 

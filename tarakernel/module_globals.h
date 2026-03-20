@@ -10,6 +10,7 @@
 //Structs that are used both by absecurity kernel module and abmonitor user space program
 
 #define UDP_MSG_PREFIX "UDP_JSON:"
+#define UDP_THREAT_INFO_REQUEST_PREFIX "THREAT_INFO_REQUEST"
 #define C_TRAFFIC_REPORT_PREFIX "TRAFFIC|"
 
 //Used by sender when there's a new connection from infected unit to transmit elaborated threat information (this could just as well have been picket up by kernel as sent to user space and back to kernel)

@@ -518,7 +518,17 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 		printk("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival??) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
 		//Store the new info if available slot...
 
-        //asfdasdf Request it....
+        struct iphdr *iph = ip_hdr(pPacket->skb);
+        if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
+        {
+            printk("tarakernel SENDING: **** ERROR **** Sending UDP request. Not IPv4 TCP\n");
+            return;// NF_ACCEPT;   /* fail open */
+        }        
+
+        char cBuf[200];
+        sprintf(cBuf, "%s-%pI4:%d", UDP_THREAT_INFO_REQUEST_PREFIX, &iph->saddr, ntohs(TARAKERNEL_LISTENING_TO_PORT));
+        send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
+        printk("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
     }
 }
 

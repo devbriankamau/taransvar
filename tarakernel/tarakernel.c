@@ -85,6 +85,7 @@ uint8_t getDscp(struct _PacketInspection *pPacket);
 void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
 static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
+static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
 
 
 //static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);

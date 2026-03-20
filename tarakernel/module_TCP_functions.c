@@ -11,6 +11,16 @@ int isprintable(char ch)
   return 0;
 }
 
+__be32 hexstr_to_ip(const char *str)
+{
+    unsigned int val;
+
+    if (kstrtouint(str, 16, &val) < 0)
+        return 0;
+
+    return htonl(val);
+}
+
 void getTcpPayload(struct sk_buff *skb, char *lpBuffer, u32 nBufSize)
 {
 	//For now only called from module_forwarding.c but should also be called from module_packet_interpreter.c

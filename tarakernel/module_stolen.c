@@ -14,7 +14,7 @@
 */
 
 
-
+/*
 static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 {
   struct iphdr *iph;
@@ -69,7 +69,7 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 
     sock_release(sock);
     return ret;
-}
+}*/
 
 /*unsigned int hookfnHandleStolenPacket(...) 
 {
@@ -175,7 +175,7 @@ static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 
     char cUdpTagString[100];
     sprintf(cUdpTagString, "%d:%d^%d^%d^%d", sourceIp, sourcePort, pTag->version_no, pTag->presumed_infected, pTag->owners_id);
     /* send UDP immediately */
-    printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, ntohs(TARALINK_LISTENING_TO_PORT), cUdpTagString);
+    printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, TARALINK_LISTENING_TO_PORT, cUdpTagString);
     return send_udp_json(destIp, htons(TARALINK_LISTENING_TO_PORT), cUdpTagString);
 }
 

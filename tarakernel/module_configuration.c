@@ -561,8 +561,17 @@ void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, c
 struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress);
 struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress)
 {
+	char cInfectedUnits[1000];
+	strcpy(cInfectedUnits, "tarakernel: infected units: ");
+
 	for (struct _Node *pNode = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pNode; pNode = pNode->pNext)
 	{
+		if (strlen(cInfectedUnits)<sizeof(cInfectedUnits)-50)
+			sprintf(cInfectedUnits+strlen(cInfectedUnits), "%d:%pI4, ", pNode->cInfection.cTag.owners_id, &pNode->cInfection.ipAddress);	
+		else
+			if (strlen(cInfectedUnits)<sizeof(cInfectedUnits)-15)
+				strcpy(cInfectedUnits+strlen(cInfectedUnits), "TRUNCATED");
+
 		if (pNode && ipAddress == pNode->cInfection.ipAddress)
 		{
 		        //NOTE! ******************* NEED TO FIX THE THREAT CATEGORIES *************

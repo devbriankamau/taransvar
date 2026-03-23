@@ -61,13 +61,14 @@ union _showStatusBitsUnion
 struct _Tag { //2 bytes - for use with the tcp_header->urg_ptr until we decide to increase TCP header size
 	unsigned int version_no : 2; //ØT 260323 3->2  //Set to TAG_VERSION_NO. Counting down in case field is used and hoping that it points to outside the block and programmers care to check.
 	unsigned int presumed_infected : 4; //ØT 260323 3->4 //0=No indication, 1=Wifi/VPN, 2=rough partner, 3=probably malconfig, 4=probably sporadic, 5=probably bot  
-	unsigned int botnet_id : 10;   //Assigned by Akili Bomba
+	//unsigned int botnet_id : 10;   //Assigned by Akili Bomba
+        unsigned int owners_id : 10;
 };
 
 union _TagUnion {
-	struct _Tag cTag;
+	struct _Tag     cTag;
 	//__be16 nBe16; /Unavailable in user space
-        uint16_t nBe16; 
+        uint16_t        nTag;  //Use this to initialize the whole _Tag struct.
 };
 
 struct _ipPort2 {
@@ -75,7 +76,11 @@ struct _ipPort2 {
         volatile uint32_t sIp, dIp;   //NOTE! Probably shouldn't user volatile in kernel....
 	//uint32_t sPort, dPort, nCount;
         unsigned short int sPort, dPort, nCount;  //u32
-        union _TagUnion cTagUnion;
+        union {
+                struct _Tag     cTag;
+                uint16_t        nTag;
+        };
+        //union _TagUnion cTagUnion;
 };
 
 #endif

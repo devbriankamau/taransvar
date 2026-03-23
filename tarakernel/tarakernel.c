@@ -75,7 +75,7 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList);
 char *interpretInspection(char *lpBlockDescriptor, char *lpIpList);
 void listAssistRequests(void);
 int requestedAssistance(unsigned int ipAddress, unsigned int nPort);
-int isInfected(volatile uint32_t ipAddress);
+struct _InfectionSpecification *isInfected(volatile uint32_t ipAddress);
 void removeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, short port);
 bool trafficReportToTaralinkFound(int nProcessId);
 void sendCheckRequests(int nProcessId);
@@ -88,7 +88,7 @@ void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
 
 //Old one: static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
-static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, union _TagUnion *pUnion);
+static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _Tag *pTag);
 static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state);
 
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
@@ -178,13 +178,13 @@ int udpMsgFromSender(char *lpPayload)
 
         //Search "Tagging UDP msg coding/decoding" for usage in source	(in module_tagging.c)
         //Coded by: sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
-		unsigned int sIp, sPort, dVersion, dInfected, dBotnet;
+		unsigned int sIp, sPort, dVersion, dInfected, dOwners_id;
 		int nFlds, nAvailable;
 		nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
 
-		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%d:%d^%d^%d^%d", &sIp, &sPort, &dVersion, &dInfected, &dBotnet)) == 5) 
+		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%d:%d^%d^%d^%d", &sIp, &sPort, &dVersion, &dInfected, &dOwners_id)) == 5) 
 		{
-			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4:%d^%d^%d^%d\n", &sIp, sPort, dVersion, dInfected, dBotnet);
+			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4:%d^%d^%d^%d\n", &sIp, sPort, dVersion, dInfected, dOwners_id);
 			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(sIp, sPort, &nAvailable);	
 
 			if (pAlreadyHave)
@@ -198,9 +198,9 @@ int udpMsgFromSender(char *lpPayload)
 					pAlreadyHave = pSetup->cRemoteInfectionInfoReceived[nAvailable] = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
 					pAlreadyHave->saddr = htonl(sIp);
 					pAlreadyHave->sport = htonl(sPort);
-					pAlreadyHave->cTag.cTag.botnet_id = dBotnet;
-					pAlreadyHave->cTag.cTag.presumed_infected = dInfected;
-					pAlreadyHave->cTag.cTag.version_no = dVersion;
+					pAlreadyHave->cTag.owners_id = dOwners_id;
+					pAlreadyHave->cTag.presumed_infected = dInfected;
+					pAlreadyHave->cTag.version_no = dVersion;
 
 					printk("taranernel SENDING: Threat info from sender (via kernel) saved at slot %d", nAvailable);
 				}

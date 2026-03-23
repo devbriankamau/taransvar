@@ -452,14 +452,19 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 	int n;
 */
 //	ØT 260303 - Check first if already in the list???? (what about the other categories??)
+	int nMaxOwnersId = -1;
 
 	for (_Node *pInfection = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pInfection; pInfection = pInfection->pNext)
+	{
 		if (pInfection->cInfection.ipAddress == ipAddress)
 		{
 			printk("tarakernel: (260303) %08X is already registered. Aborting\n", ipAddress);
 			return;
 		}
 
+		if (pInfection->cInfection.cTag.owners_id > nMaxOwnersId)
+			nMaxOwnersId = pInfection->cInfection.cTag.owners_id;
+	}
 	printk("tarakernel: (260303) %08X is a new infection.. add it\n", ipAddress);
 
 	_Node *pNode = getNewBefore(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
@@ -468,15 +473,17 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 	{
 		pNode->cInfection.ipAddress = ipAddress;
 		pNode->cInfection.ipNettmask = ipNettmask;
+		pNode->cInfection.nTag = 0;	//Init all fields.
+		pNode->cInfection.cTag.owners_id = nMaxOwnersId + 1;
 		if (!strcmp(lpQuality, "firsttime"))
 		{
 			//cNewElement.cThreat. = C_REQUESTS_CLEAN;
 			//NOTE! category is char:3 - value 0-7
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
-			pNode->cInfection.cUnion.cTag.presumed_infected = 7;
+			pNode->cInfection.cTag.presumed_infected = 7;
 		}
 		else
-			pNode->cInfection.cUnion.cTag.presumed_infected = 7;
+			pNode->cInfection.cTag.presumed_infected = 7;
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
 	}
 	else
@@ -495,20 +502,21 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 
 void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality)
 {	
-/*struct _InfectionSpecification {
-	volatile uint32_t ipAddress;
-	volatile uint32_t ipNettmask;
-	struct _threatSpecification cThreat;
-};*/
+	/*struct _InfectionSpecification {
+		volatile uint32_t ipAddress;
+		volatile uint32_t ipNettmask;
+		struct _threatSpecification cThreat;
+	};*/
 
 	//OT250221 - was #ifndef....
-#ifdef USE_POINTER_LIST
-	storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);
-#else
+	#ifdef USE_POINTER_LIST
+		storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);
+	#else
       
-	      printk("tarakernel: ********** ERROR storeInfection() is no longer supposed to be called... Aborting\n");
-      return;
+	printk("tarakernel: ********** ERROR storeInfection() is no longer supposed to be called... Aborting\n");
+    return;
 
+/*	
 		struct _InfectionSpecification cNewElement;
 		struct _InfectionSpecification *pInfectionArray;
 		cNewElement.ipAddress = ipAddress;
@@ -516,13 +524,6 @@ void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, c
 		int n;
 	
 
-/*struct _threatSpecification {
-	//Info to be passed on for specific address or range of addresses
-	unsigned int category : 3; //See C_CAT_CLEAN++ definition above
-	unsigned int targeting : 2; //See C_TARGET_CLEAN++ definition above
-	unsigned int frequency : 3; //See C_FREQ_CLEAN++ definition above
-	unsigned int botNetId;	//Assigned by AkiliBomba
-};*/
 	if (!strcmp(lpQuality, "firsttime"))
 	{
 		//cNewElement.cThreat. = C_REQUESTS_CLEAN;
@@ -551,12 +552,14 @@ void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, c
 	}
 	
 	listInfections();
+*/
+
 #endif
 	
 }//storeInfection()
 
-int isInfectedPointerList(volatile uint32_t ipAddress);
-int isInfectedPointerList(volatile uint32_t ipAddress)
+struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress);
+struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress)
 {
 	for (struct _Node *pNode = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pNode; pNode = pNode->pNext)
 	{
@@ -565,14 +568,15 @@ int isInfectedPointerList(volatile uint32_t ipAddress)
 		        //NOTE! ******************* NEED TO FIX THE THREAT CATEGORIES *************
 		        //printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cThreat.category); 
 		        //return pNode->cInfection.cThreat.category;
-		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cUnion.cTag.presumed_infected); 
-		        return pNode->cInfection.cUnion.cTag.presumed_infected;
+		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cTag.presumed_infected); 
+		        //return pNode->cInfection.cUnion.cTag.presumed_infected;
+		        return &pNode->cInfection;
                 }
 	}
 	return 0;
 }
 
-int isInfected(volatile uint32_t ipAddress)
+struct _InfectionSpecification *isInfected(volatile uint32_t ipAddress)
 {
         return isInfectedPointerList(ipAddress);
 /*        

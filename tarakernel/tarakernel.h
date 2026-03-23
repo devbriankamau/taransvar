@@ -22,7 +22,11 @@ struct _PacketInspection
     int nTcpHeaderSize;
     int nTotLen;
     char *lpPayload;        
-	union _TagUnion cTagUnion;
+	union {
+		struct _Tag	cTag;
+		uint16_t	nTag;
+	};
+	//union _TagUnion cTagUnion;
 	bool bSetupOwned;	//If not in setup, then it should be freed at every hook (otherwise at end of POST_ROUTING)
 };
 
@@ -77,6 +81,7 @@ struct _statistics {
 
 int elementStructSize(int nBlockDescriptor);
 
+/*
 struct _threatSpecification {
 	//Info to be passed on for specific address or range of addresses
 	unsigned int version : 8; //in case various gatekeepers use different struct version... 
@@ -94,7 +99,7 @@ struct _Ip4AddrPortRange {
 	unsigned short int portTo;
 	struct _threatSpecification threat;
 };
-
+*/
 struct _ServerSpecification {
 	//volatile uint32_t ipAddress;
 	unsigned short int port;      //Port on router to be redirected to machine on subnet (redirection is handled by perl scrips setting up iptables/nf_tables)
@@ -110,7 +115,13 @@ struct _InfectionSpecification {
 	volatile uint32_t ipAddress;
 	volatile uint32_t ipNettmask;
 	//struct _threatSpecification cThreat;
-	union _TagUnion	cUnion;
+	union 
+	{
+		struct _Tag		cTag;
+		uint16_t		nTag;
+	};
+	
+//	union _TagUnion	cUnion;
 };
 
 struct _PartnerSpecification {
@@ -157,7 +168,10 @@ struct syn_seen_key {
 struct _Remote_infection {
         __be32 saddr;
         __be16 sport;
-		union _TagUnion cTag;
+		union {
+			struct _Tag cTag;
+			uint16_t 	nTag;
+		};
         u32 seq;
         unsigned long expires;
 };

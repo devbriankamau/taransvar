@@ -11,7 +11,9 @@ struct _tagSpecification {
 int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const struct nf_hook_state *state)
 {
 	char *lpPrOrFw = (bForwarding?"FW":"PR");
-	int nSenderIsInfected = isInfected(pPacket->ip_header->saddr);
+
+	struct _InfectionSpecification *pInfected = isInfected(pPacket->ip_header->saddr);
+	int nSenderIsInfected = pInfected != NULL;
 	int nRequestedAssistance = requestedAssistance(pPacket->ip_header->daddr, pPacket->dPort);
 	short bCommentPrinted = 0;  //Set to 1 to indicate that comment has been printed (otherwise print default at the end...
 	char *lpInfectionStatus = memAlloc(200);
@@ -149,7 +151,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		union _TagUnion cUnion;
 		
 		//cTag = 	(struct _Tag)tcp_header->urg_ptr;
-		cUnion.nBe16 = pPacket->tcp_header->urg_ptr;
+		cUnion.nTag = pPacket->tcp_header->urg_ptr;
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
   			printk("tarakernel: FW from partner: %s->%s: Tag: (%08X)\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
   			

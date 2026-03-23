@@ -690,9 +690,9 @@ void initThreatInfo(__be32 ip, __be32 port, struct _Remote_infection *pThreat);
 void initThreatInfo(__be32 ip, __be32 port, struct _Remote_infection *pThreat)
 {
     pThreat->saddr = ip;
-    pThreat->cTag.cTag.version_no = TAG_VERSION_NO;
-	pThreat->cTag.cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
-	pThreat->cTag.cTag.botnet_id = 99; //To be assigned by Taransvar.. To be implemented later...
+    pThreat->cTag.version_no = TAG_VERSION_NO;
+	pThreat->cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
+	//pThreat->cTag.cTag.owners_id = 99; //To be assigned by Taransvar.. To be implemented later...
 }
 
 int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct udphdr *udph)
@@ -763,11 +763,23 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
 
             //send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cReply);
             //struct _InfectionSpecification cThreat;
-            struct _Remote_infection cThreat;
-            initThreatInfo(t->src.u3.ip, ct_sport, &cThreat);
-            printk("tarakernel SENDING: ********** ERROR ****** Fix before sending back\n");
-            sendUdpThreatPackage(iph->saddr, t->src.u3.ip, ct_sport, &cThreat.cTag);
 
+            __be32 nClientIp = t->src.u3.ip;
+            //__be16 nClientPort = ct_sport;
+
+            struct _InfectionSpecification *pInfected = isInfected(nClientIp);
+
+            if (!pInfected)
+            {
+                printk("tarakernel SENDING: ***** ERROR ***** This connected unit (%pI4) is not registered as infected. Aborting\n", &nClientIp);
+                return 1;
+            }
+
+            //struct _Remote_infection cThreat;
+            //initThreatInfo(t->src.u3.ip, ct_sport, &cThreat);
+            printk("tarakernel SENDING: ********** ERROR ****** Fix before sending back  ****DROPPING SENDING FOR NOW*****\n");
+            
+            sendUdpThreatPackage(iph->saddr, t->src.u3.ip, ct_sport, &pInfected->cTag);    //ØT 260323 - send this??
 
             return 1;
         }
@@ -803,7 +815,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
     #define DO_URG_PTR_TAGGING
     #ifdef DO_URG_PTR_TAGGING
     //***************Using urg_ptr **************************
-	pPacket->tcp_header->urg_ptr= cThreatInfo.cTag.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
+	pPacket->tcp_header->urg_ptr= cThreatInfo.nTag;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 	pSetup->cGlobalStatistics.nOutboundTagged++;
     #endif
 

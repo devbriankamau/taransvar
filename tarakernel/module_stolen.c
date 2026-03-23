@@ -13,7 +13,8 @@
 #include <net/sock.h>
 */
 
-/*
+
+
 static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 {
   struct iphdr *iph;
@@ -68,7 +69,7 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 
     sock_release(sock);
     return ret;
-}*/
+}
 
 /*unsigned int hookfnHandleStolenPacket(...) 
 {
@@ -103,12 +104,6 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
 #include <linux/slab.h>
 #include <net/sock.h>
 
-struct udp_send_job {
-    struct work_struct work;
-    __be32 daddr;
-    __be16 dport;
-    char json[256];
-};
 
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json)
 {
@@ -147,80 +142,6 @@ static int send_udp_json(__be32 daddr, __be16 dport, const char *json)
     return ret;
 }
 
-/*
-static void udp_send_work_cb(struct work_struct *work)
-{
-  //This is the callback function...
-  printk("tarakernel SENDING: Called back.. now seding the UDP.\n");
-    struct udp_send_job *job = container_of(work, struct udp_send_job, work);
-
-    send_udp_json(job->daddr, job->dport, job->json);
-
-    kfree(job);
-}*/
-
-/* Dave this for later.... may be interesting to queue a UDP package from tarakernel
-static void queue_udp_send_from_skb(struct sk_buff *skb)
-{
-    struct iphdr *iph;
-    struct udphdr *udph;
-    struct udp_send_job *job;
-
-    if (!skb)
-    {
-      printk("tarakernel SENDING: ** ERROR no skb\n");
-        return;
-    }
-
-    if (!pskb_may_pull(skb, sizeof(struct iphdr)))
-    {
-      printk("tarakernel SENDING: ** may not pull skb\n");
-      return;
-    }
-
-    iph = ip_hdr(skb);
-    if (!iph || iph->protocol != IPPROTO_TCP)
-    {
-      printk("tarakernel SENDING: ** ERROR original packet is not TCP\n");
-      return;
-    }
-
-    if (!pskb_may_pull(skb, ip_hdrlen(skb) + sizeof(struct udphdr)))
-    {
-      printk("tarakernel SENDING: ** ERROR may not pull payload(?)\n");
-      return;
-    }
-
-    udph = udp_hdr(skb);
-    if (!udph)
-    {
-      printk("tarakernel SENDING: ** ERROR no udph\n");
-      return;
-    }
-
-    job = kzalloc(sizeof(*job), GFP_ATOMIC);
-    if (!job)
-    {
-      printk("tarakernel SENDING: ** ERROR no job\n");
-      return;
-    }
-
-    INIT_WORK(&job->work, udp_send_work_cb);
-
-    job->daddr = iph->daddr;
-    //Change the destination port.... was: job->dport = udph->dest;
-    job->dport = htons(TARALINK_LISTENING_TO_PORT);
-
-    snprintf(job->json, sizeof(job->json),
-             "{\"event\":\"new-session\",\"dst_port\":%u}",
-             ntohs(udph->dest));
-
-    schedule_work(&job->work);
-    printk("tarakernel SENDING: Sending UDP is scheduled!\n");
-}
-    */
-
-
 struct delayed_fwd_job {
     struct work_struct work;
     struct sk_buff *skb;
@@ -249,10 +170,10 @@ out:
     kfree(job);
 }
 
-static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, union _TagUnion *pUnion)
+static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _Tag *pTag)
 {
     char cUdpTagString[100];
-    sprintf(cUdpTagString, "%d:%d^%d^%d^%d", sourceIp, sourcePort, pUnion->cTag.version_no, pUnion->cTag.presumed_infected, pUnion->cTag.botnet_id);
+    sprintf(cUdpTagString, "%d:%d^%d^%d^%d", sourceIp, sourcePort, pTag->version_no, pTag->presumed_infected, pTag->owners_id);
     /* send UDP immediately */
     printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, ntohs(TARALINK_LISTENING_TO_PORT), cUdpTagString);
     return send_udp_json(destIp, htons(TARALINK_LISTENING_TO_PORT), cUdpTagString);

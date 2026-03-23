@@ -491,23 +491,86 @@ void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
 {
     printk("tarakernel: new session and infected sender.. This is when to send UDP packet.. (but not finished)\n");
     //NOTE! Caller return NF_STOLEN
-}//sendUdpPacketToReceiver()
+ }//sendUdpPacketToReceiver()
 
 
-struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, unsigned int *pAvailable)
+struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, int *pAvailable)
 {
+    *pAvailable = -1;
+
 	int n;
 	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
 	{
 		struct _Remote_infection *pInfection = pSetup->cRemoteInfectionInfoReceived[n];
-		if (pInfection && pInfection->saddr == sIp && pInfection->sport == sPort)
-			return pInfection;
+		if (pInfection)
+        {
+            if (pInfection->saddr == sIp && pInfection->sport == sPort)
+            {
+                pInfection->timestamp = ktime_get_real_seconds();
+			    return pInfection;
+            }
+            //else
+            //    printk("tarakernel: Checking %d - %pI4:%d not same as %pI4:%d\n", n, &sIp, sPort, &pInfection->saddr, pInfection->sport);
+        }
 
-		if (!pInfection && *pAvailable == -1)
+        if (!pInfection && *pAvailable == -1)
 			*pAvailable = n;
 	}			
 
+    if (n==N_MAX_REMOTE_INFECTION_INFOS && *pAvailable == -1)
+    {
+        //Find and free the oldest
+        int nOldest = -1;
+        u64 nOldestTimestamp = U64_MAX;
+    	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
+	    {
+    		struct _Remote_infection *pInfection = pSetup->cRemoteInfectionInfoReceived[n];
+	    	if (pInfection)
+                if (pInfection->timestamp < nOldestTimestamp)
+                {
+                    nOldest = n;
+                    nOldestTimestamp = pInfection->timestamp;
+                }
+        }
+
+        struct _Remote_infection *pOldest = pSetup->cRemoteInfectionInfoReceived[nOldest];
+        pSetup->cRemoteInfectionInfoReceived[nOldest] = NULL;
+        printk("tarakernel: No more slots for remote infections. Cleared the oldest (slot %d): %pI4:%d (%lld seconds since used)\n", n, &pOldest->saddr, pOldest->sport, ktime_get_real_seconds() - nOldestTimestamp);
+        kfree(pOldest); //Free at last in case being used;
+		*pAvailable = nOldest;
+    }
+
 	return NULL;	//Not found
+}
+
+void listRemoteInfections(unsigned int sIp, unsigned int sPort);
+void listRemoteInfections(unsigned int sIp, unsigned int sPort)
+{
+    char cBuf[2000];
+    *cBuf =0;
+	int n;
+	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
+	{
+		struct _Remote_infection *pInfection = pSetup->cRemoteInfectionInfoReceived[n];
+
+        if (pInfection)
+        {
+            int bFound = 0;
+
+    		if (pInfection->saddr == sIp && pInfection->sport == sPort)
+                bFound = 1;
+
+            if (strlen(cBuf) < sizeof(cBuf)-20)
+            {
+                sprintf(cBuf+strlen(cBuf), "[TRUNCATED]");
+                return;
+            }
+            sprintf(cBuf+strlen(cBuf), "%s%d-%pI4:%d, ", (bFound?"FOUND!: ":""), n, &pInfection->saddr, ntohs(pInfection->sport));
+        }
+	}			
+
+    printk("tarakernel: Infections found: cBuf\n");
+	return;	//Not found
 }
 
 

@@ -6,74 +6,74 @@ static _Node *pPointerList = NULL;
 
 void *memAlloc(int nSize)
 {
-  //_Node *pNewElement = kzalloc(nNodeSize, GFP_KERNEL); //Same as the standard kmalloc() but sets to zero
-  _Node *pNewElement = kvmalloc(nSize, GFP_KERNEL); //Calls first kmalloc(). If that fails, tries vmalloc()
-  if (pNewElement)
-    memset(pNewElement, 0, nSize);
-  return pNewElement;  
- }
+	//_Node *pNewElement = kzalloc(nNodeSize, GFP_KERNEL); //Same as the standard kmalloc() but sets to zero
+	_Node *pNewElement = kvmalloc(nSize, GFP_KERNEL); //Calls first kmalloc(). If that fails, tries vmalloc()
+	if (pNewElement)
+		memset(pNewElement, 0, nSize);
+	return pNewElement;  
+}
 
 _Node *getLast(_Node *pPointer)
 {
-  while (pPointer->pNext)
-    pPointer = pPointer->pNext;
-  return pPointer;
+	while (pPointer->pNext)
+		pPointer = pPointer->pNext;
+	return pPointer;
 }
 
 _Node *getNewBefore(_Node *pPointer, int nStructSize)
 {
-  int nNodeSize = sizeof(pPointer) + nStructSize;
-  _Node *pNewElement = memAlloc(nNodeSize);
+	int nNodeSize = sizeof(pPointer) + nStructSize;
+	_Node *pNewElement = memAlloc(nNodeSize);
   
-  if (!pNewElement)
-    return NULL;
+	if (!pNewElement)
+    	return NULL;
     
-  if (pPointer)
-    pNewElement->pNext = pPointer; 
+	if (pPointer)
+    	pNewElement->pNext = pPointer; 
     
-  return pNewElement;
+	return pNewElement;
 }
 
 
 _Node *getNewAfter(_Node *pPointer, int nStructSize)
 {
-  int nNodeSize = sizeof(pPointer) + nStructSize;
-  _Node *pNewElement = memAlloc(nNodeSize);
+	int nNodeSize = sizeof(pPointer) + nStructSize;
+	_Node *pNewElement = memAlloc(nNodeSize);
   
-  if (!pNewElement)
-    return NULL;
+	if (!pNewElement)
+    	return NULL;
     
-  if (pPointer)
-    pPointer->pNext = pNewElement;
+	if (pPointer)
+    	pPointer->pNext = pNewElement;
     
-  return pNewElement;
+	return pNewElement;
 }
 
 int countNodes(_Node *pNode);
 int countNodes(_Node *pNode)
 {
-  int n = 0;
-  while (pNode)
-  {
-    n++;
-    pNode = pNode->pNext;
-  }
+	int n = 0;
+	while (pNode)
+	{
+    	n++;
+    	pNode = pNode->pNext;
+  	}
   return n;
 }
 
 _Node *makeList(void);
 _Node *makeList(void)
 {
-  _Node *pPointerlist = NULL;
-    _Node *pLast = NULL;
-    for (int n= 0; n< nElementsInList; n++)
-    {
-      if (!pPointerlist)
-      {
+	_Node *pPointerlist = NULL;
+	_Node *pLast = NULL;
+	for (int n= 0; n< nElementsInList; n++)
+	{
+    	if (!pPointerlist)
+    	{
             pPointerlist = pLast = getNewAfter(NULL, sizeof(struct _InfectionSpecification));
-      }
-      else
-      {
+    	}
+    	else
+      	{
             pLast = getNewAfter(pLast, sizeof(struct _InfectionSpecification));
             
             if (!pLast)
@@ -81,11 +81,11 @@ _Node *makeList(void)
                 nElementsInList = nElementsInList-1;
                 break;
             }
-      }
+      	}
             
-      //struct _InfectionSpecification *pInfection = (struct _InfectionSpecification *)(pLast+sizeof(pLast));
-      //(struct _InfectionSpecification *)(pLast->cInfection).ipAddress = n;
-      pLast->cInfection.ipAddress = n;
+      	//struct _InfectionSpecification *pInfection = (struct _InfectionSpecification *)(pLast+sizeof(pLast));
+      	//(struct _InfectionSpecification *)(pLast->cInfection).ipAddress = n;
+      	pLast->cInfection.ipAddress = n;
     }
     return pPointerlist;
 }

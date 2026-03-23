@@ -140,12 +140,12 @@ void listInfectionsPointerList(void)
 		
 	while (pNode) 
 	{
-	        nCount++;
-	        if (strlen(cBuf) > C_SEGMENT_MAX_SIZE-30)
-	        {
-	            strcpy(cBuf+strlen(cBuf), "[truncated]");
-	            break;
-	        }
+	    nCount++;
+	    if (strlen(cBuf) > C_SEGMENT_MAX_SIZE-30)
+	    {
+	        strcpy(cBuf+strlen(cBuf), "[truncated]");
+	        break;
+	    }
 	
 		unsigned char* ipAddressBytes = (unsigned char*)&pNode->cInfection.ipAddress;
 
@@ -156,7 +156,7 @@ void listInfectionsPointerList(void)
 		pNode = pNode->pNext;
 	}
 
-        int nBytesTaken = nCount * (sizeof(void*) + sizeof(struct _InfectionSpecification));
+    int nBytesTaken = nCount * (sizeof(void*) + sizeof(struct _InfectionSpecification));
 	printk("tarakernel: Infections in pointer list (bytes taken by %d: %d): %s\n", nCount, nBytesTaken, cBuf);
 	
 	kfree(cBuf);

@@ -178,12 +178,12 @@ int udpMsgFromSender(char *lpPayload)
 
         //Search "Tagging UDP msg coding/decoding" for usage in source	(in module_tagging.c)
         //Coded by: sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
+		int nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
 		unsigned int sIp, sPort, dVersion, dInfected, dOwners_id;
-		int nFlds, nAvailable;
-		nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
+		int nFlds;
 		char cSourceIp[100];
 
-		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%s:%d^%d^%d^%d", cSourceIp, &sPort, &dVersion, &dInfected, &dOwners_id)) == 5) 
+		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%99[^:]:%d^%d^%d^%d", cSourceIp, &sPort, &dVersion, &dInfected, &dOwners_id)) == 5) 
 		{
 			sIp = hexstr_to_ip(cSourceIp);
 			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4(%s):%d^%d^%d^%d\n", &sIp, cSourceIp, sPort, dVersion, dInfected, dOwners_id);
@@ -196,15 +196,26 @@ int udpMsgFromSender(char *lpPayload)
 				//Store the new info if available slot...
 				if (nAvailable >= 0)	//Initiated by findRemoteInfectionInfoReceived() while traversing the array
 				{
+					printk("tarakernel SENDING: Available slot found but not yet saving: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
 					//findRemoteInfectionInfoReceived() found an available slot
-					pAlreadyHave = pSetup->cRemoteInfectionInfoReceived[nAvailable] = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
-					pAlreadyHave->saddr = htonl(sIp);
-					pAlreadyHave->sport = htonl(sPort);
-					pAlreadyHave->cTag.owners_id = dOwners_id;
-					pAlreadyHave->cTag.presumed_infected = dInfected;
-					pAlreadyHave->cTag.version_no = dVersion;
 
-					printk("taranernel SENDING: Threat info from sender (via kernel) saved at slot %d", nAvailable);
+					if (1)	//Set to 1 and VM freezes....
+					{
+						pAlreadyHave = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
+						if (pAlreadyHave)
+						{
+							pAlreadyHave->saddr = sIp;	
+							pAlreadyHave->sport = sPort;
+							pAlreadyHave->cTag.owners_id = dOwners_id;
+							pAlreadyHave->cTag.presumed_infected = dInfected;
+							pAlreadyHave->cTag.version_no = dVersion;
+							pAlreadyHave->timestamp = ktime_get_real_seconds();
+
+							pSetup->cRemoteInfectionInfoReceived[nAvailable] = pAlreadyHave;	//Init before putting in array because other processes may access it before finilized. 
+						}
+					}
+
+					//listRemoteInfections(sIp, sPort);
 				}
 				else
 				{

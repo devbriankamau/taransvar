@@ -173,7 +173,7 @@ struct _Remote_infection {
 			uint16_t 	nTag;
 		};
         u32 seq;
-        unsigned long expires;
+        u64 timestamp;
 };
 
 #define C_CHECK_ARRAY_SIZE 5
@@ -246,6 +246,6 @@ _Node *getNewBefore(_Node *pPointer, int nStructSize);
 _Node *getNewAfter(_Node *pPointer, int nStructSize); //Defined in module_pointer_list.c
 _Node *getLast(_Node *pPointer);  //Defined in module_pointer_list.c
 void doInfectionsPointerListTest(void); //Remove this when tested..
-struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, unsigned int *nAvailable);
+struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, int *nAvailable);
 
 #endif

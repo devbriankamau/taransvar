@@ -182,28 +182,33 @@ int udpMsgFromSender(char *lpPayload)
 		int nFlds, nAvailable;
 		nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
 
-		if ((nFlds = sscanf(lpPayload, "%d:%d^%d^%d^%d", &sIp, &sPort, &dVersion, &dInfected, &dBotnet)) == 5) 
+		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%d:%d^%d^%d^%d", &sIp, &sPort, &dVersion, &dInfected, &dBotnet)) == 5) 
 		{
-			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %d:%d^%d^%d^%d\n", sIp, sPort, dVersion, dInfected, dBotnet);
-			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(sIp, sPort, &nAvailable);
+			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4:%d^%d^%d^%d\n", &sIp, sPort, dVersion, dInfected, dBotnet);
+			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(sIp, sPort, &nAvailable);	
 
 			if (pAlreadyHave)
 				printk("tarakernel SENDING: Already have info for %d:%d - ignoring\n", sIp, sPort);
 			else
 			{
 				//Store the new info if available slot...
-				if (nAvailable >= 0)
+				if (nAvailable >= 0)	//Initiated by findRemoteInfectionInfoReceived() while traversing the array
 				{
 					//findRemoteInfectionInfoReceived() found an available slot
 					pAlreadyHave = pSetup->cRemoteInfectionInfoReceived[nAvailable] = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
+					pAlreadyHave->saddr = htonl(sIp);
+					pAlreadyHave->sport = htonl(sPort);
+					pAlreadyHave->cTag.cTag.botnet_id = dBotnet;
+					pAlreadyHave->cTag.cTag.presumed_infected = dInfected;
+					pAlreadyHave->cTag.cTag.version_no = dVersion;
+
+					printk("taranernel SENDING: Threat info from sender (via kernel) saved at slot %d", nAvailable);
 				}
 				else
 				{
-					printk("tarakernel: ***** ERROR **** No available threat info slots.. Should deleted the oldest.\n");
+					printk("tarakernel SENDING: ***** ERROR **** No available threat info slots.. Should deleted the oldest.\n");
 				}
 			}
-
-
 		}
 		else
 			printk("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);

@@ -548,37 +548,6 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/nf_conntrack_tuple.h>
 
-static struct nf_conn *tara_ct_lookup_v4_hanging(__be32 saddr, __be16 sport, __be32 daddr, __be16 dport, u8 protonum)
-{
-    struct nf_conntrack_tuple tuple = {};
-    const struct nf_conntrack_tuple_hash *h;
-    struct nf_conn *ct;
-
-    tuple.src.u3.ip = saddr;
-    tuple.src.u.all = 0;
-    tuple.src.l3num = AF_INET;
-
-    tuple.dst.u3.ip = daddr;
-    tuple.dst.dir = IP_CT_DIR_ORIGINAL;
-    tuple.dst.protonum = protonum;
-
-    if (protonum == IPPROTO_TCP) {
-        tuple.src.u.tcp.port = sport;
-        tuple.dst.u.tcp.port = dport;
-    } else if (protonum == IPPROTO_UDP) {
-        tuple.src.u.udp.port = sport;
-        tuple.dst.u.udp.port = dport;
-    } else {
-        return NULL;
-    }
-
-    h = nf_conntrack_find_get(&init_net, NULL, &tuple);
-    if (!h)
-        return NULL;
-
-    ct = nf_ct_tuplehash_to_ctrack(h);
-    return ct;   /* caller must drop ref */
-}
 
 static struct nf_conn *tara_ct_lookup_v4(__be32 saddr, __be16 sport,
                                          __be32 daddr, __be16 dport,

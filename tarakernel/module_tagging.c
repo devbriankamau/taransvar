@@ -729,9 +729,9 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
         //printk("tarakernel: parsed %pI4:%u -> %pI4:%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port));
         //printk("tara: lookup tuple %pI4:%u -> %pI4:%u proto=%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
 
-        ct = tara_ct_lookup_v4(src_ip, src_port, dst_ip, dst_port, proto);
+//        ct = tara_ct_lookup_v4(src_ip, src_port, dst_ip, dst_port, proto);
 
-        if (!ct)
+//        if (!ct)
             ct = tara_ct_lookup_v4(dst_ip, dst_port, src_ip, src_port, proto);
 
         if (ct) {
@@ -764,10 +764,11 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
             //send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cReply);
             //struct _InfectionSpecification cThreat;
 
-            __be32 nClientIp = t->src.u3.ip;
+            __be32 nClientIp = t->src.u3.ip;    //This is local IP (e.g 192.168.50.100)
+            __be32 nMyIp = iph->daddr;          //This is my address (receiver of the request)
             //__be16 nClientPort = ct_sport;
 
-            struct _InfectionSpecification *pInfected = isInfected(nClientIp);
+            struct _InfectionSpecification *pInfected = isInfected(nClientIp);  
 
             if (!pInfected)
             {
@@ -777,9 +778,9 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
 
             //struct _Remote_infection cThreat;
             //initThreatInfo(t->src.u3.ip, ct_sport, &cThreat);
-            printk("tarakernel SENDING: ********** ERROR ****** Fix before sending back  ****DROPPING SENDING FOR NOW*****\n");
+            printk("tarakernel SENDING: ********** ERROR ****** Fix before sending back\n");
             
-            sendUdpThreatPackage(iph->saddr, t->src.u3.ip, ct_sport, &pInfected->cTag);    //ØT 260323 - send this??
+            sendUdpThreatPackage(iph->saddr, nMyIp, ct_sport, &pInfected->cTag);    //ØT 260323 - send this??
 
             return 1;
         }
@@ -867,6 +868,14 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
         //cUdpTagString is the string to send as UDP packet to receiver if it's a new connection... 
         //Search "Tagging UDP msg coding/decoding" for usage in source (in tarakernel.c??)
+
+        if (pPacket->ip_header->saddr != pSetup->nMyIp)
+        {
+            printk("tarakernel SENDING: **** WARNING *** In FW? Packet don't yet have my IP as sender... Send stored external IP? Partner: %pI4 (sender IP: %pI4) (my stored IP: %pI4)\n", &pPacket->ip_header->daddr, &pPacket->ip_header->saddr, &pSetup->nMyIp);
+            return 0;
+        }
+
+        printk("tarakernel SENDING: About to send UDP to %pI4 (from me: %pI4)\n", &pPacket->ip_header->daddr, &pPacket->ip_header->saddr);
 
         sendUdpThreatPackage(pPacket->ip_header->daddr, pPacket->ip_header->saddr, pPacket->tcp_header->source, &cThreatInfo.cTag);
 

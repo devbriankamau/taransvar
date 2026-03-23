@@ -173,7 +173,9 @@ out:
 static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _Tag *pTag)
 {
     char cUdpTagString[100];
-    sprintf(cUdpTagString, "%d:%d^%d^%d^%d", sourceIp, sourcePort, pTag->version_no, pTag->presumed_infected, pTag->owners_id);
+    //NOTE! sourceIp is client IP (E.g 192.168.50.100) - don't send that to remote server.. 
+    // destIp is partner IP (where to send)
+    sprintf(cUdpTagString, "%08X:%d^%d^%d^%d", ntohl(sourceIp), ntohs(sourcePort), pTag->version_no, pTag->presumed_infected, pTag->owners_id);   asdfasdf
     /* send UDP immediately */
     printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, TARALINK_LISTENING_TO_PORT, cUdpTagString);
     return send_udp_json(destIp, htons(TARALINK_LISTENING_TO_PORT), cUdpTagString);

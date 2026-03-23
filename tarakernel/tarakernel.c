@@ -181,10 +181,12 @@ int udpMsgFromSender(char *lpPayload)
 		unsigned int sIp, sPort, dVersion, dInfected, dOwners_id;
 		int nFlds, nAvailable;
 		nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
+		char cSourceIp[100];
 
-		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%d:%d^%d^%d^%d", &sIp, &sPort, &dVersion, &dInfected, &dOwners_id)) == 5) 
+		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%s:%d^%d^%d^%d", cSourceIp, &sPort, &dVersion, &dInfected, &dOwners_id)) == 5) 
 		{
-			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4:%d^%d^%d^%d\n", &sIp, sPort, dVersion, dInfected, dOwners_id);
+			sIp = hexstr_to_ip(cSourceIp);
+			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4(%s):%d^%d^%d^%d\n", &sIp, cSourceIp, sPort, dVersion, dInfected, dOwners_id);
 			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(sIp, sPort, &nAvailable);	
 
 			if (pAlreadyHave)

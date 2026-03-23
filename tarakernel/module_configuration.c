@@ -452,7 +452,7 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 	int n;
 */
 //	ØT 260303 - Check first if already in the list???? (what about the other categories??)
-	int nMaxOwnersId = -1;
+	int nMaxOwnersId = 0;
 
 	for (_Node *pInfection = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pInfection; pInfection = pInfection->pNext)
 	{
@@ -562,7 +562,7 @@ struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddres
 struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress)
 {
 	char cInfectedUnits[1000];
-	strcpy(cInfectedUnits, "tarakernel: infected units: ");
+	strcpy(cInfectedUnits, "");
 
 	for (struct _Node *pNode = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pNode; pNode = pNode->pNext)
 	{
@@ -577,7 +577,7 @@ struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddres
 		        //NOTE! ******************* NEED TO FIX THE THREAT CATEGORIES *************
 		        //printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cThreat.category); 
 		        //return pNode->cInfection.cThreat.category;
-		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cTag.presumed_infected); 
+		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
 		        //return pNode->cInfection.cUnion.cTag.presumed_infected;
 		        return &pNode->cInfection;
                 }

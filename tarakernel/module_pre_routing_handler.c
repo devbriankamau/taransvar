@@ -289,21 +289,58 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		if  (ntohs(udph->dest) == TARAKERNEL_LISTENING_TO_PORT)
 		{
 
-			printk("UDP %pI4:%u -> %pI4:%u\n", &pPacket->ip_header->saddr, ntohs(udph->source), &pPacket->ip_header->daddr, ntohs(udph->dest));
+			printk("tarakernel SENDING: Received: UDP %pI4:%u -> %pI4:%u\n", &pPacket->ip_header->saddr, ntohs(udph->source), &pPacket->ip_header->daddr, ntohs(udph->dest));
 
-			/* Payload start */
-			char *payload = (unsigned char *)udph + sizeof(struct udphdr);
 
-			/* Payload length */
-			unsigned int payload_len = ntohs(udph->len) - sizeof(struct udphdr);
 
-			if (payload_len <= 0)
+			unsigned int ihl;
+			unsigned int payload_offset;
+			unsigned int payload_len;
+
+			if (!pskb_may_pull(skb, sizeof(struct iphdr)))
     			return NF_ACCEPT;
+
+			struct iphdr *iph = ip_hdr(skb);
+
+			//if (iph->protocol != IPPROTO_UDP)
+    		//	return NF_ACCEPT;
+
+			ihl = iph->ihl * 4;
+
+			if (!pskb_may_pull(skb, ihl + sizeof(struct udphdr)))
+    			return NF_ACCEPT;
+
+			udph = (struct udphdr *)((unsigned char *)iph + ihl);
+
+			payload_offset = ihl + sizeof(struct udphdr);
+			payload_len = ntohs(udph->len) - sizeof(struct udphdr);
+
+
+
+			char buf[256];
+			unsigned int copy_len;
+
+			if (payload_len == 0)
+    			return NF_ACCEPT;
+
+			copy_len = min(payload_len, (unsigned int)(sizeof(buf) - 1));
+
+			if (skb_copy_bits(skb, payload_offset, buf, copy_len) < 0)
+    			return NF_ACCEPT;
+
+			buf[copy_len] = '\0';
 
 			//Should we also check IP address here?
 			//TO_DO - This is where to catch request elaboration from other partner about infected traffic
 			//Could also catch such info here instead of letting it go to user space and then sent back to kernel? ()
-			if (isRequestForThreatElaboration(payload, pPacket->ip_header, udph))	//module_tagging.c
+
+			/*if (strstr(buf, UDP_THREAT_INFO_REQUEST_PREFIX) == buf) {
+			    printk("tarakernel: matched request string only\n");
+    			checkFree(pPacket, false);
+    			return NF_DROP;
+			}*/
+
+			if (isRequestForThreatElaboration(buf, iph, udph))	//module_tagging.c
 				return NF_DROP;
 
 			printk("tarakernel: ********* WARNING ****** Unknown content to thread info service port.. Port scanning?\n");

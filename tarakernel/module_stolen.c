@@ -249,8 +249,17 @@ out:
     kfree(job);
 }
 
+static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, union _TagUnion *pUnion)
+{
+    char cUdpTagString[100];
+    sprintf(cUdpTagString, "%d:%d^%d^%d^%d", sourceIp, sourcePort, pUnion->cTag.version_no, pUnion->cTag.presumed_infected, pUnion->cTag.botnet_id);
+    /* send UDP immediately */
+    printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, ntohs(TARALINK_LISTENING_TO_PORT), cUdpTagString);
+    return send_udp_json(destIp, htons(TARALINK_LISTENING_TO_PORT), cUdpTagString);
+}
 
-static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString)
+
+static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state)
 {
     struct delayed_fwd_job *job;
     struct iphdr *iph;
@@ -272,9 +281,6 @@ static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const 
     tcph = skb_header_pointer(skb, ip_hdrlen(skb), sizeof(_tcph), &_tcph);
     if (!tcph)
         return NF_ACCEPT;
-
-    /* send UDP immediately */
-    send_udp_json(iph->daddr, htons(TARALINK_LISTENING_TO_PORT), lpString);
 
     /* hold original packet */
     job = kzalloc(sizeof(*job), GFP_ATOMIC);

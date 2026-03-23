@@ -86,7 +86,11 @@ void saveStolenPackage(struct _PacketInspection *pPacket);
 uint8_t getDscp(struct _PacketInspection *pPacket);
 void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
-static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
+
+//Old one: static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
+static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, union _TagUnion *pUnion);
+static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state);
+
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
 
 void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere);	//260320 - asdf... got problem with this....

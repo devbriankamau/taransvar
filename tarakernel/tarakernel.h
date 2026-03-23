@@ -41,7 +41,7 @@ struct _statistics {
 };
 
 
-#define TAG_VERSION_NO  0b111
+#define TAG_VERSION_NO  0b11
 
 #define C_REQUESTS_CLEAN 0
 #define C_REQUESTS_PRESUMED_CLEAN 1
@@ -109,7 +109,8 @@ struct _ColoredIpSpecification {	//For black/whitelisting
 struct _InfectionSpecification {
 	volatile uint32_t ipAddress;
 	volatile uint32_t ipNettmask;
-	struct _threatSpecification cThreat;
+	//struct _threatSpecification cThreat;
+	union _TagUnion	cUnion;
 };
 
 struct _PartnerSpecification {

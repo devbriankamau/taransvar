@@ -536,7 +536,7 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 //        sprintf(cBuf, "%s-%pI4:%d->%pI4:%d", UDP_THREAT_INFO_REQUEST_PREFIX, &iph->saddr, pPacket->tcp_header->source,  &iph->daddr, pPacket->tcp_header->dest);
 //        sprintf(cBuf, "%s-%08X:%d->%08X:%d", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(pPacket->tcp_header->source),  ntohl(iph->daddr), ntohs(pPacket->tcp_header->dest));
         snprintf(cBuf, sizeof(cBuf), "%s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(pPacket->tcp_header->source),ntohl(iph->daddr),ntohs(pPacket->tcp_header->dest));
-        send_udp_json(iph->saddr, TARAKERNEL_LISTENING_TO_PORT, cBuf);
+        send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
         printk("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
     }
 }
@@ -548,7 +548,7 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 #include <net/netfilter/nf_conntrack_core.h>
 #include <net/netfilter/nf_conntrack_tuple.h>
 
-static struct nf_conn *tara_ct_lookup_v4(__be32 saddr, __be16 sport, __be32 daddr, __be16 dport, u8 protonum)
+static struct nf_conn *tara_ct_lookup_v4_hanging(__be32 saddr, __be16 sport, __be32 daddr, __be16 dport, u8 protonum)
 {
     struct nf_conntrack_tuple tuple = {};
     const struct nf_conntrack_tuple_hash *h;
@@ -580,13 +580,159 @@ static struct nf_conn *tara_ct_lookup_v4(__be32 saddr, __be16 sport, __be32 dadd
     return ct;   /* caller must drop ref */
 }
 
+static struct nf_conn *tara_ct_lookup_v4(__be32 saddr, __be16 sport,
+                                         __be32 daddr, __be16 dport,
+                                         u8 protonum)
+{
+    struct nf_conntrack_tuple tuple = {};
+    const struct nf_conntrack_tuple_hash *h;
+    struct nf_conn *ct;
+
+    tuple.src.l3num = AF_INET;
+    tuple.src.u3.ip = saddr;
+
+    tuple.dst.protonum = protonum;
+    tuple.dst.dir = IP_CT_DIR_ORIGINAL;
+    tuple.dst.u3.ip = daddr;
+
+    switch (protonum) {
+    case IPPROTO_TCP:
+        tuple.src.u.tcp.port = sport;
+        tuple.dst.u.tcp.port = dport;
+        break;
+    case IPPROTO_UDP:
+        tuple.src.u.udp.port = sport;
+        tuple.dst.u.udp.port = dport;
+        break;
+    default:
+        return NULL;
+    }
+
+    h = nf_conntrack_find_get(&init_net, &nf_ct_zone_dflt, &tuple);
+    if (!h)
+        return NULL;
+
+    ct = nf_ct_tuplehash_to_ctrack(h);
+    return ct; /* caller must nf_ct_put(ct) */
+}
+
+
+int parse_threat_tuple_hang_candidate(const char *lpStartAt, __be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port);
+int parse_threat_tuple_hang_candidate(const char *lpStartAt, __be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port)
+{
+    char buf[128];
+    char *p, *from_ip, *from_port, *to_ip, *to_port, *arrow;
+
+    strscpy(buf, lpStartAt, sizeof(buf));
+
+    p = buf;
+
+    from_ip = p;
+    p = strchr(p, ':');
+    if (!p) return 0;
+    *p++ = '\0';
+
+    from_port = p;
+    arrow = strstr(p, "->");
+    if (!arrow) return 0;
+    *arrow = '\0';
+    p = arrow + 2;
+
+    to_ip = p;
+    p = strchr(p, ':');
+    if (!p) return 0;
+    *p++ = '\0';
+
+    to_port = p;
+
+    if (strlen(from_ip) != 8 || strlen(to_ip) != 8)
+        return 0;
+
+    *src_ip   = hexstr_to_ip(from_ip);
+    *dst_ip   = hexstr_to_ip(to_ip);
+    *src_port = htons((u16)simple_strtoul(from_port, NULL, 10));
+    *dst_port = htons((u16)simple_strtoul(to_port, NULL, 10));
+
+    return 1;
+}
+
+
+int parse_threat_tuple(const char *lpStartAt, __be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port);
+int parse_threat_tuple(const char *lpStartAt, __be32 *src_ip, __be16 *src_port, __be32 *dst_ip, __be16 *dst_port)
+{
+    char buf[128];
+    char *p, *from_ip, *from_port, *to_ip, *to_port, *arrow;
+    unsigned long sp, dp;
+
+    printk("tara: parse 1 start='%s'\n", lpStartAt);
+
+    strscpy(buf, lpStartAt, sizeof(buf));
+    printk("tara: parse 2 buf='%s'\n", buf);
+
+    p = buf;
+
+    from_ip = p;
+    p = strchr(p, ':');
+    if (!p) { printk("tara: parse fail A\n"); return 0; }
+    *p++ = '\0';
+    printk("tara: parse 3 from_ip='%s'\n", from_ip);
+
+    from_port = p;
+    arrow = strstr(p, "->");
+    if (!arrow) { printk("tara: parse fail B\n"); return 0; }
+    *arrow = '\0';
+    p = arrow + 2;
+    printk("tara: parse 4 from_port='%s'\n", from_port);
+
+    to_ip = p;
+    p = strchr(p, ':');
+    if (!p) { printk("tara: parse fail C\n"); return 0; }
+    *p++ = '\0';
+    to_port = p;
+
+    printk("tara: parse 5 to_ip='%s' to_port='%s'\n", to_ip, to_port);
+
+    if (strlen(from_ip) != 8 || strlen(to_ip) != 8) {
+        printk("tara: parse fail D bad ip lengths %zu %zu\n",
+               strlen(from_ip), strlen(to_ip));
+        return 0;
+    }
+
+    printk("tara: parse 6 before hexstr_to_ip\n");
+    *src_ip = hexstr_to_ip(from_ip);
+    printk("tara: parse 7 after src hexstr_to_ip\n");
+    *dst_ip = hexstr_to_ip(to_ip);
+    printk("tara: parse 8 after dst hexstr_to_ip\n");
+
+    sp = simple_strtoul(from_port, NULL, 10);
+    dp = simple_strtoul(to_port, NULL, 10);
+    printk("tara: parse 9 ports sp=%lu dp=%lu\n", sp, dp);
+
+    *src_port = htons((u16)sp);
+    *dst_port = htons((u16)dp);
+
+    printk("tara: parse 10 done %pI4:%u -> %pI4:%u\n",
+           src_ip, ntohs(*src_port), dst_ip, ntohs(*dst_port));
+    return 1;
+}
+
+
+void initThreatInfo(__be32 ip, __be32 port, struct _Remote_infection *pThreat);
+void initThreatInfo(__be32 ip, __be32 port, struct _Remote_infection *pThreat)
+{
+    pThreat->saddr = ip;
+    pThreat->cTag.cTag.version_no = TAG_VERSION_NO;
+	pThreat->cTag.cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
+	pThreat->cTag.cTag.botnet_id = 99; //To be assigned by Taransvar.. To be implemented later...
+}
+
 int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct udphdr *udph)
 {
     /* Now you can read payload[0..payload_len-1] */
     if (strstr(lpPayload, UDP_THREAT_INFO_REQUEST_PREFIX) == lpPayload) {
-        char szFromIp[9];   /* 8 hex chars + NUL */
-        char szToIp[9];
-        unsigned int from_port, to_port;
+        //char szFromIp[9];   /* 8 hex chars + NUL */
+        //char szToIp[9];
+        //unsigned int from_port, to_port;
         __be32 src_ip, dst_ip;
         __be16 src_port, dst_port;
         u8 proto = IPPROTO_TCP;
@@ -595,23 +741,27 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
         printk("tarakernel: THREAT_INFO_REQUEST payload: %s\n", lpPayload);
 
         /*
-         * Valid payload:
+        * Valid payload:
         * THREAT_INFO_REQUEST-0A0A0A0A:55806->0A0A0A03:80
         */
     
-        if (sscanf(lpPayload + strlen(UDP_THREAT_INFO_REQUEST_PREFIX),
-               "%8[0-9A-Fa-f]:%u->%8[0-9A-Fa-f]:%u",
-               szFromIp, &from_port, szToIp, &to_port) != 4) {
-            printk("tarakernel: WARNING: unable to decode tuple from payload\n");
-            return 0;
+       // char *lpStartAt = lpPayload + strlen(UDP_THREAT_INFO_REQUEST_PREFIX)+1;
+        //int nFlds;
+
+// Returns 3 when should have returned 4 so parse_threat_tuple() suggested by chatGPT. In case of need for change, maybe better simplify sscanf??         
+//        nFlds = sscanf(lpStartAt, "%8[0-9A-Fa-f]:%u->%8[0-9A-Fa-f]:%u", szFromIp, &from_port, szToIp, &to_port);
+
+        if (!parse_threat_tuple(lpPayload + strlen(UDP_THREAT_INFO_REQUEST_PREFIX) + 1,
+                            &src_ip, &src_port, &dst_ip, &dst_port)) {
+            printk("tarakernel: parse_threat_tuple() failed\n");
+            return NF_DROP;
         }
 
-        src_ip   = hexstr_to_ip(szFromIp);
-        dst_ip   = hexstr_to_ip(szToIp);
-        src_port = htons((u16)from_port);
-        dst_port = htons((u16)to_port);
+        //printk("tarakernel: parsed %pI4:%u -> %pI4:%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port));
+        //printk("tara: lookup tuple %pI4:%u -> %pI4:%u proto=%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
 
         ct = tara_ct_lookup_v4(src_ip, src_port, dst_ip, dst_port, proto);
+
         if (!ct)
             ct = tara_ct_lookup_v4(dst_ip, dst_port, src_ip, src_port, proto);
 
@@ -629,17 +779,33 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
                 ct_dport = t->dst.u.udp.port;
             }
 
-            printk("tarakernel: conntrack returned: %pI4:%u -> %pI4:%u proto=%u\n",
+            printk("tarakernel: conntrack returned: %pI4:%u -> %pI4:%u proto=%u (** WARNING ** - Not yet sending this to receiver..)\n",
                &t->src.u3.ip, ntohs(ct_sport),
                &t->dst.u3.ip, ntohs(ct_dport),
                t->dst.protonum);
 
             nf_ct_put(ct);
+
+            //ØT 260323 - Sending reply to request for thread info (at least did here before)... 
+           // char cReply[200];
+//Orginal(sent from elsewhere)            snprintf(cReply, sizeof(cReply), "Maybe nonsense: %s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(udph->source),ntohl(iph->daddr),ntohs(iph->dest));
+//            snprintf(cReply, sizeof(cReply), "Maybe nonsense: %s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->daddr), ntohs(udph->source),ntohl(iph->daddr),ntohs(iph->dest));
+//            printk("tarakernel SENDING: Used to send this: %s\n", cReply);
+
+            //send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cReply);
+            //struct _InfectionSpecification cThreat;
+            struct _Remote_infection cThreat;
+            initThreatInfo(t->src.u3.ip, ct_sport, &cThreat);
+            printk("tarakernel SENDING: ********** ERROR ****** Fix before sending back\n");
+            sendUdpThreatPackage(iph->saddr, t->src.u3.ip, ct_sport, &cThreat.cTag);
+
+
             return 1;
         }
 
         printk("tarakernel: conntrack lookup failed for %pI4:%u -> %pI4:%u proto=%u\n",
-                       &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
+        &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
+
     }
     return 0;
 }
@@ -660,16 +826,15 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
     checkThatTcp(pPacket,"start of tagThePacket");	//260320 - asdf... got problem with this....
 
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
+    //struct _InfectionSpecification cThreatInfo;
+    struct _Remote_infection cThreatInfo;
 
-	union _TagUnion cUnion;
-	cUnion.cTag.version_no = TAG_VERSION_NO;
-	cUnion.cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
-	cUnion.cTag.botnet_id = 99; //To be assigned by Taransvar.. To be implemented later...
-
+    initThreatInfo(pPacket->ip_header->saddr, pPacket->tcp_header->source, &cThreatInfo);
+	
     #define DO_URG_PTR_TAGGING
     #ifdef DO_URG_PTR_TAGGING
     //***************Using urg_ptr **************************
-	pPacket->tcp_header->urg_ptr= cUnion.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
+	pPacket->tcp_header->urg_ptr= cThreatInfo.cTag.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 	pSetup->cGlobalStatistics.nOutboundTagged++;
     #endif
 
@@ -718,11 +883,12 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
     if (isNewConnection(pPacket->skb))
     {
-        char cUdpTagString[100];
 
         //cUdpTagString is the string to send as UDP packet to receiver if it's a new connection... 
         //Search "Tagging UDP msg coding/decoding" for usage in source (in tarakernel.c??)
-        sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
+
+        sendUdpThreatPackage(pPacket->ip_header->daddr, pPacket->ip_header->saddr, pPacket->tcp_header->source, &cThreatInfo.cTag);
+
         /*  Don't do this for now... Sending it directly for callback
         int nAvailable = -1;
         //Mark this as stolen so not getting handled again...
@@ -747,8 +913,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
             */
 
         //sendUdpPacketToReceiver(pPacket);
-        printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &pPacket->ip_header->daddr, ntohs(TARALINK_LISTENING_TO_PORT), cUdpTagString);
-        return sendUdpPackageAndQueueRetransmit(pPacket->skb, state, cUdpTagString);
+        return queueRetransmit(pPacket->skb, state);
         //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
     }
     /*else

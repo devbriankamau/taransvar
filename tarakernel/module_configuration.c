@@ -472,10 +472,12 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 		{
 			//cNewElement.cThreat. = C_REQUESTS_CLEAN;
 			//NOTE! category is char:3 - value 0-7
-			pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
+			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
+			pNode->cInfection.cUnion.cTag.presumed_infected = 7;
 		}
 		else
-			pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
+			pNode->cInfection.cUnion.cTag.presumed_infected = 7;
+			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
 	}
 	else
 		printk("tarakernel: ***** ERROR: Unable to allocate memory for new infection\n");
@@ -561,8 +563,10 @@ int isInfectedPointerList(volatile uint32_t ipAddress)
 		if (pNode && ipAddress == pNode->cInfection.ipAddress)
 		{
 		        //NOTE! ******************* NEED TO FIX THE THREAT CATEGORIES *************
-		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cThreat.category); 
-		        return pNode->cInfection.cThreat.category;
+		        //printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cThreat.category); 
+		        //return pNode->cInfection.cThreat.category;
+		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cUnion.cTag.presumed_infected); 
+		        return pNode->cInfection.cUnion.cTag.presumed_infected;
                 }
 	}
 	return 0;

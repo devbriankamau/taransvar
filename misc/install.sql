@@ -66,8 +66,18 @@ alter table unit add infoSharePartners varchar(255);
 alter table unit add foreignUnitId int(11) null after ownerId;
 update setup set dbVersion = 52;
 
+#version 53 (260324)
+alter table unit drop column infoSharePartner;
+alter table unit drop column infoSharePartners;
+alter table unit drop column foreignUnitId;
+alter table internalInfections add infoSharePartner varchar(255);
+alter table internalInfections add infoSharePartners varchar(255);
+alter table internalInfections add foreignUnitId int(11) null after unitId;
+update setup set dbVersion = 53;
+
+
 #******** NEXT TIME ALSO add *****
-#update setup set dbVersion = 53;
+#update setup set dbVersion = 54;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

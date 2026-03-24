@@ -94,6 +94,7 @@ static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_st
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
 
 void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere);	//260320 - asdf... got problem with this....
+static void send_to_user(const char *msg);
 
 //static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
 //static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);
@@ -198,30 +199,25 @@ int udpMsgFromSender(char *lpPayload)
 				//Store the new info if available slot...
 				if (nAvailable >= 0)	//Initiated by findRemoteInfectionInfoReceived() while traversing the array
 				{
-					printk("tarakernel SENDING: Available slot found but not yet saving: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
+					printk("tarakernel SENDING: Available slot found: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
 					//findRemoteInfectionInfoReceived() found an available slot
 
-					if (1)	//Set to 1 and VM freezes....
+					pAlreadyHave = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
+					if (pAlreadyHave)
 					{
-						pAlreadyHave = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
-						if (pAlreadyHave)
-						{
-							pAlreadyHave->saddr = sIp;	
-							pAlreadyHave->sport = sPort;
-							pAlreadyHave->cTag.owners_id = dOwners_id;
-							pAlreadyHave->cTag.presumed_infected = dInfected;
-							pAlreadyHave->cTag.version_no = dVersion;
-							pAlreadyHave->timestamp = ktime_get_real_seconds();
-
-							pSetup->cRemoteInfectionInfoReceived[nAvailable] = pAlreadyHave;	//Init before putting in array because other processes may access it before finilized. 
-						}
+						pAlreadyHave->saddr = networkIp;	
+						pAlreadyHave->sport = networkPort;
+						pAlreadyHave->cTag.owners_id = dOwners_id;
+						pAlreadyHave->cTag.presumed_infected = dInfected;
+						pAlreadyHave->cTag.version_no = dVersion;
+						pAlreadyHave->timestamp = ktime_get_real_seconds();
+						pSetup->cRemoteInfectionInfoReceived[nAvailable] = pAlreadyHave;	//Init before putting in array because other processes may access it before finilized. 
 					}
-
 					//listRemoteInfections(sIp, sPort);
 				}
 				else
 				{
-					printk("tarakernel SENDING: ***** ERROR **** No available threat info slots.. Should deleted the oldest.\n");
+					printk("tarakernel SENDING: ***** ERROR **** No available threat info slots.. And for some reason didn't manage to deleted the oldest.\n");
 				}
 			}
 		}
@@ -243,6 +239,9 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 		
 	nlhead = (struct nlmsghdr*)skb->data;    //nlhead message comes from skb's data... (sk_buff: unsigned char *data)
 	lpPayload = (char*)nlmsg_data(nlhead);    
+
+	if (!pSetup->taralink_pid)
+		pSetup->taralink_pid = nlhead->nlmsg_pid;
 
 	//if (!bReceivedConfiguration || pSetup->cShowInstructions.bits.showOther)
 		printk(KERN_INFO "tarakernel: Received: %s\n",lpPayload);
@@ -271,7 +270,7 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 		    //*************** NOTE! Make changes here... probably never sends status as long as there's traffic....
 			if (trafficReportToTaralinkFound(nlhead->nlmsg_pid)) //Defined in module_timed_operations.c
 			{
-			        //Also logged by trafficReportToTaralinkFound()
+			    //Also logged by trafficReportToTaralinkFound()
 				//if (pSetup->cShowInstructions.bits.showOther)
 				//	printk(KERN_INFO "tarakernel: Traffic report sent to taralink\n");
 					
@@ -279,18 +278,86 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 			}
 			else
 				if (!strcmp(lpPayload, "request_tarakernel_status"))
-			{
+				{
 			        //sendTestMessage(nlhead->nlmsg_pid); //Or do other debug stuff...
-				checkRequestForStatus(nlhead->nlmsg_pid, lpPayload);   //Defined in module_status.c
-				return;
-			}
-			else
+					checkRequestForStatus(nlhead->nlmsg_pid, lpPayload);   //Defined in module_status.c
+					return;
+				}
+				else
     			{
         			strcpy(cReply, "Hello msg from kernel");
-			}
+				}
         }
 	sendMessage(nlhead->nlmsg_pid, cReply);
 }
+
+
+
+static void send_to_user(const char *msg)
+{
+	//Use this to send messages to user space initiated from kernel... 
+	struct sk_buff *skb_out;
+    struct nlmsghdr *nlh;
+    int msg_size;
+    int res;
+
+
+	struct sock *nl_sk = pSetup->nl_sk;
+	u32 pid = pSetup->taralink_pid;
+
+	if (!pid)
+	{
+		printk("tarakernel: ****** ERROR ****** Taralink process id not yet initialized... Unable to send message - aborting: %s\n", msg);
+		return;
+	}
+
+    msg_size = strlen(msg) + 1;
+
+    skb_out = nlmsg_new(msg_size, GFP_KERNEL);
+    if (!skb_out) {
+        printk(KERN_ERR "Failed to allocate netlink skb\n");
+        return;
+    }
+
+    nlh = nlmsg_put(skb_out, 0, 0, NLMSG_DONE, msg_size, 0);
+    if (!nlh) {
+        kfree_skb(skb_out);
+        printk(KERN_ERR "nlmsg_put failed\n");
+        return;
+    }
+
+    memcpy(nlmsg_data(nlh), msg, msg_size);
+
+    res = nlmsg_unicast(nl_sk, skb_out, pid);
+    if (res < 0)
+        printk(KERN_INFO "Error while sending to user: %d\n", res);
+}
+
+
+
+
+
+
+
+//Timer callback and includes
+#include <linux/timer.h>
+#include <linux/jiffies.h>
+
+static struct timer_list my_timer;
+
+static void my_timer_cb(struct timer_list *t)
+{
+	printk("tarakernel: my_timer fired\n");
+
+    checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
+
+    /* rearm 1 second later (if wanted) */
+    mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_SECONDS * 1000));
+
+	send_to_user("tarakernel here... I got a timer.. how are you?");
+}
+
+
 
 static int __init hello_init(void) 
 {
@@ -368,7 +435,13 @@ static int __init hello_init(void)
 		}
 	}
 	warn("tarakernel: Netfilter hooks registered\n");
-  
+
+	//Set up a timer
+	timer_setup(&my_timer, my_timer_cb, 0);
+    mod_timer(&my_timer, jiffies + msecs_to_jiffies(1000));	// fire once after 1 second 
+
+    printk("tarakernel: timer armed\n");
+
 	return 0;
 }
 
@@ -389,6 +462,10 @@ static void __exit hello_exit(void)
 
     printk(KERN_INFO "tarakernel: Tarakernel stopped.\n");
 	netlink_kernel_release(pSetup->nl_sk);
+
+    // timer: safe teardown when unloading 
+    timer_delete_sync(&my_timer);
+    pr_info("timer stopped\n");
 }
 
 module_init(hello_init); 

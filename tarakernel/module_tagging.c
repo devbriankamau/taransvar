@@ -494,7 +494,7 @@ void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
  }//sendUdpPacketToReceiver()
 
 
-struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsigned int sPort, int *pAvailable)
+struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPort, int *pAvailable)
 {
     *pAvailable = -1;
 
@@ -512,9 +512,9 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsi
             //else
             //    printk("tarakernel: Checking %d - %pI4:%d not same as %pI4:%d\n", n, &sIp, sPort, &pInfection->saddr, pInfection->sport);
         }
-
-        if (!pInfection && *pAvailable == -1)
-			*pAvailable = n;
+        else
+            if (*pAvailable == -1)
+	    		*pAvailable = n;
 	}			
 
     if (n==N_MAX_REMOTE_INFECTION_INFOS && *pAvailable == -1)
@@ -535,7 +535,7 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsi
 
         struct _Remote_infection *pOldest = pSetup->cRemoteInfectionInfoReceived[nOldest];
         pSetup->cRemoteInfectionInfoReceived[nOldest] = NULL;
-        printk("tarakernel: No more slots for remote infections. Cleared the oldest (slot %d): %pI4:%d (%lld seconds since used)\n", n, &pOldest->saddr, pOldest->sport, ktime_get_real_seconds() - nOldestTimestamp);
+        printk("tarakernel: No more slots for remote infections. Cleared the oldest (slot %d): %pI4:%d (%lld seconds since used)\n", nOldest, &pOldest->saddr, ntohs(pOldest->sport), ktime_get_real_seconds() - nOldestTimestamp);
         kfree(pOldest); //Free at last in case being used;
 		*pAvailable = nOldest;
     }
@@ -543,8 +543,8 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsi
 	return NULL;	//Not found
 }
 
-void listRemoteInfections(unsigned int sIp, unsigned int sPort);
-void listRemoteInfections(unsigned int sIp, unsigned int sPort)
+void listRemoteInfections(__be32 sIp, unsigned int sPort);
+void listRemoteInfections(__be32 sIp, unsigned int sPort)
 {
     char cBuf[1000];
     *cBuf =0;
@@ -560,16 +560,16 @@ void listRemoteInfections(unsigned int sIp, unsigned int sPort)
     		if (pInfection->saddr == sIp && pInfection->sport == sPort)
                 bFound = 1;
 
-            if (strlen(cBuf) < sizeof(cBuf)-20)
+            if (strlen(cBuf) > sizeof(cBuf)-40)
             {
                 sprintf(cBuf+strlen(cBuf), "[TRUNCATED]");
-                return;
+                break;
             }
             sprintf(cBuf+strlen(cBuf), "%s%d-%pI4:%d, ", (bFound?"FOUND!: ":""), n, &pInfection->saddr, ntohs(pInfection->sport));
         }
 	}			
 
-    printk("tarakernel: Infections found: cBuf\n");
+    printk("tarakernel: Infections found: %s\n", cBuf);
 	return;	//Not found
 }
 

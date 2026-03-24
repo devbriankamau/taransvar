@@ -268,8 +268,6 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 {
     int bToOrFromMe = 0;
 
-    checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
-
 	if (!skb)
 		return NF_ACCEPT;
 
@@ -487,7 +485,8 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			
 			
 	        if (pSetup->cShowInstructions.bits.showPreRoutePartner)
-				printk("tarakernel: PRE ROUTING: Inbound from partner: %s (%s -> %s)\n",pSetup->c100, pPacket->cSourceIp, pPacket->cDestIp);
+				//printk("tarakernel: PRE ROUTING: Inbound from partner: %s (%s -> %s)\n",pSetup->c100, pPacket->cSourceIp, pPacket->cDestIp);
+				printk("tarakernel: PRE ROUTING Inbound from partner: %s (%s:%d -> %s:%d)\n", pSetup->c100, pPacket->cSourceIp, ntohs(pPacket->tcp_header->source), pPacket->cDestIp, ntohs(pPacket->tcp_header->dest)); 
 		        
 			if (cUnion.cTag.version_no)
 			  pSetup->cGlobalStatistics.nFromPartnerTagged++;
@@ -637,8 +636,8 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 			cUnion.nTag = pPacket->tcp_header->urg_ptr;
 			sprintf(pSetup->c100, "Tag: (%04X) Infected: %u, owners_id: %u", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id);
 
-	        	if (pSetup->cShowInstructions.bits.showPreRoutePartner)
-				printk("tarakernel: POST ROUTING Inbound from partner: %s (%s -> %s)\n", pSetup->c100, pPacket->cSourceIp, pPacket->cDestIp); 
+	        if (pSetup->cShowInstructions.bits.showPreRoutePartner)
+				printk("tarakernel: POST ROUTING Inbound from partner: %s (%s:%d -> %s:%d)\n", pSetup->c100, pPacket->cSourceIp, ntohs(pPacket->tcp_header->source), pPacket->cDestIp, ntohs(pPacket->tcp_header->dest)); 
 
 			if (cUnion.cTag.version_no)
 				pSetup->cGlobalStatistics.nFromPartnerTagged++;

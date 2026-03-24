@@ -13,7 +13,7 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const s
 	char *lpPrOrFw = (bForwarding?"FW":"PR");
 
 	struct _InfectionSpecification *pInfected = isInfected(pPacket->ip_header->saddr);
-	int nSenderIsInfected = pInfected != NULL;
+	int nSenderIsInfected = (pInfected?pInfected->cTag.presumed_infected:0);
 	int nRequestedAssistance = requestedAssistance(pPacket->ip_header->daddr, pPacket->dPort);
 	short bCommentPrinted = 0;  //Set to 1 to indicate that comment has been printed (otherwise print default at the end...
 	char *lpInfectionStatus = memAlloc(200);

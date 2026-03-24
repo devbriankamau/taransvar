@@ -55,8 +55,19 @@ update setup set dbVersion = 50;
 alter table setup add nickname varchar(100);
 update setup set dbVersion = 51;
 
+#version 52 (260324)
+alter table pendingWget add reply varchar(255);
+alter table partner add infoAdmin varchar(255);
+alter table partner add infoTech varchar(255);
+alter table partner add infoSharePartner varchar(255);
+alter table partner add infoSharePartners varchar(255);
+alter table unit add infoSharePartner varchar(255);
+alter table unit add infoSharePartners varchar(255);
+alter table unit add foreignUnitId int(11) null after ownerId;
+update setup set dbVersion = 52;
+
 #******** NEXT TIME ALSO add *****
-#alter table pendingWget add reply varchar(255);
+#update setup set dbVersion = 53;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

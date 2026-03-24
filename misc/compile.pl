@@ -10,6 +10,24 @@ use Data::Dumper;
 use File::stat;
 use Cwd qw(getcwd);
 use File::Basename;
+use DBI;
+
+
+sub installSqlVersion 
+{
+	open my $fh, '<', 'install.sql' or die $!;
+
+	my $max = 0;
+
+	while (<$fh>) {
+	    if (/#version\s+(\d+)/) {
+    	    $max = $1 if $1 > $max;
+    	}
+	}
+
+	close $fh;
+	return $max;
+}
 
 #NOTE! 
 #	- Should if tarakernel.ko is running before and after modprobe
@@ -24,6 +42,14 @@ use File::Basename;
 use FindBin;
 use lib $FindBin::Bin;
 use func;
+
+my $nInstallSqlVersion = installSqlVersion();
+my $cSetup = getSetup();
+
+if ($nInstallSqlVersion ne $cSetup->{"dbVersion"}) {
+	print "\n*********** ERROR - DB update required **********\n\nCurrent version: $nInstallSqlVersion, DB version: ".$cSetup->{"dbVersion"}."\n\nRun:\n\nsudo cp install.sql /root/taransvar/perl\nsudo perl diagnose.pl\n\n";
+	return;
+}
 
 my $szSysRoot = "/root/setup";
 

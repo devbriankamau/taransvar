@@ -449,7 +449,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 
 		        //Remove the tag by default. This is traffic to the server (forwarded traffic doesn't come here..??????)
 		        //Note! Sometimes (always?) even a Ubuntu computer droppes the package if tagged this way... (maybe because of checksum error?)
-		        sprintf(pSetup->c100, "Tag was (but removed): (%08X) Infected: %u, owners_id: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id, pSetup->nBlockIncomingTaggedTrafficLevel);
+		        sprintf(pSetup->c100, "Tag was %04X (removed) Infected: %u, owners_id: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id, pSetup->nBlockIncomingTaggedTrafficLevel);
 		              
 				pPacket->tcp_header->urg_ptr = 0; //Removing tag. 
 			    checkThatTcp(pPacket,"after clearing urg_ptr");	//260320 - asdf... got problem with this....
@@ -524,7 +524,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 				pPacket->tcp_header->urg_ptr= cUnion.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 				pSetup->cGlobalStatistics.nOutboundTagged++;
 		        	if (pSetup->cShowInstructions.bits.showPreRoutePartner)
-  					printk("tarakernel: PRE ROUTING: Tagging outbound for partner: Tag: (%08X) Infected: %u, botnetId: %u (%s -> %s)\n", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id, pPacket->cSourceIp, pPacket->cDestIp);
+  					printk("tarakernel: PRE ROUTING: Tagging outbound for partner: Tag: (%04X) Infected: %u, botnetId: %u (%s -> %s)\n", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id, pPacket->cSourceIp, pPacket->cDestIp);
   		      }
   		      else
 		        	if (pSetup->cShowInstructions.bits.showPreRoutePartner)
@@ -635,7 +635,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 		{
 			union _TagUnion cUnion;
 			cUnion.nTag = pPacket->tcp_header->urg_ptr;
-			sprintf(pSetup->c100, "Tag: (%08X) Infected: %u, owners_id: %u", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id);
+			sprintf(pSetup->c100, "Tag: (%04X) Infected: %u, owners_id: %u", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id);
 
 	        	if (pSetup->cShowInstructions.bits.showPreRoutePartner)
 				printk("tarakernel: POST ROUTING Inbound from partner: %s (%s -> %s)\n", pSetup->c100, pPacket->cSourceIp, pPacket->cDestIp); 
@@ -671,7 +671,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
 				cUnion.cTag.botnet_id = 99; //To be assigned by Akili Bomba.. To be implemented later...
 				pPacket->tcp_header->urg_ptr= cUnion.nBe16;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 				pSetup->cGlobalStatistics.nOutboundTagged++;
-				sprintf(pSetup->c100, "Tag: (%08X) Infected: %u, botnetId: %u", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
+				sprintf(pSetup->c100, "Tag: (%04X) Infected: %u, botnetId: %u", pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
 			}
 			else
 			        strcpy(pSetup->c100, "BUT TAGGING IS DISABLED");

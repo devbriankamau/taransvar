@@ -581,11 +581,9 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 
 	struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(pPacket->ip_header->saddr, pPacket->tcp_header->source, &nAvailable);
 
-	if (pAlreadyHave)
-		printk("tarakernel SENDING: Already have info for %pI4:%d (implement usage??)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));    
-	else
+	if (!pAlreadyHave)
 	{
-		printk("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival??) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
+		printk("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival?) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
 		//Store the new info if available slot...
 
         struct iphdr *iph = ip_hdr(pPacket->skb);
@@ -596,8 +594,6 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
         }        
 
         char cBuf[200];
-//        sprintf(cBuf, "%s-%pI4:%d->%pI4:%d", UDP_THREAT_INFO_REQUEST_PREFIX, &iph->saddr, pPacket->tcp_header->source,  &iph->daddr, pPacket->tcp_header->dest);
-//        sprintf(cBuf, "%s-%08X:%d->%08X:%d", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(pPacket->tcp_header->source),  ntohl(iph->daddr), ntohs(pPacket->tcp_header->dest));
         snprintf(cBuf, sizeof(cBuf), "%s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(pPacket->tcp_header->source),ntohl(iph->daddr),ntohs(pPacket->tcp_header->dest));
         send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
         printk("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);

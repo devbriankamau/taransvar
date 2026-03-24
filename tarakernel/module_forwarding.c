@@ -49,7 +49,7 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const s
 		}
 
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
-			printk("tarakernel: %s to partner: %s->%s: Tag: (%08X)\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
+			printk("tarakernel: %s to partner: %s->%s: Tag: (%04X)\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
 	}
 	else
   		if (!bCommentPrinted) //Already printed on this package... no need for more.	
@@ -107,7 +107,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 
 	if (pPacket->tcp_header->urg)
 		if (pSetup->cShowInstructions.bits.showUrgentPtrUsage)
-			printk("tarakernel: FW: URG flag is set! urg_ptr set to %08X. %s->%s \n", pPacket->tcp_header->urg_ptr, pPacket->cSourceIp, pPacket->cDestIp);
+			printk("tarakernel: FW: URG flag is set! urg_ptr set to %04X. %s->%s \n", pPacket->tcp_header->urg_ptr, pPacket->cSourceIp, pPacket->cDestIp);
 
 	if (isPartner(pPacket->ip_header->daddr))
 	{
@@ -153,7 +153,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		//cTag = 	(struct _Tag)tcp_header->urg_ptr;
 		cUnion.nTag = pPacket->tcp_header->urg_ptr;
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
-  			printk("tarakernel: FW from partner: %s->%s: Tag: (%08X)\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
+  			printk("tarakernel: FW from partner: %s->%s: Tag: (%04X)\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
   			
 		if (pPacket->tcp_header->urg_ptr)
   			pSetup->cGlobalStatistics.nFromPartnerTagged++;

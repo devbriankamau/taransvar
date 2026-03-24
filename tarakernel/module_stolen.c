@@ -132,11 +132,9 @@ static int send_udp_json(__be32 daddr, __be16 dport, const char *json)
 
     ret = kernel_sendmsg(sock, &msg, &iov, 1, iov.iov_len);
     if (ret < 0)
-        //pr_err("kernel_sendmsg failed: %d\n", ret);
-        printk("tarakernel SENDING: kernel_sendmsg failed: %d\n", ret);
-    else
-        //pr_info("Sent %d bytes to %pI4:%u\n", ret, &daddr, ntohs(dport));
-        printk("tarakernel SENDING: Sent %d bytes to %pI4:%u\n", ret, &daddr, ntohs(dport));
+        printk("tarakernel SENDING: ********* ERROR ********* kernel_sendmsg failed (while sending threat info UDP to partner): %d\n", ret);
+    //else
+    //  printk("tarakernel SENDING: Sent %d bytes to %pI4:%u\n", ret, &daddr, ntohs(dport));
 
     sock_release(sock);
     return ret;

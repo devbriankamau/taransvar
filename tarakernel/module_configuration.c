@@ -574,20 +574,16 @@ struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddres
 
 		if (pNode && ipAddress == pNode->cInfection.ipAddress)
 		{
-		        //NOTE! ******************* NEED TO FIX THE THREAT CATEGORIES *************
-		        //printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pNode->cInfection.cThreat.category); 
-		        //return pNode->cInfection.cThreat.category;
-		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
-		        //return pNode->cInfection.cUnion.cTag.presumed_infected;
-		        return &pNode->cInfection;
-                }
+		    printk("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
+		    return &pNode->cInfection;
+		}
 	}
 	return 0;
 }
 
 struct _InfectionSpecification *isInfected(volatile uint32_t ipAddress)
 {
-        return isInfectedPointerList(ipAddress);
+    return isInfectedPointerList(ipAddress);
 /*        
 	int n;
 	struct _InfectionSpecification *pInfectionArray = (struct _InfectionSpecification *)pSetup->pConfiguration[BLOCK_DESCRIPTIOR_INFECTIONS];

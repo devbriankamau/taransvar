@@ -546,7 +546,7 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(unsigned int sIp, unsi
 void listRemoteInfections(unsigned int sIp, unsigned int sPort);
 void listRemoteInfections(unsigned int sIp, unsigned int sPort)
 {
-    char cBuf[2000];
+    char cBuf[1000];
     *cBuf =0;
 	int n;
 	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
@@ -838,17 +838,12 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
                 printk("tarakernel SENDING: ***** ERROR ***** This connected unit (%pI4) is not registered as infected. Aborting\n", &nClientIp);
                 return 1;
             }
-
-            //struct _Remote_infection cThreat;
-            //initThreatInfo(t->src.u3.ip, ct_sport, &cThreat);
-            printk("tarakernel SENDING: ********** ERROR ****** Fix before sending back\n");
             
             sendUdpThreatPackage(iph->saddr, nMyIp, ct_sport, &pInfected->cTag);    //ØT 260323 - send this??
-
             return 1;
         }
 
-        printk("tarakernel: conntrack lookup failed for %pI4:%u -> %pI4:%u proto=%u\n",
+        printk("tarakernel: ********* ERROR ************ conntrack lookup failed for %pI4:%u -> %pI4:%u proto=%u\n",
         &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
 
     }

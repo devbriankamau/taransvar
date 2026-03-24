@@ -181,7 +181,7 @@ struct _Remote_infection {
 #define N_MAX_PACKETS_PROCESS N_MAX_PACKETS_PROCESSING -2
 #define N_MAX_STOLEN_PACKETS 10
 #define N_MAX_SYN_SEEN 50
-#define N_MAX_REMOTE_INFECTION_INFOS 50
+#define N_MAX_REMOTE_INFECTION_INFOS 100
 
 struct _Setup {
 	bool bTrafficReportsBeingHandled;

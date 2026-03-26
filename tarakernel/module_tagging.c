@@ -35,7 +35,7 @@ int isNewTcpConnection(struct sk_buff *skb)
         return 0;
 
     if (tcph->syn && !tcph->ack) {
-        //printk("tarakernel: TCP SYN seen\n");
+        //pr_info("tarakernel: TCP SYN seen\n");
         return 1;
     }
 
@@ -71,17 +71,17 @@ int shouldSendThreatUdp(struct sk_buff *skb)
     if (!(tcph->syn && !tcph->ack))
         return 0;
 
-    printk("tarakernel: ct=%px ctinfo=%d mark(before)=0x%x\n", ct, ctinfo, ct->mark);
+    pr_info("tarakernel: ct=%px ctinfo=%d mark(before)=0x%x\n", ct, ctinfo, ct->mark);
 
     if (ct->mark & CTMARK_THREAT_SENT) {
-        printk("tarakernel: threat UDP already sent for this conntrack\n");
+        pr_info("tarakernel: threat UDP already sent for this conntrack\n");
         return 0;
     }
 
     ct->mark |= CTMARK_THREAT_SENT;
 
-    printk("tarakernel: ct=%px mark(after)=0x%x\n", ct, ct->mark);
-    printk("tarakernel: first SYN for this conntrack, sending threat UDP\n");
+    pr_info("tarakernel: ct=%px mark(after)=0x%x\n", ct, ct->mark);
+    pr_info("tarakernel: first SYN for this conntrack, sending threat UDP\n");
     return 1;
 }
 
@@ -101,15 +101,15 @@ int isNew(struct sk_buff *skb)
 
 		if (ctinfo == IP_CT_NEW || ctinfo == IP_CT_RELATED) 
 		{
-			printk("tarakernel: ************* NEW connection ********** Add spceial handling..\n");
+			pr_info("tarakernel: ************* NEW connection ********** Add spceial handling..\n");
 			//NOTE! Can't only send tag info for new connections... in case tagged in same... all packets will be tagged, though...
             return 1;
 		}
 		//else
-		//	printk("tarakernel: ************* related connection **********\n");
+		//	pr_info("tarakernel: ************* related connection **********\n");
 	}
 
-    printk("tarakernel: ************* Established connection.\n");
+    pr_info("tarakernel: ************* Established connection.\n");
     return 0;
 
 }
@@ -159,7 +159,7 @@ int seen_recently(struct sk_buff *skb)
 //        if (iph->saddr == pCheck->saddr && iph->daddr == pCheck->daddr && tcph->source == pCheck->sport && tcph->dest == pCheck->dport)
         if (iph->saddr == pCheck->saddr && tcph->source == pCheck->sport)
         {
-            printk("tarakernel: Record found at slot %d\n",n);
+            pr_info("tarakernel: Record found at slot %d\n",n);
             return 1;
         }
     }
@@ -170,7 +170,7 @@ int seen_recently(struct sk_buff *skb)
 
         pNew = kmalloc(sizeof(*pNew), GFP_ATOMIC);
         if (!pNew) {
-            printk("tarakernel: WARNING failed to allocate syn_seen_key\n");
+            pr_info("tarakernel: WARNING failed to allocate syn_seen_key\n");
             return 1;
         }
 
@@ -182,11 +182,11 @@ int seen_recently(struct sk_buff *skb)
 
         pSetup->pSynSeen[nAvailable] = pNew;
 
-        printk("tarakernel: Address saved at slot %d (%pI4:%d)\n", nAvailable, &iph->saddr, ntohs(tcph->source));   
+        pr_info("tarakernel: Address saved at slot %d (%pI4:%d)\n", nAvailable, &iph->saddr, ntohs(tcph->source));   
         return 0;
     }
 
-    printk("tarakernel: WARNING setup->pSynSeen table is full (%d slots)\n", N_MAX_SYN_SEEN);
+    pr_info("tarakernel: WARNING setup->pSynSeen table is full (%d slots)\n", N_MAX_SYN_SEEN);
     return 1;
 }
 
@@ -212,11 +212,11 @@ int isNewConnectionBasedOnStoredIpPortCombo(struct sk_buff *skb)
         return 0;
 
     if (seen_recently(skb)) {
-        printk("tarakernel: SYN already seen recently (based on stored info)\n");
+        pr_info("tarakernel: SYN already seen recently (based on stored info)\n");
         return 0;
     }
 
-    printk("tarakernel: Not a stored ip/port combo. Send threat UDP\n");
+    pr_info("tarakernel: Not a stored ip/port combo. Send threat UDP\n");
     return 1;
 }
 
@@ -232,9 +232,9 @@ int isNewConnection(struct sk_buff *skb)
     
     bool bNew = isNewConnectionBasedOnStoredIpPortCombo(skb);
     if (bNew)
-		printk("tarakernel: ************* NEW connection ********** Add spceial handling..\n");
+		pr_info("tarakernel: ************* NEW connection ********** Add spceial handling..\n");
     else
-		printk("tarakernel: ************* related connection **********\n");
+		pr_info("tarakernel: ************* related connection **********\n");
 
     return bNew;
    
@@ -420,26 +420,26 @@ void recalc_tcp_checksum(struct sk_buff *skb)
 
     if (!skb)
     {
-        printk("tarakernel: ** ERROR ** No skb\n");
+        pr_info("tarakernel: ** ERROR ** No skb\n");
         return;
     }
 
     if (!pskb_may_pull(skb, sizeof(struct iphdr)))
     {
-        printk("tarakernel: ** ERROR ** unable to pskb_may_pull()\n");
+        pr_info("tarakernel: ** ERROR ** unable to pskb_may_pull()\n");
         return;
     }
 
     iph = ip_hdr(skb);
     if (!iph || iph->version != 4)
     {
-        printk("tarakernel: ** ERROR ** Not ipv4 when recalcing TPC checksum\n");
+        pr_info("tarakernel: ** ERROR ** Not ipv4 when recalcing TPC checksum\n");
         return;
     }
 
     if (iph->protocol != IPPROTO_TCP)
     {
-        printk("tarakernel: ** ERROR ** Not TCP when recalcing TPC checksum\n");
+        pr_info("tarakernel: ** ERROR ** Not TCP when recalcing TPC checksum\n");
         return;
     }
 
@@ -448,7 +448,7 @@ void recalc_tcp_checksum(struct sk_buff *skb)
 
     if (!pskb_may_pull(skb, ihl + sizeof(struct tcphdr)))
     {
-        printk("tarakernel: ** ERROR ** may not pull (2)\n");
+        pr_info("tarakernel: ** ERROR ** may not pull (2)\n");
         return;
     }
 
@@ -489,7 +489,7 @@ void recalcChecksum(struct _PacketInspection *pPacket)
 void sendUdpPacketToReceiver(struct _PacketInspection *pPacket);
 void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
 {
-    printk("tarakernel: new session and infected sender.. This is when to send UDP packet.. (but not finished)\n");
+    pr_info("tarakernel: new session and infected sender.. This is when to send UDP packet.. (but not finished)\n");
     //NOTE! Caller return NF_STOLEN
  }//sendUdpPacketToReceiver()
 
@@ -510,7 +510,7 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPo
 			    return pInfection;
             }
             //else
-            //    printk("tarakernel: Checking %d - %pI4:%d not same as %pI4:%d\n", n, &sIp, sPort, &pInfection->saddr, pInfection->sport);
+            //    pr_info("tarakernel: Checking %d - %pI4:%d not same as %pI4:%d\n", n, &sIp, sPort, &pInfection->saddr, pInfection->sport);
         }
         else
             if (*pAvailable == -1)
@@ -535,7 +535,7 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPo
 
         struct _Remote_infection *pOldest = pSetup->cRemoteInfectionInfoReceived[nOldest];
         pSetup->cRemoteInfectionInfoReceived[nOldest] = NULL;
-        printk("tarakernel: No more slots for remote infections. Cleared the oldest (slot %d): %pI4:%d (%lld seconds since used)\n", nOldest, &pOldest->saddr, ntohs(pOldest->sport), ktime_get_real_seconds() - nOldestTimestamp);
+        pr_info("tarakernel: No more slots for remote infections. Cleared the oldest (slot %d): %pI4:%d (%lld seconds since used)\n", nOldest, &pOldest->saddr, ntohs(pOldest->sport), ktime_get_real_seconds() - nOldestTimestamp);
         kfree(pOldest); //Free at last in case being used;
 		*pAvailable = nOldest;
     }
@@ -569,7 +569,7 @@ void listRemoteInfections(__be32 sIp, unsigned int sPort)
         }
 	}			
 
-    printk("tarakernel: Infections found: %s\n", cBuf);
+    pr_info("tarakernel: Infections found: %s\n", cBuf);
 	return;	//Not found
 }
 
@@ -583,20 +583,20 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 
 	if (!pAlreadyHave)
 	{
-		printk("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival?) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
+		pr_info("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival?) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
 		//Store the new info if available slot...
 
         struct iphdr *iph = ip_hdr(pPacket->skb);
         if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
         {
-            printk("tarakernel SENDING: **** ERROR **** Sending UDP request. Not IPv4 TCP\n");
+            pr_info("tarakernel SENDING: **** ERROR **** Sending UDP request. Not IPv4 TCP\n");
             return;// NF_ACCEPT;   /* fail open */
         }        
 
         char cBuf[200];
         snprintf(cBuf, sizeof(cBuf), "%s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(pPacket->tcp_header->source),ntohl(iph->daddr),ntohs(pPacket->tcp_header->dest));
         send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
-        printk("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
+        pr_info("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
     }
 }
 
@@ -692,67 +692,68 @@ int parse_threat_tuple(const char *lpStartAt, __be32 *src_ip, __be16 *src_port, 
     char *p, *from_ip, *from_port, *to_ip, *to_port, *arrow;
     unsigned long sp, dp;
 
-    printk("tara: parse 1 start='%s'\n", lpStartAt);
+    pr_info("tara: parse 1 start='%s'\n", lpStartAt);
 
     strscpy(buf, lpStartAt, sizeof(buf));
-    printk("tara: parse 2 buf='%s'\n", buf);
+    pr_info("tara: parse 2 buf='%s'\n", buf);
 
     p = buf;
 
     from_ip = p;
     p = strchr(p, ':');
-    if (!p) { printk("tara: parse fail A\n"); return 0; }
+    if (!p) { pr_info("tara: parse fail A\n"); return 0; }
     *p++ = '\0';
-    printk("tara: parse 3 from_ip='%s'\n", from_ip);
+    pr_info("tara: parse 3 from_ip='%s'\n", from_ip);
 
     from_port = p;
     arrow = strstr(p, "->");
-    if (!arrow) { printk("tara: parse fail B\n"); return 0; }
+    if (!arrow) { pr_info("tara: parse fail B\n"); return 0; }
     *arrow = '\0';
     p = arrow + 2;
-    printk("tara: parse 4 from_port='%s'\n", from_port);
+    pr_info("tara: parse 4 from_port='%s'\n", from_port);
 
     to_ip = p;
     p = strchr(p, ':');
-    if (!p) { printk("tara: parse fail C\n"); return 0; }
+    if (!p) { pr_info("tara: parse fail C\n"); return 0; }
     *p++ = '\0';
     to_port = p;
 
-    printk("tara: parse 5 to_ip='%s' to_port='%s'\n", to_ip, to_port);
+    pr_info("tara: parse 5 to_ip='%s' to_port='%s'\n", to_ip, to_port);
 
     if (strlen(from_ip) != 8 || strlen(to_ip) != 8) {
-        printk("tara: parse fail D bad ip lengths %zu %zu\n",
+        pr_info("tara: parse fail D bad ip lengths %zu %zu\n",
                strlen(from_ip), strlen(to_ip));
         return 0;
     }
 
-    printk("tara: parse 6 before hexstr_to_ip\n");
+    pr_info("tara: parse 6 before hexstr_to_ip\n");
     *src_ip = hexstr_to_ip(from_ip);
-    printk("tara: parse 7 after src hexstr_to_ip\n");
+    pr_info("tara: parse 7 after src hexstr_to_ip\n");
     *dst_ip = hexstr_to_ip(to_ip);
-    printk("tara: parse 8 after dst hexstr_to_ip\n");
+    pr_info("tara: parse 8 after dst hexstr_to_ip\n");
 
     sp = simple_strtoul(from_port, NULL, 10);
     dp = simple_strtoul(to_port, NULL, 10);
-    printk("tara: parse 9 ports sp=%lu dp=%lu\n", sp, dp);
+    pr_info("tara: parse 9 ports sp=%lu dp=%lu\n", sp, dp);
 
     *src_port = htons((u16)sp);
     *dst_port = htons((u16)dp);
 
-    printk("tara: parse 10 done %pI4:%u -> %pI4:%u\n",
+    pr_info("tara: parse 10 done %pI4:%u -> %pI4:%u\n",
            src_ip, ntohs(*src_port), dst_ip, ntohs(*dst_port));
     return 1;
 }
 
-
+/*
 void initThreatInfo(__be32 ip, __be32 port, struct _Remote_infection *pThreat);
 void initThreatInfo(__be32 ip, __be32 port, struct _Remote_infection *pThreat)
 {
+    asdfasdf
     pThreat->saddr = ip;
     pThreat->cTag.version_no = TAG_VERSION_NO;
 	pThreat->cTag.presumed_infected = 5; //Presumably bot. TO DO: Diversify this....
 	//pThreat->cTag.cTag.owners_id = 99; //To be assigned by Taransvar.. To be implemented later...
-}
+}*/
 
 int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct udphdr *udph)
 {
@@ -766,7 +767,7 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
         u8 proto = IPPROTO_TCP;
         struct nf_conn *ct;
 
-        printk("tarakernel: THREAT_INFO_REQUEST payload: %s\n", lpPayload);
+        pr_info("tarakernel: THREAT_INFO_REQUEST payload: %s\n", lpPayload);
 
         /*
         * Valid payload:
@@ -781,16 +782,17 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
 
         if (!parse_threat_tuple(lpPayload + strlen(UDP_THREAT_INFO_REQUEST_PREFIX) + 1,
                             &src_ip, &src_port, &dst_ip, &dst_port)) {
-            printk("tarakernel: parse_threat_tuple() failed\n");
+            pr_info("tarakernel: parse_threat_tuple() failed\n");
             return NF_DROP;
         }
 
-        //printk("tarakernel: parsed %pI4:%u -> %pI4:%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port));
-        //printk("tara: lookup tuple %pI4:%u -> %pI4:%u proto=%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
+        //pr_info("tarakernel: parsed %pI4:%u -> %pI4:%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port));
+        //pr_info("tara: lookup tuple %pI4:%u -> %pI4:%u proto=%u\n", &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
 
 //        ct = tara_ct_lookup_v4(src_ip, src_port, dst_ip, dst_port, proto);
 
 //        if (!ct)
+
             ct = tara_ct_lookup_v4(dst_ip, dst_port, src_ip, src_port, proto);
 
         if (ct) {
@@ -807,7 +809,7 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
                 ct_dport = t->dst.u.udp.port;
             }
 
-            printk("tarakernel: conntrack returned: %pI4:%u -> %pI4:%u proto=%u (** WARNING ** - Not yet sending this to receiver..)\n",
+            pr_info("tarakernel: conntrack returned: %pI4:%u -> %pI4:%u proto=%u (** WARNING ** - Not yet sending this to receiver..)\n",
                &t->src.u3.ip, ntohs(ct_sport),
                &t->dst.u3.ip, ntohs(ct_dport),
                t->dst.protonum);
@@ -818,7 +820,7 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
            // char cReply[200];
 //Orginal(sent from elsewhere)            snprintf(cReply, sizeof(cReply), "Maybe nonsense: %s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->saddr), ntohs(udph->source),ntohl(iph->daddr),ntohs(iph->dest));
 //            snprintf(cReply, sizeof(cReply), "Maybe nonsense: %s-%08X:%u->%08X:%u", UDP_THREAT_INFO_REQUEST_PREFIX, ntohl(iph->daddr), ntohs(udph->source),ntohl(iph->daddr),ntohs(iph->dest));
-//            printk("tarakernel SENDING: Used to send this: %s\n", cReply);
+//            pr_info("tarakernel SENDING: Used to send this: %s\n", cReply);
 
             //send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cReply);
             //struct _InfectionSpecification cThreat;
@@ -831,15 +833,15 @@ int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct ud
 
             if (!pInfected)
             {
-                printk("tarakernel SENDING: ***** ERROR ***** This connected unit (%pI4) is not registered as infected. Aborting\n", &nClientIp);
+                pr_info("tarakernel SENDING: ***** ERROR ***** This connected unit (%pI4) is not registered as infected. Aborting\n", &nClientIp);
                 return 1;
             }
             
-            sendUdpThreatPackage(iph->saddr, nMyIp, ct_sport, &pInfected->cTag);    //ØT 260323 - send this??
+            sendUdpThreatPackage(iph->saddr, nMyIp, ct_sport, pInfected);    //ØT 260323 - send this??
             return 1;
         }
 
-        printk("tarakernel: ********* ERROR ************ conntrack lookup failed for %pI4:%u -> %pI4:%u proto=%u\n",
+        pr_info("tarakernel: ********* ERROR ************ conntrack lookup failed for %pI4:%u -> %pI4:%u proto=%u\n",
         &src_ip, ntohs(src_port), &dst_ip, ntohs(dst_port), proto);
 
     }
@@ -853,24 +855,29 @@ void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere)
 
     if (iph->protocol != IPPROTO_TCP)
     {
-        printk("tarakernel: ** ERROR ** Not TCP when (%s\n", lpFromWhere);
+        pr_info("tarakernel: ** ERROR ** Not TCP when (%s\n", lpFromWhere);
     }
 }
 
-unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state)
+unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state, struct _InfectionSpecification *pInfected)
 {
     checkThatTcp(pPacket,"start of tagThePacket");	//260320 - asdf... got problem with this....
 
 	//Outbound traffic to partner and tagging is turned on.. Tag it.
     //struct _InfectionSpecification cThreatInfo;
-    struct _Remote_infection cThreatInfo;
 
-    initThreatInfo(pPacket->ip_header->saddr, pPacket->tcp_header->source, &cThreatInfo);
+    //struct _Remote_infection cThreatInfo;
+    //_InfectionSpecification *pInfection = isInfected(asdf)
+
+    if (!pInfected)
+        pr_info("tarakernel: ***** ERROR ****** Infection status was not set..\n");
+
+    //initThreatInfo(pPacket->ip_header->saddr, pPacket->tcp_header->source, &cThreatInfo);
 	
     #define DO_URG_PTR_TAGGING
     #ifdef DO_URG_PTR_TAGGING
     //***************Using urg_ptr **************************
-	pPacket->tcp_header->urg_ptr= cThreatInfo.nTag;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
+	pPacket->tcp_header->urg_ptr= pInfected->nTag;//(__be16)cTag;//htons(0xFF00);  //Tag the package.
 	pSetup->cGlobalStatistics.nOutboundTagged++;
     #endif
 
@@ -902,7 +909,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
         if (skb_try_make_writable(pPacket->skb, ip_hdrlen(pPacket->skb)))
         {
-            printk("tarakernel: Can't make it writable for DSCP tagging so dropping packet.\n");
+            pr_info("tarakernel: Can't make it writable for DSCP tagging so dropping packet.\n");
             return NF_DROP; 
         }
 
@@ -910,7 +917,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         setDscp(iph, newDscp);
     }    
     else
-        printk("tarakernel: DSCP field was already set. Dropping altering.\n");
+        pr_info("tarakernel: DSCP field was already set. Dropping altering.\n");
     #endif
 
     checkThatTcp(pPacket,"in tagThePacket");	//260320 - asdf... got problem with this....
@@ -925,13 +932,13 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
 
         if (pPacket->ip_header->saddr != pSetup->nMyIp)
         {
-            printk("tarakernel SENDING: **** WARNING *** In FW? Packet don't yet have my IP as sender... Send stored external IP? Partner: %pI4 (sender IP: %pI4) (my stored IP: %pI4)\n", &pPacket->ip_header->daddr, &pPacket->ip_header->saddr, &pSetup->nMyIp);
+            pr_info("tarakernel SENDING: **** WARNING *** In FW? Packet don't yet have my IP as sender... Send stored external IP? Partner: %pI4 (sender IP: %pI4) (my stored IP: %pI4)\n", &pPacket->ip_header->daddr, &pPacket->ip_header->saddr, &pSetup->nMyIp);
             return 0;
         }
 
-        printk("tarakernel SENDING: About to send UDP to %pI4 (from me: %pI4)\n", &pPacket->ip_header->daddr, &pPacket->ip_header->saddr);
+        pr_info("tarakernel SENDING: About to send UDP to %pI4 (from me: %pI4)\n", &pPacket->ip_header->daddr, &pPacket->ip_header->saddr);
 
-        sendUdpThreatPackage(pPacket->ip_header->daddr, pPacket->ip_header->saddr, pPacket->tcp_header->source, &cThreatInfo.cTag);
+        sendUdpThreatPackage(pPacket->ip_header->daddr, pPacket->ip_header->saddr, pPacket->tcp_header->source, pInfected);
 
         /*  Don't do this for now... Sending it directly for callback
         int nAvailable = -1;
@@ -939,7 +946,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         for (int n = 0; n< N_MAX_STOLEN_PACKETS; n++)
             if (pSetup->pStolenPacket[n] == pPacket->skb)
             {
-                printk("Already sent UDP to this.. Dropping it\n");
+                pr_info("Already sent UDP to this.. Dropping it\n");
                 return NF_ACCEPT;
             }
             else
@@ -949,7 +956,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         if (nAvailable == -1)
         {
             //No available spots found
-            printk("Too many packets stolen.. Dropping it..\n");
+            pr_info("Too many packets stolen.. Dropping it..\n");
             return NF_ACCEPT;
         }
         //Note! Meaning only 10 messages will be sent... and probably the same one again and again....
@@ -963,7 +970,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
     /*else
         if (pPacket != pSetup->pStolenPacket[0])
         {
-            printk("tarakernel SENDING: Not a new session, but seems not sent before... so sending UDP with threat info to receiver.");
+            pr_info("tarakernel SENDING: Not a new session, but seems not sent before... so sending UDP with threat info to receiver.");
             pSetup->pStolenPacket[0] = pPacket;
             //queue_udp_send_from_skb(pPacket->skb);       //Defined in module_stolen.c
             //queue_resend_from_skb(pPacket->skb);       //Defined in module_stolen.c
@@ -971,6 +978,6 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
         }
     */
 
-    //printk("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");
+    //pr_info("tarakernel SENDING: Threat data for this session sent before... dropping sending.\n");
     return NF_ACCEPT;
 }//tagThePacket()

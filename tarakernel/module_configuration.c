@@ -26,12 +26,12 @@ int configuraton_init(void)
 
         if (elementStructSize(BLOCK_DESCRIPTIOR_LAST) == 0)
         {
-		printk("tarakernel: ***** ERROR! elementStructSize() is not updated with latest element types.\n");
+		pr_info("tarakernel: ***** ERROR! elementStructSize() is not updated with latest element types.\n");
         }
 
 	if (sizeof(cBlockDescriptor)/sizeof(cBlockDescriptor[0]) < BLOCK_DESCRIPTIOR_LAST+1)
 	{
-		printk("tarakernel: ***** ERROR! Too few elements in cBlockDescriptor. Gonna crash!\n");
+		pr_info("tarakernel: ***** ERROR! Too few elements in cBlockDescriptor. Gonna crash!\n");
 		return 0;
 	}
 	else
@@ -88,7 +88,7 @@ void listServers(void)
 		sprintf(cBuf+strlen(cBuf), "%d-%d ", pServerArray[n].port, pServerArray[n].requests);
 	}
 
-	printk("tarakernel: Servers in array: %s\n", cBuf);
+	pr_info("tarakernel: Servers in array: %s\n", cBuf);
 	kfree(cBuf);
 }
 
@@ -99,9 +99,9 @@ void listInspections(int nThelist)
 	
         if (!nThelist)
         {
-              printk("IP addresses to inspect: ");
+              pr_info("IP addresses to inspect: ");
               listInspections(BLOCK_DESCRIPTIOR_INSPECT);    
-              printk("IP addresses to drop: ");
+              pr_info("IP addresses to drop: ");
               listInspections(BLOCK_DESCRIPTIOR_DROP);
               return;
         }
@@ -120,13 +120,13 @@ void listInspections(int nThelist)
 		sprintf(cBuf+strlen(cBuf), "%d.%d.%d.%d(%08X)", (int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], pInspectionArray[n].ipAddress);
 	}
 
-	printk("tarakernel: IPs in array: %s\n", cBuf);
+	pr_info("tarakernel: IPs in array: %s\n", cBuf);
 	kfree(cBuf);
 }
 
 void listHoneyports(void)
 {
-	printk("tarakernel: Don't know yet how to count honeyports...\n");
+	pr_info("tarakernel: Don't know yet how to count honeyports...\n");
 }
 
 void listInfectionsPointerList(void);
@@ -157,14 +157,14 @@ void listInfectionsPointerList(void)
 	}
 
     int nBytesTaken = nCount * (sizeof(void*) + sizeof(struct _InfectionSpecification));
-	printk("tarakernel: Infections in pointer list (bytes taken by %d: %d): %s\n", nCount, nBytesTaken, cBuf);
+	pr_info("tarakernel: Infections in pointer list (bytes taken by %d: %d): %s\n", nCount, nBytesTaken, cBuf);
 	
 	kfree(cBuf);
 }//listInfectionsPointerList()
 
 void listInfections(void)
 {
-	printk("tarakernel: listInfections() is no longer supposed to be called... Aborting");
+	pr_info("tarakernel: listInfections() is no longer supposed to be called... Aborting");
 	return;
 	int n;
 	char *cBuf = memAlloc(C_SEGMENT_MAX_SIZE);
@@ -192,7 +192,7 @@ void listInfections(void)
           lpShow = cBuf;
         else
           lpShow = "<too many to show>";
-	printk("tarakernel: Infections in array (bytes taken by %d: %d): %s\n", n, nBytesTaken, lpShow);
+	pr_info("tarakernel: Infections in array (bytes taken by %d: %d): %s\n", n, nBytesTaken, lpShow);
 	kfree(cBuf);
 }//listInfections()
 
@@ -215,7 +215,7 @@ void listColored(int nBlockDescriptor)
 		sprintf(cBuf+strlen(cBuf), "%d.%d.%d.%d(%08X), ", (int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], pServerArray[n].ipAddress);
 	}
 
-	printk("tarakernel: IPs in array: %s\n", cBuf);
+	pr_info("tarakernel: IPs in array: %s\n", cBuf);
 
 	kfree(cBuf);
 }
@@ -294,7 +294,7 @@ void listPartners(void)
 		sprintf(cBuf+strlen(cBuf), "%d.%d.%d.%d(%08X)", (int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], pPartnerArray[n].ipAddress);
 	}
 
-	printk("tarakernel: IPs in array: %s\n", cBuf);
+	pr_info("tarakernel: IPs in array: %s\n", cBuf);
 	kfree(cBuf);
 }
 
@@ -302,7 +302,7 @@ void storeColoredIp(int nBlockDescriptor, struct _ColoredIpSpecification *pEleme
 {
 	struct _ColoredIpSpecification cNewElement;
 	
-	printk("tarakernel: Storing setup element. element#: %d, size of struct: %ld, slots in array: %d (tot size: %ld),  max block size: %d\n",
+	pr_info("tarakernel: Storing setup element. element#: %d, size of struct: %ld, slots in array: %d (tot size: %ld),  max block size: %d\n",
 	      pSetup->nElementsInArray[nBlockDescriptor]+1,
 	      sizeof(struct _ColoredIpSpecification),
 	      pSetup->nConfigurationArraySize[nBlockDescriptor],
@@ -319,23 +319,23 @@ void storeColoredListElement(int nBlockDescriptor, volatile uint32_t ipAddress)
 {
 	unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
 	void *pElement = pSetup->pConfiguration[nBlockDescriptor];
-	printk("tarakernel: About to store: %d.%d.%d.%d\n", (int)ipAddressBytes[3],
+	pr_info("tarakernel: About to store: %d.%d.%d.%d\n", (int)ipAddressBytes[3],
 		(int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0]);
 
 	if (!pElement)
 	{
 		//void *pArrayPointer;
 		struct _ColoredIpSpecification* servers;
-		printk("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
+		pr_info("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
 	
 		switch (nBlockDescriptor) 
 		{
 			case BLOCK_DESCRIPTIOR_WHITE_LIST:
 			case BLOCK_DESCRIPTIOR_BLACK_LIST:
-//				printk("tarakernel: About to learn to store block descriptor %d\n",	nBlockDescriptor);
+//				pr_info("tarakernel: About to learn to store block descriptor %d\n",	nBlockDescriptor);
 				break;
 			default:
-				printk("tarakernel: ERROR unknown block descriptor. Aborting: %d\n",	nBlockDescriptor);
+				pr_info("tarakernel: ERROR unknown block descriptor. Aborting: %d\n",	nBlockDescriptor);
 				return;
 		}
 
@@ -346,16 +346,16 @@ void storeColoredListElement(int nBlockDescriptor, volatile uint32_t ipAddress)
 
                 if (!servers)
 		{
-                	printk("tarakernel: ******** ERROR! Unable to allocate new memory for B/W listing. Aborting.\n");
+                	pr_info("tarakernel: ******** ERROR! Unable to allocate new memory for B/W listing. Aborting.\n");
                         return;
                 }
 
-		printk("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[nBlockDescriptor]);
+		pr_info("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[nBlockDescriptor]);
 
 		pElement = pSetup->pConfiguration[nBlockDescriptor] = servers;
 	}
 	else
-		printk("tarakernel: Array exist with %d elements: %s\n", pSetup->nElementsInArray[nBlockDescriptor], cBlockDescriptor[nBlockDescriptor]);
+		pr_info("tarakernel: Array exist with %d elements: %s\n", pSetup->nElementsInArray[nBlockDescriptor], cBlockDescriptor[nBlockDescriptor]);
 
 
 
@@ -366,7 +366,7 @@ void storeColoredListElement(int nBlockDescriptor, volatile uint32_t ipAddress)
 			storeColoredIp(nBlockDescriptor, pElement, ipAddress);
 			break;
 		default:
-			printk("tarakernel: ERROR unknown block descriptor (in this func) : %s - aborting\n", cBlockDescriptor[nBlockDescriptor]);	
+			pr_info("tarakernel: ERROR unknown block descriptor (in this func) : %s - aborting\n", cBlockDescriptor[nBlockDescriptor]);	
 			return;
 	}
 }
@@ -386,13 +386,13 @@ int blackListed(__be32 ipAddress)
 	int n;
 		
 //	sprintf(cBuf, "%u.%u.%u.%u", IPADDRESS(sip));
-//	printk("tarakernel: Checking if %s(%08X) is blacklisted\n", cBuf, ipAddress);
+//	pr_info("tarakernel: Checking if %s(%08X) is blacklisted\n", cBuf, ipAddress);
 
 	struct _ColoredIpSpecification *pList = (struct _ColoredIpSpecification*) pSetup->pConfiguration[BLOCK_DESCRIPTIOR_BLACK_LIST];
 
 	if (!pList)
 	{
-		//printk("tarakernel: No blacklist.. returning\n");
+		//pr_info("tarakernel: No blacklist.. returning\n");
 		return 0;
 	}
 
@@ -401,19 +401,19 @@ int blackListed(__be32 ipAddress)
 		struct _ColoredIpSpecification* pCheckThis = &pList[n];
 		//char cBlack[30];
 		//u32 sip = ntohl(pCheckThis->ipAddress);
-		//printk("tarakernel: Checking: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip),pCheckThis->ipAddress);
+		//pr_info("tarakernel: Checking: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip),pCheckThis->ipAddress);
 
 		if (pCheckThis->ipAddress == ipAddress)
 		{
 		        u32 sip = ntohl(ipAddress);
         	        if (pSetup->cShowInstructions.bits.doTagging)
                         {		
-			        printk("tarakernel: Blacklisted address found: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip), pCheckThis->ipAddress);
+			        pr_info("tarakernel: Blacklisted address found: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip), pCheckThis->ipAddress);
 			        return 1;	//asdf
 			}
 			else
 			{
-			      printk("tarakernel: Blacklisted address found - BUT BLOCKING IS DISABLED: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip), pCheckThis->ipAddress);
+			      pr_info("tarakernel: Blacklisted address found - BUT BLOCKING IS DISABLED: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip), pCheckThis->ipAddress);
 			      return 0;
 			}
 		}
@@ -436,8 +436,8 @@ void storeServerInfo(int port, char *lpQuality)
 	listServers();
 }
 
-void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality);
-void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality)
+_Node *storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality);
+_Node *storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality)
 {	
 /*struct _InfectionSpecification {
 	volatile uint32_t ipAddress;
@@ -458,14 +458,14 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 	{
 		if (pInfection->cInfection.ipAddress == ipAddress)
 		{
-			printk("tarakernel: (260303) %08X is already registered. Aborting\n", ipAddress);
-			return;
+			pr_info("tarakernel: (260303) %08X is already registered. Aborting\n", ipAddress);
+			return NULL;
 		}
 
 		if (pInfection->cInfection.cTag.owners_id > nMaxOwnersId)
 			nMaxOwnersId = pInfection->cInfection.cTag.owners_id;
 	}
-	printk("tarakernel: (260303) %08X is a new infection.. add it\n", ipAddress);
+	pr_info("tarakernel: (260303) %08X is a new infection.. add it\n", ipAddress);
 
 	_Node *pNode = getNewBefore(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
 	pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS] = pNode;
@@ -487,7 +487,7 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
 	}
 	else
-		printk("tarakernel: ***** ERROR: Unable to allocate memory for new infection\n");
+		pr_info("tarakernel: ***** ERROR: Unable to allocate memory for new infection\n");
 
 /*struct _threatSpecification {
 	//Info to be passed on for specific address or range of addresses
@@ -497,6 +497,7 @@ void storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t 
 	unsigned int botNetId;	//Assigned by AkiliBomba
 };*/
 	listInfectionsPointerList();
+	return pNode;
 }//storeInfectionInPointerList()
 
 
@@ -513,7 +514,7 @@ void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, c
 		storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);
 	#else
       
-	printk("tarakernel: ********** ERROR storeInfection() is no longer supposed to be called... Aborting\n");
+	pr_info("tarakernel: ********** ERROR storeInfection() is no longer supposed to be called... Aborting\n");
     return;
 
 /*	
@@ -574,7 +575,7 @@ struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddres
 
 		if (pNode && ipAddress == pNode->cInfection.ipAddress)
 		{
-		    printk("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
+		    pr_info("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
 		    return &pNode->cInfection;
 		}
 	}
@@ -593,12 +594,12 @@ struct _InfectionSpecification *isInfected(volatile uint32_t ipAddress)
 		if (ipAddress == pInfectionArray[n].ipAddress)
 		{
 		        //NOTE! ******************* NEED TO FIX THE THREAT CATEGORIES *************
-		        printk("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pInfectionArray[n].cThreat.category); 
+		        pr_info("tarakernel: **** Traffic from infected unit! Threat category: %d\n", pInfectionArray[n].cThreat.category); 
 		        return pInfectionArray[n].cThreat.category;
                 }
 	}
 
-	//printk("tarakernel: Not infected unit.....\n");
+	//pr_info("tarakernel: Not infected unit.....\n");
 	return 0;
   */
 }//isInfected()
@@ -623,7 +624,7 @@ void removeInfectionFromPointerList(volatile uint32_t ipAddress, volatile uint32
                 pNodePointer = &(*pNodePointer)->pNext;
         }
 
-	printk("tarakernel: ***** WARNING Disabled infection not found when trying to remove if from pointer list.....\n");
+	pr_info("tarakernel: ***** WARNING Disabled infection not found when trying to remove if from pointer list.....\n");
 	return;
 }
 
@@ -646,7 +647,7 @@ void removeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, 
                 }
 	}
 
-	printk("tarakernel: ***** WARNING Disabled infection not found when trying to remove if from list.....\n");
+	pr_info("tarakernel: ***** WARNING Disabled infection not found when trying to remove if from list.....\n");
 	return;
 	*/
 }
@@ -667,29 +668,29 @@ void storePartner(char *lpIP, char *lpNettmask)
         if (!pPartners)
 	{
 		//void *pArrayPointer;
-		printk("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_PARTNERS]);
+		pr_info("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_PARTNERS]);
 	
 		pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_PARTNERS] = (int) C_SEGMENT_MAX_SIZE / sizeof(struct _PartnerSpecification)-1;
 
 		pPartners = (struct _PartnerSpecification*) kmalloc(pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_PARTNERS]*sizeof(struct _PartnerSpecification), GFP_KERNEL);
-		printk("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_PARTNERS], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_PARTNERS]);
+		pr_info("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_PARTNERS], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_PARTNERS]);
 
 		pSetup->pConfiguration[BLOCK_DESCRIPTIOR_PARTNERS] = pPartners;
 	}
 	else
-		printk("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_PARTNERS]);
+		pr_info("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_PARTNERS]);
 	
 	if ((nError = kstrtoul(lpIP, 16, &nVal)))
-		printk("tarakernel: kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIP);
+		pr_info("tarakernel: kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIP);
 	
         //Make the IP address little endian (least significant byte first, because that's how we receive it in IP header)
         nUInt32Val = (volatile uint32_t)nVal;
         cNewElement.ipAddress = swappedEndian(nUInt32Val);
 
-	printk("tarakernel: Trying to turn IP: %08X -> %08X\n", nUInt32Val, cNewElement.ipAddress); 
+	pr_info("tarakernel: Trying to turn IP: %08X -> %08X\n", nUInt32Val, cNewElement.ipAddress); 
 
 	if ((nError = kstrtoul(lpNettmask, 16, &nVal)))
-		printk("tarakernel: kstrtoul returned %d for nettmask\n", nError);
+		pr_info("tarakernel: kstrtoul returned %d for nettmask\n", nError);
 	
 	cNewElement.ipNettmask = swappedEndian(nVal);
 	
@@ -699,7 +700,7 @@ void storePartner(char *lpIP, char *lpNettmask)
 	{
 		if (pPartners[n].ipAddress == cNewElement.ipAddress)
 		{
-			printk("tarakernel: %s is already registered\n", lpIP);
+			pr_info("tarakernel: %s is already registered\n", lpIP);
 	        	break;
 		}
 	}
@@ -730,20 +731,20 @@ void storeInspectionDirective(int nBlockDescriptor, char *lpIP, char *lpNettmask
         if (!pInspections)
 	{
 		//void *pArrayPointer;
-		printk("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
+		pr_info("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
 	
 		pSetup->nConfigurationArraySize[nBlockDescriptor] = (int) C_SEGMENT_MAX_SIZE / sizeof(struct _InspecitonSpecification)-1;
 
 		pInspections = (struct _InspecitonSpecification*) kmalloc(pSetup->nConfigurationArraySize[nBlockDescriptor]*sizeof(struct _InspecitonSpecification), GFP_KERNEL);
-		printk("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[nBlockDescriptor]);
+		pr_info("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[nBlockDescriptor]);
 
 		pSetup->pConfiguration[nBlockDescriptor] = pInspections;
 	}
 	else
-		printk("tarakernel: Array exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
+		pr_info("tarakernel: Array exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
 	
 	if ((nError = kstrtoul(lpIP, 16, &nVal)))
-		printk("tarakernel: kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIP);
+		pr_info("tarakernel: kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpIP);
 	
         //Make the IP address little endian (least significant byte first, because that's how we receive it in IP header)
         nUInt32Val = (volatile uint32_t)nVal;
@@ -761,10 +762,10 @@ void storeInspectionDirective(int nBlockDescriptor, char *lpIP, char *lpNettmask
 	
 	
 	cNewElement.ipAddress = nConvertedIP;//nVal;  
-	printk("tarakernel: Trying to turn IP: %08X -> %08X\n", nUInt32Val, nConvertedIP); 
+	pr_info("tarakernel: Trying to turn IP: %08X -> %08X\n", nUInt32Val, nConvertedIP); 
 
 	if ((nError = kstrtoul(lpNettmask, 16, &nVal)))
-		printk("tarakernel: kstrtoul returned %d for nettmask\n", nError);
+		pr_info("tarakernel: kstrtoul returned %d for nettmask\n", nError);
 	
 	cNewElement.ipNettmask = nVal;
 
@@ -790,20 +791,20 @@ void storeHoneyport(char *lpPort, char *lpHandling)
         if (!pHoneyports)
 	{
 		//void *pArrayPointer;
-		printk("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_HONEYPORT]);
+		pr_info("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_HONEYPORT]);
 	
 		pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_HONEYPORT] = (int) C_SEGMENT_MAX_SIZE / sizeof(struct _HoneyportSpecification)-1;
 
 		pHoneyports = (struct _HoneyportSpecification*) kmalloc(pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_HONEYPORT]*sizeof(struct _HoneyportSpecification), GFP_KERNEL);
-		printk("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_HONEYPORT], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_HONEYPORT]);
+		pr_info("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_HONEYPORT], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_HONEYPORT]);
 
 		pSetup->pConfiguration[BLOCK_DESCRIPTIOR_HONEYPORT] = pHoneyports;
 	}
 	else
-		printk("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_HONEYPORT]);
+		pr_info("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_HONEYPORT]);
 	
 	if ((nError = kstrtoul(lpPort, 16, &nVal)))
-		printk("tarakernel: kstrtoul returned %d for port (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpPort);
+		pr_info("tarakernel: kstrtoul returned %d for port (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpPort);
 	
 	cNewElement.port = (u32) nVal; 
 
@@ -830,7 +831,7 @@ void listAssistRequests(void)
 		sprintf(cBuf+strlen(cBuf), "%d.%d.%d.%d(%08X), ", (int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], pArray[n].ipAddress);
 	}
 
-	printk("tarakernel: IPs in array: %s\n", cBuf);
+	pr_info("tarakernel: IPs in array: %s\n", cBuf);
 	kfree(cBuf);
 }
 
@@ -847,24 +848,24 @@ void storeAssistanceRequest(char *lpSpec)
 	//NOTE! This function is based on the generic storeInspectionDirective() 
 	struct _AssistanceRequest cNewElement;
 
-        printk("tarakernel: Storing assist request... \n");
+        pr_info("tarakernel: Storing assist request... \n");
 
         struct _AssistanceRequest* pRequests = pSetup->pConfiguration[BLOCK_DESCRIPTIOR_ASSIST];
 
         if (!pRequests)
 	{
 		//void *pArrayPointer;
-		printk("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST]);
+		pr_info("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST]);
 	
 		pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_ASSIST] = (int) C_SEGMENT_MAX_SIZE / sizeof(struct _AssistanceRequest)-1;
 
 		pRequests = (struct _AssistanceRequest*) kmalloc(pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_ASSIST]*sizeof(struct _AssistanceRequest), GFP_KERNEL);
-		printk("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_ASSIST]);
+		pr_info("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_ASSIST]);
 
 		pSetup->pConfiguration[BLOCK_DESCRIPTIOR_ASSIST] = pRequests;
 	}
 	else
-		printk("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST]);
+		pr_info("tarakernel: Array exist: %s\n", cBlockDescriptor[BLOCK_DESCRIPTIOR_ASSIST]);
 
 	//Convert 7F000001:0-0-0-1 to  7F000001 0 0 0 1
 	while ((lpFound = strchr(lpSpec, ':')))
@@ -873,21 +874,21 @@ void storeAssistanceRequest(char *lpSpec)
 	while ((lpFound = strchr(lpSpec, '-')))
     	*lpFound = ' ';
 
-	printk("tarakernel: About to convert: %s\n", lpSpec);
+	pr_info("tarakernel: About to convert: %s\n", lpSpec);
 	if (sscanf(lpSpec, "%s %u %u %u %u", cIP, &nPort, &nQuality, &nWantsSpoofed, &nActive) == 5)
 	{
-		printk("tarakernel: Able to convert...\n");
+		pr_info("tarakernel: Able to convert...\n");
 	}
 	else
 	{
-		printk("tarakernel: *********** Error converting (got %d)...\n", nConverted);
+		pr_info("tarakernel: *********** Error converting (got %d)...\n", nConverted);
 	}
 
 //	if ((nError = kstrtoul(lpPort, 16, &nVal)))
-//		printk("tarakernel: kstrtoul returned %d for port (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpPort);
+//		pr_info("tarakernel: kstrtoul returned %d for port (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, lpPort);
 
 	if ((nError = kstrtoul(cIP, 16, &nVal)))
-		printk("tarakernel: *********** kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, cIP);
+		pr_info("tarakernel: *********** kstrtoul returned %d for ip (ERANGE=%d, EINVAL=%d) for %s\n", nError, ERANGE, EINVAL, cIP);
 
         if (nActive)
         {
@@ -901,7 +902,7 @@ void storeAssistanceRequest(char *lpSpec)
 	}
 	else
 	{
-	        printk("********* Instructed to remove assistance request...\n");
+	        pr_info("********* Instructed to remove assistance request...\n");
 		int n;
 		struct _AssistanceRequest *pArray = (struct _AssistanceRequest *)pSetup->pConfiguration[BLOCK_DESCRIPTIOR_ASSIST];
 
@@ -909,7 +910,7 @@ void storeAssistanceRequest(char *lpSpec)
 		{
 		        if (pArray[n].ipAddress == swappedEndian(nVal))
 		        {
-		        	printk("tarakernel: Requested to remove assistance request.. but for now just nulling it out...\n");
+		        	pr_info("tarakernel: Requested to remove assistance request.. but for now just nulling it out...\n");
 				cNewElement.ipAddress = 0;
         			cNewElement.port = 0;
         			cNewElement.nQuality = 0;
@@ -935,12 +936,12 @@ int requestedAssistance(unsigned int ipAddress, unsigned int nPort)
 	{
 		struct _AssistanceRequest* pCheckThis = &pRequests[n];
 		//u32 sip = ntohl(pCheckThis->ipAddress);
-		//printk("tarakernel: Checking assistance req: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip),pCheckThis->ipAddress);
+		//pr_info("tarakernel: Checking assistance req: %u.%u.%u.%u(%08X)\n", IPADDRESS(sip),pCheckThis->ipAddress);
 
 		if (pCheckThis->ipAddress == ipAddress)
 		{
 		        if (!pCheckThis->nQuality) {
-		                printk("tarakernel: ****** ERROR Quality requested was 0, changing to 5\n");
+		                pr_info("tarakernel: ****** ERROR Quality requested was 0, changing to 5\n");
 		                pCheckThis->nQuality = 5;
 		        }
 	                return pCheckThis->nQuality;	//Found the IP (should also check if port is specified)
@@ -950,23 +951,23 @@ int requestedAssistance(unsigned int ipAddress, unsigned int nPort)
 }
 
 
-void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatile uint32_t ipNettmask, int port, char *lpQuality)
+void *storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatile uint32_t ipNettmask, int port, char *lpQuality)
 {
 	//Use this to extract the 4 unsighed chars if required:
 	//	unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
-	//	printk("%d.%d.%d.%d", (int)ipAddressBytes[3], (int)ipAddressBytes[2],
+	//	pr_info("%d.%d.%d.%d", (int)ipAddressBytes[3], (int)ipAddressBytes[2],
 	//		(int)ipAddressBytes[1], (int)ipAddressBytes[0]);	//ØT 260303 - storeInstruction() seems generic, but then calls storeInfection only?????
 
-        #ifdef USE_POINTER_LIST
-              storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);	//ØT 260303 - storeInstruction() seems generic, but then calls storeInfection only?????
-              return;
-        #endif
+    #ifdef USE_POINTER_LIST
+        return storeInfectionInPointerList(ipAddress, ipNettmask, lpQuality);	//ØT 260303 - storeInstruction() seems generic, but then calls storeInfection only?????
+    #endif
 
+/*	
 	void *pElement = pSetup->pConfiguration[nBlockDescriptor];
 	if (!pElement)
 	{
 		void *pArrayPointer;
-		printk("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
+		pr_info("tarakernel: Array doesn't exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
 	
 		switch (nBlockDescriptor) 
 		{
@@ -976,7 +977,7 @@ void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatil
 				pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_SERVERS] = (int) C_SEGMENT_MAX_SIZE / sizeof(struct _ServerSpecification)-1;
 
 				servers = (struct _ServerSpecification*) kmalloc(pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_SERVERS]*sizeof(struct _ServerSpecification), GFP_KERNEL);
-				printk("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_SERVERS]);
+				pr_info("tarakernel: Array created for %s. Mem: %d elements: %d\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_SERVERS]);
 
 				pArrayPointer = servers;
 				break;
@@ -995,7 +996,7 @@ void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatil
 					pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_INFECTIONS] = (int) C_SEGMENT_MAX_SIZE / sizeof(struct _InfectionSpecification)-1;
 
 					infections = (struct _InfectionSpecification*) kmalloc(pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_INFECTIONS]*sizeof(struct _InfectionSpecification), GFP_KERNEL);
-					printk("tarakernel: Array created for %s. Bytes: %d elements: %d, element size: %ld\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
+					pr_info("tarakernel: Array created for %s. Bytes: %d elements: %d, element size: %ld\n", cBlockDescriptor[nBlockDescriptor], C_SEGMENT_MAX_SIZE, pSetup->nConfigurationArraySize[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
 					pArrayPointer = infections;
 				}
 				break;
@@ -1003,10 +1004,10 @@ void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatil
 			case BLOCK_DESCRIPTIOR_WHITE_LIST:
 //				break;
 			case BLOCK_DESCRIPTIOR_BLACK_LIST:
-				printk("tarakernel: ERROR black/while lists are saved elsewhere %d\n",	nBlockDescriptor);
+				pr_info("tarakernel: ERROR black/while lists are saved elsewhere %d\n",	nBlockDescriptor);
 				break;
 			default:
-				printk("tarakernel: ERROR unknown block descriptor: %d\n",	nBlockDescriptor);
+				pr_info("tarakernel: ERROR unknown block descriptor: %d\n",	nBlockDescriptor);
 		}
 
 		pSetup->pConfiguration[nBlockDescriptor] = pArrayPointer;
@@ -1014,13 +1015,13 @@ void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatil
 	}
 	else
 		if (!USE_POINTER_LIST)
-			printk("tarakernel: Array exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
+			pr_info("tarakernel: Array exist: %s\n", cBlockDescriptor[nBlockDescriptor]);
 
 	switch (nBlockDescriptor) 
 	{
 		case BLOCK_DESCRIPTIOR_SERVERS:
 			storeServerInfo(port, lpQuality);
-			printk("tarakernel: Been storing server info\n");
+			pr_info("tarakernel: Been storing server info\n");
 			break;
 
 		case BLOCK_DESCRIPTIOR_INFECTIONS:
@@ -1028,16 +1029,18 @@ void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatil
 			break;
 		case BLOCK_DESCRIPTIOR_WHITE_LIST:
 		case BLOCK_DESCRIPTIOR_BLACK_LIST:
-			printk("tarakernel: ERROR Colored lists are stored elsewhere.. %d\n",	nBlockDescriptor);
+			pr_info("tarakernel: ERROR Colored lists are stored elsewhere.. %d\n",	nBlockDescriptor);
 			break;
 		default:
-			printk("tarakernel: ERROR unknown block descriptor: %d\n",	nBlockDescriptor);
+			pr_info("tarakernel: ERROR unknown block descriptor: %d\n",	nBlockDescriptor);
 	}
+*/
+
 }//storeInstruction()
 
 void releaseConfiguration(void)
 {
-	printk("tarakernel: Should learn how to clean up the configuration properly/n");
+	pr_info("tarakernel: Should learn how to clean up the configuration properly/n");
 /*	int n;
 	for (n=0;n<sizeof(pSetup->pConfiguration);n++)
 		if (pConfiguration[n])

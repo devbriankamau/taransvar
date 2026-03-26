@@ -17,7 +17,7 @@ void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, c
 void storePartner(char *lpIP, char *lpNettmask);
 void storeInspectionDirective(int nBlockDescriptor, char *lpIP, char *lpNettmask);
 void storeHoneyport(char *lpPort, char *lpHandling);
-void storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatile uint32_t ipNettmask, int port, char *lpQuality);
+void *storeInstruction(int nBlockDescriptor, volatile uint32_t ipAddress, volatile uint32_t ipNettmask, int port, char *lpQuality);
 void releaseConfiguration(void);
 bool portForwarded(unsigned int nCheckIfPortForwarding);
 

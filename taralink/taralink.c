@@ -134,24 +134,30 @@ int getKernelSocket(struct _SocketData *pSockData)
   bind(pSockData->sock_fd, (struct sockaddr*)&pSockData->src_addr, sizeof(pSockData->src_addr));
   return pSockData->sock_fd;
 }
+
 MYSQL *getConnection()
 {
-      MYSQL *conn;
-      conn = mysql_init(0);
+    MYSQL *conn;
+    conn = mysql_init(0);
 	char *server ="localhost";
-	char *user = "scriptUsrAces3f3";
+    //server ="10.10.10.10";
+	//char *user = "'scriptUsrAces3f3'@'10.10.10.20'";
+    char *user = "scriptUsrAces3f3";
 	char *password = "rErte8Oi98e-2_#";
 	char *database = "taransvar";
-	  conn = mysql_init(NULL);
+    conn = mysql_init(NULL);
 
-        if (configFileExists())
-          return 0;
+    if (configFileExists())
+        return 0;
 
-	  /* Connect to database */
+	/* Connect to database */
 	if (!mysql_real_connect(conn, server, user, password, database, 0, NULL, 0)) {
 		fprintf(stderr, "%s\n", mysql_error(conn));
-		
-	    printf("Unable to connect to DB. Aborting... \n");
+
+        //CREATE USER 'scriptUsrAces3f3'@'10.10.10.%' IDENTIFIED BY 'rErte8Oi98e-2_#';
+        //GRANT ALL PRIVILEGES ON taransvar.* TO 'scriptUsrAces3f3'@'10.10.10.%';
+
+        printf("Unable to connect to DB. Aborting... \n");
 	    exit(1);
 	}
 	return conn;

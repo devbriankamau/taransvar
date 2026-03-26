@@ -16,8 +16,8 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const s
 	int nSenderIsInfected = (pInfected?pInfected->cTag.presumed_infected:0);
 	int nRequestedAssistance = requestedAssistance(pPacket->ip_header->daddr, pPacket->dPort);
 	short bCommentPrinted = 0;  //Set to 1 to indicate that comment has been printed (otherwise print default at the end...
-	char *lpInfectionStatus = memAlloc(200);
-	sprintf(lpInfectionStatus, "%s%s %s", (nSenderIsInfected?"Sender is INFECTED!":""),
+	char cInfectionStatus[200];
+	sprintf(cInfectionStatus, "%s%s %s", (nSenderIsInfected?"Sender is INFECTED!":""),
 	                      (nSenderIsInfected && nRequestedAssistance? " and":""),
 	                      (nRequestedAssistance? " receiver has requested ASSISTANCE!":"")); 
 	        
@@ -28,11 +28,10 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const s
 		//Check if requested data that is less likely to be infected than this (drop the traffic)
 		if (nRequestedAssistance && nRequestedAssistance < nSenderIsInfected)   
 		{
-			printk("tarakernel: %s: TARGET HAS REQUESTED ASSISTANCE! DROPPING PACKAGE FROM INFECTED: %s->%s, request: %d, this IP: %d\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, nRequestedAssistance, nSenderIsInfected);
+			pr_info("tarakernel: %s: TARGET HAS REQUESTED ASSISTANCE! DROPPING PACKAGE FROM INFECTED: %s->%s, request: %d, this IP: %d\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, nRequestedAssistance, nSenderIsInfected);
 
 			//kfree(pPacket); Being done by caller...
 			//checkFree(pPacket..)		Being done by caller...
-			kfree(lpInfectionStatus);
 			return NF_DROP;
 		}
 		else
@@ -40,27 +39,26 @@ int checkFixTagging(struct _PacketInspection *pPacket, bool bForwarding, const s
 			if (nRequestedAssistance) //This unit is under attack or chose to turn of receiving tagged traffic
 			{       
 				char *lpThisComputer = (!nSenderIsInfected?"not infected": "less severely tagged");       //nRequestedAssistance < nSenderIsInfected
-				printk("tarakernel: %s Target has requested assistance, but this unit is %s (so sending)..: %s->%s, request: %d, this IP: %d\n", lpPrOrFw, lpThisComputer, pPacket->cSourceIp, pPacket->cDestIp, nRequestedAssistance, nSenderIsInfected);
+				pr_info("tarakernel: %s Target has requested assistance, but this unit is %s (so sending)..: %s->%s, request: %d, this IP: %d\n", lpPrOrFw, lpThisComputer, pPacket->cSourceIp, pPacket->cDestIp, nRequestedAssistance, nSenderIsInfected);
 			}
                               
 			if (nSenderIsInfected)
-				if (tagThePacket(pPacket, state) == NF_STOLEN)
+				if (tagThePacket(pPacket, state, pInfected) == NF_STOLEN)
 					return NF_STOLEN;
 		}
 
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
-			printk("tarakernel: %s to partner: %s->%s: Tag: (%04X)\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
+			pr_info("tarakernel: %s to partner: %s->%s: Tag: (%04X)\n", lpPrOrFw, pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
 	}
 	else
   		if (!bCommentPrinted) //Already printed on this package... no need for more.	
        		if (pSetup->cShowInstructions.bits.showForwardPartner)
-				printk("tarakernel: %s: to partner - %s - TAGGING DISABLED\n", lpPrOrFw, lpInfectionStatus);
+				pr_info("tarakernel: %s: to partner - %s - TAGGING DISABLED\n", lpPrOrFw, cInfectionStatus);
 
 	if (!bCommentPrinted)		
 		if (nSenderIsInfected || nRequestedAssistance)
-			printk("tarakernel: %s: ****** %s (sending package)\n", lpPrOrFw, lpInfectionStatus);
+			pr_info("tarakernel: %s: ****** %s (sending package)\n", lpPrOrFw, cInfectionStatus);
 
-	kfree(lpInfectionStatus);
 	return NF_ACCEPT;
 }
 
@@ -69,7 +67,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		
 	if (!bReceivedConfiguration)
 	{
-	    printk("tarakernel: Dropping forwarded package until configuration is received (please start taralink).\n");
+	    pr_info("tarakernel: Dropping forwarded package until configuration is received (please start taralink).\n");
 		return NF_DROP;
 	}
 	
@@ -88,12 +86,12 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		printk(KERN_INFO "tarakernel: FORWARD   ct=%px mark=%u ctinfo=%d\n", ct, ct->mark, ctinfo);		
 
 		if (ct->mark == 0) 
-			printk("tarakernel: ****** ERROR - mark was not set in FORWARD handler\n");
+			pr_info("tarakernel: ****** ERROR - mark was not set in FORWARD handler\n");
 		else
-			printk("tarakernel: ****** Mark was set in FORWARD handler\n");
+			pr_info("tarakernel: ****** Mark was set in FORWARD handler\n");
 	}
 	else
-		printk("tarakernel: ****** ERROR - Unable to get conntrack info\n");
+		pr_info("tarakernel: ****** ERROR - Unable to get conntrack info\n");
 	#endif
 
 	//pPacket = (struct _PacketInspection *)kmalloc(sizeof(struct _PacketInspection), GFP_KERNEL);
@@ -107,7 +105,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 
 	if (pPacket->tcp_header->urg)
 		if (pSetup->cShowInstructions.bits.showUrgentPtrUsage)
-			printk("tarakernel: FW: URG flag is set! urg_ptr set to %04X. %s->%s \n", pPacket->tcp_header->urg_ptr, pPacket->cSourceIp, pPacket->cDestIp);
+			pr_info("tarakernel: FW: URG flag is set! urg_ptr set to %04X. %s->%s \n", pPacket->tcp_header->urg_ptr, pPacket->cSourceIp, pPacket->cDestIp);
 
 	if (isPartner(pPacket->ip_header->daddr))
 	{
@@ -130,12 +128,12 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		if (tcp_read_timestamp_option(skb, &tsval_be, &tsecr_be)) 
 		{
 			if (tcp_set_timestamp_option(skb, set_tsval, new_tsval_be, set_tsecr, new_tsecr_be))
-				printk("tarakernel: ******* TSval tagging successful!\n");
+				pr_info("tarakernel: ******* TSval tagging successful!\n");
 			else
-				printk("tarakernel: ******* Failed to tag using TSval field\n");
+				pr_info("tarakernel: ******* Failed to tag using TSval field\n");
 		}
 		else
-			printk("tarakernel: **** Unable to read TSval\n");
+			pr_info("tarakernel: **** Unable to read TSval\n");
 
 		#endif
 
@@ -153,7 +151,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		//cTag = 	(struct _Tag)tcp_header->urg_ptr;
 		cUnion.nTag = pPacket->tcp_header->urg_ptr;
 		if (pSetup->cShowInstructions.bits.showForwardPartner)
-  			printk("tarakernel: FW from partner: %s->%s: Tag: (%04X)\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
+  			pr_info("tarakernel: FW from partner: %s->%s: Tag: (%04X)\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
   			
 		if (pPacket->tcp_header->urg_ptr)
   			pSetup->cGlobalStatistics.nFromPartnerTagged++;
@@ -185,7 +183,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 			{
 				bPortForwarded = 1;
 				if (pSetup->cShowInstructions.bits.showOther)
-					printk("tarakernel: Traffic with forwarded port: %s:%d->%s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);///%s\n", ipFrom, ipTo);
+					pr_info("tarakernel: Traffic with forwarded port: %s:%d->%s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);///%s\n", ipFrom, ipTo);
 			      
 			}
 		
@@ -193,7 +191,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		
 		pSetup->cGlobalStatistics.nForwarded++;
 		if (!bPortForwarded && pSetup->cShowInstructions.bits.showForwardNonPartner)
-			printk("tarakernel: FW Forward (to or from non-partner) %s:%d->%s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);///%s\n", ipFrom, ipTo);
+			pr_info("tarakernel: FW Forward (to or from non-partner) %s:%d->%s:%d\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort);///%s\n", ipFrom, ipTo);
 		return NF_ACCEPT;
 	}
 
@@ -208,11 +206,11 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 	if (isMeOrMine(pPacket->ip_header->daddr)||isMeOrMine(pPacket->ip_header->saddr))
 	{
 		if (pSetup->cShowInstructions.bits.showForwardNonPartner)
-			printk("tarakernel: FW Traffic between subnet and non-partner: (%s -> %s - I'm %s)\n", pPacket->cSourceIp, pPacket->cDestIp, pSetup->c100);
+			pr_info("tarakernel: FW Traffic between subnet and non-partner: (%s -> %s - I'm %s)\n", pPacket->cSourceIp, pPacket->cDestIp, pSetup->c100);
 	}
 	else
 	{
-		printk("tarakernel: ********* Shouldn't get here (forwarding between two unknown addresses?) - most likely wrong IP or partner setup) - (%s -> %s while I'm %s)\n", pPacket->cSourceIp, pPacket->cDestIp, pSetup->c100);
+		pr_info("tarakernel: ********* Shouldn't get here (forwarding between two unknown addresses?) - most likely wrong IP or partner setup) - (%s -> %s while I'm %s)\n", pPacket->cSourceIp, pPacket->cDestIp, pSetup->c100);
         }
         
 	return NF_ACCEPT;

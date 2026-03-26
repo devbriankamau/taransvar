@@ -75,9 +75,13 @@ alter table internalInfections add infoSharePartners varchar(255);
 alter table internalInfections add foreignUnitId int(11) null after unitId;
 update setup set dbVersion = 53;
 
+#version 54 (260326)
+alter table internalInfections add severity int not null default 0;
+alter table internalInfections add botnetId int null;
+update setup set dbVersion = 54;
 
 #******** NEXT TIME ALSO add *****
-#update setup set dbVersion = 54;
+#update setup set dbVersion = 55;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

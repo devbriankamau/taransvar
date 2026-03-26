@@ -95,8 +95,8 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 	if (nSequenceNumber == 0)	//This is the first batch (for now there's only 1 batch)
 	{
-	        char szSQL[256];
-	        char *lpHandledWhere;
+	    char szSQL[400];	//NOTE! 256 is now too small for internalInfections SQL
+	    char *lpHandledWhere;
 		conn = getConnection();
 		updateConn = getConnection();
 		//printf("Reading configuration.....\n");
@@ -152,7 +152,6 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 			}
 			else
 			    printf("Server was handled\n");
-			
 		}
 
 		if (nFound)
@@ -166,12 +165,12 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		strcpy(szSQL, "select inet_ntoa(ip) as ip, upper(color), ip as aIp, handled from vListings");
 		
 		if (bReadChangesOnly)
-		      strcpy(szSQL+strlen(szSQL), " where handled is null");
+		    strcpy(szSQL+strlen(szSQL), " where handled is null");
 
 		if (mysql_query(conn, szSQL)) {
 			fprintf(stderr, "%s\n", mysql_error(conn));
-  		        reportErrorReadin("white- and blacklists");
-  		        return 0;
+  			reportErrorReadin("white- and blacklists");
+  			return 0;
 		}
 		res = mysql_use_result(conn);
 		char szColorList[20];
@@ -181,7 +180,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		nFound =0;
 		while ((row = mysql_fetch_row(res)) != NULL)
 		{
-    	                bFoundData = 1;
+    	    bFoundData = 1;
 			if (strcmp(szColorList, row[1]))
 			{
 				if (nFound)
@@ -208,11 +207,11 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		//printf("Reading internal unit infections...\n");
 		
 		if (bReadChangesOnly)
-	              lpHandledWhere = "handled is null or handled = b'0'";
-	        else
-	              lpHandledWhere = "active = b'1'";
+			lpHandledWhere = "handled is null or handled = b'0'";
+	    else
+	        lpHandledWhere = "active = b'1'";
 
-		sprintf(szSQL, "select inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, status, infectionId, handled, CAST(active AS UNSIGNED) as active from internalInfections where %s", lpHandledWhere);
+		sprintf(szSQL, "select inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, coalesce(status,'NULL'), infectionId, handled, coalesce(CAST(active AS UNSIGNED),0) as active, coalesce(infoSharePartners,'NULL'), coalesce(unitId,0), coalesce(severity,0), coalesce(botnetId,0) from internalInfections where %s", lpHandledWhere);
 		//printf("SQL: %s\n", szSQL);
 
 		if (mysql_query(conn, szSQL)) {
@@ -226,16 +225,25 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 		while ((row = mysql_fetch_row(res)) != NULL)
 		{
-      		        bFoundData = 1;
+    		bFoundData = 1;
 
 			if (!nFound)
 				sprintf(cReply+strlen(cReply), "INFECTION|");
 
 			//printf("taralink: Infection found : %s-%s-%s-%s\n", row[0], row[1], row[5], row[2]);
-			sprintf(cReply+strlen(cReply), "%s:%s-%s-%s^", row[0], row[1], row[5], row[2]);
+			//															ip		nett	active status  infID   severity botnetId info
+			sprintf(cReply+strlen(cReply), "%s:%s-%s-%s-%s-%s-%s-%s^", row[0], row[1], row[5], row[2], row[3], row[8], row[9], row[6]);
 
-                        if (!row[4] || !atoi(row[4])) 
-      			        updateHandled(updateConn, "internalInfections", "infectionId", row[3]);
+
+			//	ip				nett	active status  infID   severity botnetId info
+/*INFECTION|	100.100.100.100:255.255.255.255-1-(null)-       -1503633950-        -1503633942-0-(null)^
+			100.100.100.100:255.255.255.255-1-(null)--1503633950--1503633942-0-(null)^
+			100.100.100.100:255.255.255.255-1-(null)--1503633950--1503633942-0-(null)^
+*/
+
+
+			if (!row[4] || !atoi(row[4])) 
+				updateHandled(updateConn, "internalInfections", "infectionId", row[3]);
       			        
 			nFound++;
 		}
@@ -465,7 +473,6 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 				}
 				else
 					printf("No IP not to send dmesg set..\n");
-
 
 				unsigned int  nBlockingThreshold = atoi(row[4]);
 				sprintf(cReply+strlen(cReply), "SETUP|%s^%s^%s^%01X^%02X^%02X^|", row[0], row[1], row[2], nBlockingThreshold, cShowStatusBits.nValues, ip_numeric);

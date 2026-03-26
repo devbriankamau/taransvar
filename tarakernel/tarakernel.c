@@ -80,7 +80,7 @@ void removeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, 
 bool trafficReportToTaralinkFound(int nProcessId);
 void sendCheckRequests(int nProcessId);
 void checkPartner(u32 nIp);
-unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state);	//module_tagging.c
+unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hook_state *state, struct _InfectionSpecification *pInfected);	//module_tagging.c
 int isNewConnection(struct sk_buff *skb);
 void saveStolenPackage(struct _PacketInspection *pPacket);
 uint8_t getDscp(struct _PacketInspection *pPacket);
@@ -88,7 +88,7 @@ void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
 
 //Old one: static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
-static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _Tag *pTag);
+static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _InfectionSpecification *pInfection);
 static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state);
 
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
@@ -175,31 +175,40 @@ int udpMsgFromSender(char *lpPayload)
 {
 	if (strstr(lpPayload, UDP_MSG_PREFIX)== lpPayload)
 	{
-		printk("tarakernel SENDING: ***** RECEIVED UDP message from sender via taralink: %s\n", lpPayload);
+		pr_info("tarakernel SENDING: ***** RECEIVED UDP message from sender via taralink: %s\n", lpPayload);
 
         //Search "Tagging UDP msg coding/decoding" for usage in source	(in module_tagging.c)
         //Coded by: sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
 		int nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
 		unsigned int sIp, sPort, dVersion, dInfected, dOwners_id;
-		int nFlds;
 		char cSourceIp[100];
+		unsigned int nInfectionId, nSeverity, nBotnetId;
+		char cInfo[256];
 
-		if ((nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%99[^:]:%d^%d^%d^%d", cSourceIp, &sPort, &dVersion, &dInfected, &dOwners_id)) == 5) 
+
+		//int nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%99[^:]:%d^%d^%d^%d", cSourceIp, &sPort, &dVersion, &dInfected, &dOwners_id);
+
+		int nFlds = sscanf(lpPayload + strlen(UDP_MSG_PREFIX), "%99[^:]:%d^%d^%d^%d^%d^%d^%d^%255[^\n]", cSourceIp, &sPort, &dVersion, &dInfected, &dOwners_id, &nInfectionId, &nSeverity, &nBotnetId, cInfo);
+
+
+//    sprintf(cUdpTagString, "%08X:%d^%d^%d^%d^%d^%d^%d^%s", ntohl(sourceIp), ntohs(sourcePort), pInfection->cTag.version_no, pInfection->cTag.presumed_infected, pInfection->cTag.owners_id, pInfection->nInfectionId, pInfection->nSeverity, pInfection->nBotnetId, pInfection->lpInfo);
+
+		if (nFlds == 9) 	//was 5 before..
 		{
 			sIp = hexstr_to_ip(cSourceIp);
 			__be32 networkIp = htonl(sIp);
 			__be16 networkPort = htons(sPort);
-			printk("tarakernel SENDING: ******* UDP message content (via taralink) successfully decoded (****and should be saved***): %pI4(%s):%d^%d^%d^%d\n", &networkIp, cSourceIp, sPort, dVersion, dInfected, dOwners_id);
+			pr_info("tarakernel SENDING: ******* UDP threat info (via taralink) received: %pI4(%s):%d^%d^%d^%d, InfID: %d, sev: %d, botnet: %d, info: %s\n", &networkIp, cSourceIp, sPort, dVersion, dInfected, dOwners_id, nInfectionId, nSeverity, nBotnetId, cInfo);
 			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(networkIp, networkPort, &nAvailable);	
 
 			if (pAlreadyHave)
-				printk("tarakernel SENDING: Already have info for %d:%d - ignoring\n", sIp, sPort);
+				pr_info("tarakernel SENDING: Already have info for %d:%d - ignoring\n", sIp, sPort);
 			else
 			{
 				//Store the new info if available slot...
 				if (nAvailable >= 0)	//Initiated by findRemoteInfectionInfoReceived() while traversing the array
 				{
-					printk("tarakernel SENDING: Available slot found: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
+					pr_info("tarakernel SENDING: Available slot found: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
 					//findRemoteInfectionInfoReceived() found an available slot
 
 					pAlreadyHave = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
@@ -217,17 +226,17 @@ int udpMsgFromSender(char *lpPayload)
 				}
 				else
 				{
-					printk("tarakernel SENDING: ***** ERROR **** No available threat info slots.. And for some reason didn't manage to deleted the oldest.\n");
+					pr_info("tarakernel SENDING: ***** ERROR **** No available threat info slots.. And for some reason didn't manage to deleted the oldest.\n");
 				}
 			}
 		}
 		else
-			printk("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);
+			pr_info("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);
 
 		return 1;
 	}
 
-	//printk("tarakernel SENDING: Not UDP message: %s\n", lpPayload);
+	//pr_info("tarakernel SENDING: Not UDP message: %s\n", lpPayload);
 	return 0;
 }
 
@@ -307,7 +316,7 @@ static void send_to_user(const char *msg)
 
 	if (!pid)
 	{
-		printk("tarakernel: ****** ERROR ****** Taralink process id not yet initialized... Unable to send message - aborting: %s\n", msg);
+		pr_info("tarakernel: ****** ERROR ****** Taralink process id not yet initialized... Unable to send message - aborting: %s\n", msg);
 		return;
 	}
 
@@ -347,7 +356,7 @@ static struct timer_list my_timer;
 
 static void my_timer_cb(struct timer_list *t)
 {
-	printk("tarakernel: my_timer fired\n");
+	pr_debug("tarakernel: my_timer fired\n");
 
     checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
 
@@ -364,13 +373,13 @@ static int __init hello_init(void)
     //doPointerTest();  //See module_pointer_list.c
     //return 0;
 
-    printk("tarakernel: Started (version %d). Start taralink to send configuration.\n", C_VERSION);
+    pr_info("tarakernel: Started (version %d). Start taralink to send configuration.\n", C_VERSION);
 	
 	if (!configuraton_init())		//defined in module_configuration.c;
-		printk("tarakernel: ****** ERROR ***** configuraton_init() returned false\n");
+		pr_info("tarakernel: ****** ERROR ***** configuraton_init() returned false\n");
 		//return -1;
         
-        //printk("tarakernel: Finished testing... Going idle.\n");
+        //pr_info("tarakernel: Finished testing... Going idle.\n");
         //return 0;
 
 	if (SYSTEM_OPERATION_LEVEL > 1) //Without this there's nothing
@@ -440,7 +449,7 @@ static int __init hello_init(void)
 	timer_setup(&my_timer, my_timer_cb, 0);
     mod_timer(&my_timer, jiffies + msecs_to_jiffies(1000));	// fire once after 1 second 
 
-    printk("tarakernel: timer armed\n");
+    pr_info("tarakernel: timer armed\n");
 
 	return 0;
 }
@@ -472,3 +481,4 @@ module_init(hello_init);
 module_exit(hello_exit);
 
 MODULE_LICENSE("GPL");
+

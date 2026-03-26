@@ -3,9 +3,9 @@
 void reportInfectionsList(void);
 void reportInfectionsList(void)
 {
-      //printk("tarakernel: Should report list of infections...\n");
+      //pr_info("tarakernel: Should report list of infections...\n");
 	struct _Node *pNode = (struct _Node *)(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]);
-      printk("tarakernel: Registered infections: ");
+      pr_info("tarakernel: Registered infections: ");
       int nFound = 0;
 
 	while (pNode)
@@ -14,22 +14,22 @@ void reportInfectionsList(void)
 		volatile uint32_t ipAddress = swappedEndian((u32) pNode->cInfection.ipAddress);
 		unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
             
-        	printk("tarakernel: %d.%d.%d.%d(%08X), ", (int)ipAddressBytes[3], (int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0], ipAddress);
+        	pr_info("tarakernel: %d.%d.%d.%d(%08X), ", (int)ipAddressBytes[3], (int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0], ipAddress);
             //*** NOTE Should convert all IP adresses to __be32 and just print like  */
-            //printk("tarakernel: %pI4(%08X), ",pNode->cInfection.ipAddress, pNode->cInfection.ipAddress);
+            //pr_info("tarakernel: %pI4(%08X), ",pNode->cInfection.ipAddress, pNode->cInfection.ipAddress);
 
             pNode = pNode->pNext;
       }
 
       if (nFound)
-            printk("\n");
+            pr_info("\n");
 
-      printk("tarakernel: %d infections found\n", nFound);
+      pr_info("tarakernel: %d infections found\n", nFound);
 }
 
 void debugRoutine(void)
 {
-      //You may do debugging here and printk("tarakernel: This ends in the log..."); to print.
+      //You may do debugging here and pr_info("tarakernel: This ends in the log..."); to print.
       //  doPointerTest();
       //  doInfectionsPointerListTest();
 
@@ -70,7 +70,7 @@ bool trafficReportToTaralinkFound(int nProcessId)
         
         if (!lpSendBuf)
         {
-              printk("tarakernel: **** ERROR ****** Couldn't allocate buffer in trafficReportTotaralinkFound()\n");
+              pr_info("tarakernel: **** ERROR ****** Couldn't allocate buffer in trafficReportTotaralinkFound()\n");
               return 0;
         }
         
@@ -97,7 +97,7 @@ bool trafficReportToTaralinkFound(int nProcessId)
         {
     	      if (pSetup->cShowInstructions.bits.doReportTraffic) //NOTE Never gets her if this is set because checking first in the function (including here is the other deleted)
     	            if (pSetup->cShowInstructions.bits.showOther)
-                          printk("tarakernel: No traffic to report to taralink...\n");
+                          pr_info("tarakernel: No traffic to report to taralink...\n");
               kfree(lpSendBuf);
               return 0;
         }
@@ -128,7 +128,7 @@ void sendCheckRequests(int nProcessId)
                 
                 if (nLen + 20 > N_SENDBUF_SIZE)
                 {
-                      printk("tarakernel: ***** ERROR *** Buffer for traffic to check is too small (weird that gets here)...\n");
+                      pr_info("tarakernel: ***** ERROR *** Buffer for traffic to check is too small (weird that gets here)...\n");
                       break;  //Shouldn't get here... Error message just in case...
                 }
                 

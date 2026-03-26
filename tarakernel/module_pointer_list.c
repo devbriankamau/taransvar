@@ -103,9 +103,9 @@ void printThem(_Node *pPointerlist)
       //struct _InfectionSpecification *pInfection = (struct _InfectionSpecification *)(pPoint+sizeof(pPoint));
       //sprintf(lpBuff + strlen(lpBuff), "%d,", pInfection->ipAddress);
     }
-    //printk("tarakernel: List: (appx %d bytes) %s\n", (nCount * sizeof(struct _Node)), lpBuff);
+    //pr_info("tarakernel: List: (appx %d bytes) %s\n", (nCount * sizeof(struct _Node)), lpBuff);
     //Print meta data only...
-    printk("tarakernel: #%d: Pointer list generated..: %d elements, appx %ld bytes, intended print buf size: %d\n", nIteration, nCount, (nCount * sizeof(struct _Node)), nBuffSize);
+    pr_info("tarakernel: #%d: Pointer list generated..: %d elements, appx %ld bytes, intended print buf size: %d\n", nIteration, nCount, (nCount * sizeof(struct _Node)), nBuffSize);
     //kfree(lpBuff);
 }
 
@@ -149,7 +149,7 @@ void doPointerTest(void)
 
 void doInfectionsPointerListTest(void)
 {
-    printk("tarakernel: Adding infections (testing).\n");
+    pr_info("tarakernel: Adding infections (testing).\n");
 
   int nCount = countNodes(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]);
   int n;
@@ -168,17 +168,17 @@ void doInfectionsPointerListTest(void)
 /*    listInfectionsPointerList();
 
     if (isInfectedPointerList(2))
-      printk("tarakernel: 2 is infected.....\n");
+      pr_info("tarakernel: 2 is infected.....\n");
     else
-      printk("tarakernel: 2 is NOT infected.....\n");
+      pr_info("tarakernel: 2 is NOT infected.....\n");
 
     if (isInfectedPointerList(3))
-      printk("tarakernel: 3 is infected.....\n");
+      pr_info("tarakernel: 3 is infected.....\n");
     else
-      printk("tarakernel: 3 is NOT infected.....\n");
+      pr_info("tarakernel: 3 is NOT infected.....\n");
 */
-//    printk("tarakernel: Stored (and some removed?). %d nodes in list.\n", n);
-    printk("tarakernel: Stored. %d nodes in list.\n", n);
+//    pr_info("tarakernel: Stored (and some removed?). %d nodes in list.\n", n);
+    pr_info("tarakernel: Stored. %d nodes in list.\n", n);
     
 }
 

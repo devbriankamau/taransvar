@@ -220,7 +220,7 @@ system ("modprobe tarakernel > $szLogFile");
 #}
 
 #if (length($szModprob)) {
-#	print "******* ERROR ****\n\n$szModprob\n";
+#	print "******* ERROR ****\n\n$szModprob\n";dep
 #}
 
 if (!moduleRunning("tarakernel")) {
@@ -251,7 +251,8 @@ chdir "taralink";
 #print getcwd();
 
 $szLogFile = getSysRoot()."log/gcc.txt"; 
-system ("TMPDIR=/home/user/temp gcc taralink.c -o taralink -L/usr/lib/mysql -lmariadb -lcurl > $szLogFile");
+print "**** Now compiling with debug symbols.... (-g)\n";
+system ("TMPDIR=/home/user/temp gcc -g taralink.c -o taralink -L/usr/lib/mysql -lmariadb -lcurl > $szLogFile");
 my $szFilename = './taralink';
 $nFileSize = fileModified($szFilename, 45*1000, 10);
 if ($nFileSize <= 0) {

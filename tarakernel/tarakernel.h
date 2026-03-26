@@ -117,6 +117,8 @@ struct _InfectionSpecification {
 	volatile uint32_t ipAddress;
 	volatile uint32_t ipNettmask;
 	//struct _threatSpecification cThreat;
+	unsigned int nInfectionId, nSeverity, nBotnetId;
+	char *lpInfo;
 	union 
 	{
 		struct _Tag		cTag;
@@ -208,7 +210,7 @@ struct _Setup {
   
 	u64 nLastTimedOperation; // = 0;
 	struct sock *nl_sk;// = NULL;
-	u32 taralink_pid;	//taralink process id - initiated first time tarakernel receives a message (we need it for sening msgs to taralink)
+	u32 taralink_pid;	//taralink process id - initiated first time tarakernel receives a message (we need it for sening msgs to taral)
 
 	//static struct nf_hook_ops *nf_blockicmppkt_ops = NULL;
 	struct nf_hook_ops *nf_PRE_ROUTING_hook_ops; // = NULL;

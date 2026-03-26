@@ -51,7 +51,7 @@ void getTcpPayload(struct sk_buff *skb, char *lpBuffer, u32 nBufSize)
 
 	if (!ip_header) 
 	{
-		printk("Absec: No ip_header!\n");
+		pr_info("Absec: No ip_header!\n");
 		return;
 	}
 
@@ -60,7 +60,7 @@ void getTcpPayload(struct sk_buff *skb, char *lpBuffer, u32 nBufSize)
 
 	if (!tcp_header) 
 	{
-		printk("Absec: No tcp_header!\n");
+		pr_info("Absec: No tcp_header!\n");
 		return;
 	}
 

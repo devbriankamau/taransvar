@@ -45,7 +45,7 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
     ret = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
     if (ret < 0) {
         //pr_err("sock_create_kern failed: %d\n", ret);
-        printk("tarakernel: sock_create_kern failed: %d\n", ret);
+        pr_info("tarakernel: sock_create_kern failed: %d\n", ret);
         return ret;
     }
 
@@ -62,10 +62,10 @@ static int send_udp_json_to_skb_dest(struct sk_buff *skb, const char *json)
     ret = kernel_sendmsg(sock, &msg, &iov, 1, iov.iov_len);
     if (ret < 0)
         //pr_err("kernel_sendmsg failed: %d\n", ret);
-        printk("kernel_sendmsg failed: %d\n", ret);
+        pr_info("kernel_sendmsg failed: %d\n", ret);
     else
         //pr_info("Sent %d bytes JSON to %pI4:%u\n", ret, &iph->daddr, ntohs(addr.sin_port));//udph->dest));
-        printk("Sent %d bytes JSON to %pI4:%u\n", ret, &iph->daddr, ntohs(addr.sin_port));//udph->dest))
+        pr_info("Sent %d bytes JSON to %pI4:%u\n", ret, &iph->daddr, ntohs(addr.sin_port));//udph->dest))
 
     sock_release(sock);
     return ret;
@@ -116,7 +116,7 @@ static int send_udp_json(__be32 daddr, __be16 dport, const char *json)
     ret = sock_create_kern(&init_net, AF_INET, SOCK_DGRAM, IPPROTO_UDP, &sock);
     if (ret < 0) {
         //pr_err("sock_create_kern failed: %d\n", ret);
-        printk("tarakernel SENDING: sock_create_kern failed: %d\n", ret);
+        pr_info("tarakernel SENDING: sock_create_kern failed: %d\n", ret);
         return ret;
     }
 
@@ -132,9 +132,9 @@ static int send_udp_json(__be32 daddr, __be16 dport, const char *json)
 
     ret = kernel_sendmsg(sock, &msg, &iov, 1, iov.iov_len);
     if (ret < 0)
-        printk("tarakernel SENDING: ********* ERROR ********* kernel_sendmsg failed (while sending threat info UDP to partner): %d\n", ret);
+        pr_info("tarakernel SENDING: ********* ERROR ********* kernel_sendmsg failed (while sending threat info UDP to partner): %d\n", ret);
     //else
-    //  printk("tarakernel SENDING: Sent %d bytes to %pI4:%u\n", ret, &daddr, ntohs(dport));
+    //  pr_info("tarakernel SENDING: Sent %d bytes to %pI4:%u\n", ret, &daddr, ntohs(dport));
 
     sock_release(sock);
     return ret;
@@ -158,9 +158,9 @@ static void delayed_forward_cb(struct work_struct *work)
 
     ret = dev_queue_xmit(job->skb);
     if (ret)
-        printk("tarakernel SENDING: dev_queue_xmit failed: %d\n", ret);
+        pr_info("tarakernel SENDING: dev_queue_xmit failed: %d\n", ret);
     else
-        printk("tarakernel SENDING: Original packet retransmitted\n");
+        pr_info("tarakernel SENDING: Original packet retransmitted\n");
 
 out:
     if (job->outdev)
@@ -168,14 +168,18 @@ out:
     kfree(job);
 }
 
-static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _Tag *pTag)
+static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _InfectionSpecification *pInfection)
 {
-    char cUdpTagString[100];
+    char cUdpTagString[400];
     //NOTE! sourceIp is client IP (E.g 192.168.50.100) - don't send that to remote server.. 
     // destIp is partner IP (where to send)
-    sprintf(cUdpTagString, "%08X:%d^%d^%d^%d", ntohl(sourceIp), ntohs(sourcePort), pTag->version_no, pTag->presumed_infected, pTag->owners_id);
+
+//    sprintf(cUdpTagString, "%08X:%d^%d^%d^%d ", ntohl(sourceIp), ntohs(sourcePort), pInfection->cTag.version_no, pInfection->cTag.presumed_infected, pInfection->cTag.owners_id);
+
+    sprintf(cUdpTagString, "%08X:%d^%d^%d^%d^%d^%d^%d^%s", ntohl(sourceIp), ntohs(sourcePort), pInfection->cTag.version_no, pInfection->cTag.presumed_infected, pInfection->cTag.owners_id, pInfection->nInfectionId, pInfection->nSeverity, pInfection->nBotnetId, pInfection->lpInfo);
+
     /* send UDP immediately */
-    printk("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, TARALINK_LISTENING_TO_PORT, cUdpTagString);
+    pr_info("tarakernel SENDING: New session. Sending UDP with threat info to receiver (%pI4:%d): %s.\n", &destIp, TARALINK_LISTENING_TO_PORT, cUdpTagString);
     return send_udp_json(destIp, htons(TARALINK_LISTENING_TO_PORT), cUdpTagString);
 }
 
@@ -188,14 +192,14 @@ static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_st
 
     if (!skb || !state)
     {
-      printk("tarakernel SENDING: No skb or wrong state\n");
+      pr_info("tarakernel SENDING: No skb or wrong state\n");
         return NF_ACCEPT;   /* fail open */
     }
 
     iph = ip_hdr(skb);
     if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
     {
-      printk("tarakernel SENDING: Not IPv4 TCP\n");
+      pr_info("tarakernel SENDING: Not IPv4 TCP\n");
         return NF_ACCEPT;   /* fail open */
     }
 
@@ -207,7 +211,7 @@ static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_st
     job = kzalloc(sizeof(*job), GFP_ATOMIC);
     if (!job)
     {
-      printk("tarakernel SENDING: Failed to alloc memory\n");
+      pr_info("tarakernel SENDING: Failed to alloc memory\n");
         return NF_ACCEPT;   /* fail open */
     }
 
@@ -218,7 +222,7 @@ static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_st
         dev_hold(job->outdev);
 
     schedule_work(&job->work);
-    printk("tarakernel SENDING: Job for sending original packet scheduled\n");
+    pr_info("tarakernel SENDING: Job for sending original packet scheduled\n");
     return NF_STOLEN;
 }
 

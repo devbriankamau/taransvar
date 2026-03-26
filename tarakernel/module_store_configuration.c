@@ -408,7 +408,7 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 					if (nRes == 14)
 					{
 				        pr_info("tarakernel: Interpretation %s: %d.%d.%d.%d:%d.%d.%d.%d-%s(%08X/%08X), InfID: %d, Severity: %d: Botnet: %d, Info: %s\n", (nActive?"":"(NOTE! INACTIVE infection)"), 
-										(int)ipAddressBytes[3], (int)ipAddressBytes[2], (int)ipAddressBytes[1], (int)ipAddressBytes[0], (int)ipNettmaskBytes[3], (int)ipNettmaskBytes[2], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[0],
+										(int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], (int)ipNettmaskBytes[0], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[21], (int)ipNettmaskBytes[3],
 												quality, ipAddress, ipNettmask,
 												nInfectionId, nSeverity, nBotnetId, cInfo);
 				    	if (nActive)

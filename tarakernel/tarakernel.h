@@ -114,8 +114,8 @@ struct _ColoredIpSpecification {	//For black/whitelisting
 };
 
 struct _InfectionSpecification {
-	volatile uint32_t ipAddress;
-	volatile uint32_t ipNettmask;
+	__be32 ipAddress;
+	__be32 ipNettmask;
 	//struct _threatSpecification cThreat;
 	unsigned int nInfectionId, nSeverity, nBotnetId;
 	char *lpInfo;

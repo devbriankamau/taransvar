@@ -116,7 +116,6 @@ struct _ColoredIpSpecification {	//For black/whitelisting
 struct _InfectionSpecification {
 	__be32 ipAddress;
 	__be32 ipNettmask;
-	//struct _threatSpecification cThreat;
 	unsigned int nInfectionId, nSeverity, nBotnetId;
 	char *lpInfo;
 	union 
@@ -173,11 +172,22 @@ struct _Remote_infection {
         __be32 saddr;
         __be16 sport;
 		union {
-			struct _Tag cTag;
+			struct _Tag cTag;	//The tag contains info as sent by urg_ptr. Additional fields below
 			uint16_t 	nTag;
 		};
+
+		unsigned int dOwners_id;
+		unsigned int nInfectionId;
+		unsigned int nSeverity;
+		unsigned int nBotnetId;
+		char 		*lpInfo;	//Remember to kfree this if you delete the structure
+
         u32 seq;
         u64 timestamp;
+		unsigned int 	bByteCount;
+		unsigned int	bPacketCount;
+		int bHandled : 1;
+
 };
 
 #define C_CHECK_ARRAY_SIZE 5
@@ -211,6 +221,7 @@ struct _Setup {
 	u64 nLastTimedOperation; // = 0;
 	struct sock *nl_sk;// = NULL;
 	u32 taralink_pid;	//taralink process id - initiated first time tarakernel receives a message (we need it for sening msgs to taral)
+
 
 	//static struct nf_hook_ops *nf_blockicmppkt_ops = NULL;
 	struct nf_hook_ops *nf_PRE_ROUTING_hook_ops; // = NULL;
@@ -251,7 +262,6 @@ _Node *getNewBefore(_Node *pPointer, int nStructSize);
 _Node *getNewAfter(_Node *pPointer, int nStructSize); //Defined in module_pointer_list.c
 _Node *getLast(_Node *pPointer);  //Defined in module_pointer_list.c
 void doInfectionsPointerListTest(void); //Remove this when tested..
-struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPort, int *nAvailable);
-
+struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPort, bool bRegister, bool *pbRegistered);
 
 #endif

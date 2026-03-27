@@ -618,10 +618,26 @@ int send_to_kernel(int fd, const void *data, size_t len)
     return ret;
 }
 
+#include <signal.h>
+static volatile sig_atomic_t g_stop = 0;
+static void on_sigint(int sig)
+{
+    g_stop = 1;
+}
 
 
 int main(void)
 {
+
+    //To ensure that can Ctrl-C to break
+    struct sigaction sa;
+    memset(&sa, 0, sizeof(sa));
+    sa.sa_handler = on_sigint;
+    sigemptyset(&sa.sa_mask);
+    sigaction(SIGINT, &sa, NULL);
+    sigaction(SIGTERM, &sa, NULL);
+
+
     pSockData = getSockData();  //This is no longer in use....
 
 	init_timer();
@@ -646,7 +662,8 @@ int main(void)
     else
         printf("Unable to send message to kernel\n");
 
-    while (1) {
+    while (!g_stop)
+    {
         fd_set rfds;
         int maxfd;
         int ret;
@@ -659,11 +676,15 @@ int main(void)
 
         ret = select(maxfd + 1, &rfds, NULL, NULL, NULL);
         if (ret < 0) {
-            if (errno == EINTR)
-                continue;
+            if (errno == EINTR) {
+                if (g_stop)
+                    break;   /* Ctrl-C or kill sent */
+                continue;    /* interrupted by some other signal */
+            }
             perror("select");
             break;
         }
+
 
         if (FD_ISSET(nl_fd, &rfds))
             handle_netlink(nl_fd);
@@ -674,5 +695,6 @@ int main(void)
 
     close(nl_fd);
     close(udp_fd);
+    printf("\nQuitting taralink. To stop tarakernel: sudo rmmod tarakernel\n");
     return 0;
 }

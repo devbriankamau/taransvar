@@ -1,5 +1,5 @@
 
-int configuraton_init(void);
+int configuration_init(void);
 u32 swappedEndian(u32 nUInt32Val);
 void listServers(void);
 void listInspections(int nThelist);

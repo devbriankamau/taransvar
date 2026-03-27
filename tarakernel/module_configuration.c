@@ -8,26 +8,29 @@
 	that holds the arrays..  
 */
 
-int configuraton_init(void)
+int configuration_init(void)
 {
-        if (!pSetup)  //Just in case...
-        {
-                pSetup = kmalloc(sizeof (struct _Setup), GFP_KERNEL);
-        	memset(pSetup, 0, sizeof(struct _Setup));
-                strncpy(pSetup->cTrafficPrefix, C_TRAFFIC_REPORT_PREFIX, strlen(C_TRAFFIC_REPORT_PREFIX)); //Init buffer so can send the prefix + cPendingIncomingReportArr to report incoming traffic. 
+    if (!pSetup)  //Just in case...
+    {
+		pSetup = kmalloc(sizeof (struct _Setup), GFP_KERNEL);
+		if (pSetup)
+		{
+       		memset(pSetup, 0, sizeof(struct _Setup));
+			strncpy(pSetup->cTrafficPrefix, C_TRAFFIC_REPORT_PREFIX, strlen(C_TRAFFIC_REPORT_PREFIX)); //Init buffer so can send the prefix + cPendingIncomingReportArr to report incoming traffic. 
+		}
 	
 /*
         memset(pConfiguration, 0, sizeof(pConfiguration));
-	memset(nConfigurationArraySize, 0, sizeof(nConfigurationArraySize));
-	memset(nElementsInArray, 0, sizeof(nElementsInArray));
-	memset(&cGlobalStatistics, 0, sizeof(cGlobalStatistics));
+		memset(nConfigurationArraySize, 0, sizeof(nConfigurationArraySize));
+		memset(nElementsInArray, 0, sizeof(nElementsInArray));
+		memset(&cGlobalStatistics, 0, sizeof(cGlobalStatistics));
 */
-        }
+    }
 
-        if (elementStructSize(BLOCK_DESCRIPTIOR_LAST) == 0)
-        {
+    if (elementStructSize(BLOCK_DESCRIPTIOR_LAST) == 0)
+    {
 		pr_info("tarakernel: ***** ERROR! elementStructSize() is not updated with latest element types.\n");
-        }
+    }
 
 	if (sizeof(cBlockDescriptor)/sizeof(cBlockDescriptor[0]) < BLOCK_DESCRIPTIOR_LAST+1)
 	{
@@ -129,7 +132,6 @@ void listHoneyports(void)
 	pr_info("tarakernel: Don't know yet how to count honeyports...\n");
 }
 
-void listInfectionsPointerList(void);
 void listInfectionsPointerList(void)
 {
 	int nCount = 0;
@@ -436,8 +438,8 @@ void storeServerInfo(int port, char *lpQuality)
 	listServers();
 }
 
-_Node *storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality);
-_Node *storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, char *lpQuality)
+_Node *storeInfectionInPointerList(__be32 ipAddress, __be32 ipNettmask, char *lpQuality);
+_Node *storeInfectionInPointerList(__be32 ipAddress, __be32 ipNettmask, char *lpQuality)
 {	
 /*struct _InfectionSpecification {
 	volatile uint32_t ipAddress;
@@ -458,7 +460,7 @@ _Node *storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_
 	{
 		if (pInfection->cInfection.ipAddress == ipAddress)
 		{
-			pr_info("tarakernel: (260303) %08X is already registered. Aborting\n", ipAddress);
+			pr_info("tarakernel: %08X is already registered. Aborting\n", ipAddress);
 			return NULL;
 		}
 
@@ -468,22 +470,24 @@ _Node *storeInfectionInPointerList(volatile uint32_t ipAddress, volatile uint32_
 	pr_info("tarakernel: (260303) %08X is a new infection.. add it\n", ipAddress);
 
 	_Node *pNode = getNewBefore(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
+	struct _InfectionSpecification *pInfection = &pNode->cInfection;
 	pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS] = pNode;
 	if (pNode)
 	{
-		pNode->cInfection.ipAddress = ipAddress;
-		pNode->cInfection.ipNettmask = ipNettmask;
-		pNode->cInfection.nTag = 0;	//Init all fields.
-		pNode->cInfection.cTag.owners_id = nMaxOwnersId + 1;
+		pInfection->ipAddress = ipAddress;
+		pInfection->ipNettmask = ipNettmask;
+		pInfection->lpInfo = NULL;
+		pInfection->nTag = 0;	//Init all fields.
+		pInfection->cTag.owners_id = nMaxOwnersId + 1;
 		if (!strcmp(lpQuality, "firsttime"))
 		{
 			//cNewElement.cThreat. = C_REQUESTS_CLEAN;
 			//NOTE! category is char:3 - value 0-7
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
-			pNode->cInfection.cTag.presumed_infected = 7;
+			pInfection->cTag.presumed_infected = 7;
 		}
 		else
-			pNode->cInfection.cTag.presumed_infected = 7;
+			pInfection->cTag.presumed_infected = 7;
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
 	}
 	else

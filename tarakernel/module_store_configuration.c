@@ -312,10 +312,14 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 	{
 		char quality[100];
 		int port;
+		
 		volatile uint32_t ipAddress=0;
-		unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
+//		unsigned char* ipAddressBytes = (unsigned char*)&ipAddress;
 		volatile uint32_t ipNettmask=0;
-		unsigned char* ipNettmaskBytes = (unsigned char*)&ipNettmask;
+//		unsigned char* ipNettmaskBytes = (unsigned char*)&ipNettmask;
+
+		//__be32 nIpAddress = 0;
+		//__be32 nIpNettmask = 0;
 
 		lpFound = strchr(lpPointer, '^');
 
@@ -384,15 +388,15 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 
 			//										100.100.100.100:255.255.255.255~1~NULL~5~0~0~NO INFO SET
 
-					//unsigned char ip1,ip2,ip3,ip4;
-					//unsigned char nm1,nm2,nm3,nm4;
+					unsigned char ip1,ip2,ip3,ip4;
+					unsigned char nm1,nm2,nm3,nm4;
 					int nActive, nInfectionId, nSeverity, nBotnetId;
 					char status[32];
 
 					int nRes = sscanf(lpPointer, "%hhu.%hhu.%hhu.%hhu:%hhu.%hhu.%hhu.%hhu~%d~%31[^~]~%d~%d~%d~%255[^\n]",
-//    						&ip1,&ip2,&ip3,&ip4,
-//    						&nm1,&nm2,&nm3,&nm4,
-							ipAddressBytes+0, ipAddressBytes+1,ipAddressBytes+2,ipAddressBytes+3, ipNettmaskBytes+0, ipNettmaskBytes+1,ipNettmaskBytes+2,ipNettmaskBytes+3,
+    						&ip1,&ip2,&ip3,&ip4,
+    						&nm1,&nm2,&nm3,&nm4,
+//							ipAddressBytes+0, ipAddressBytes+1,ipAddressBytes+2,ipAddressBytes+3, ipNettmaskBytes+0, ipNettmaskBytes+1,ipNettmaskBytes+2,ipNettmaskBytes+3,
     						&nActive,
     						status,
     						&nInfectionId,
@@ -400,6 +404,17 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
     						&nBotnetId,
     						cInfo);
 
+					__be32 ip_be, nett_be;
+
+					ip_be = cpu_to_be32(((u32)ip1 << 24) |
+                    					((u32)ip2 << 16) |
+                    					((u32)ip3 <<  8) |
+                    					(u32)ip4);
+
+					nett_be = cpu_to_be32(((u32)nm1 << 24) |
+                    					((u32)nm2 << 16) |
+                    					((u32)nm3 <<  8) |
+                    					(u32)nm4);
 
 					//if ((nRes = sscanf(lpPointer, "%hhu.%hhu.%hhu.%hhu:%hhu.%hhu.%hhu.%hhu~%d~%s~%d~%d~%d~%s", 
 //					if ((nRes = sscanf(lpPointer, "%hhu.%hhu.%hhu.%hhu:%hhu.%hhu.%hhu.%hhu~%d~%[^~]~%d~%d~%d~%[^\n]",
@@ -407,22 +422,36 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 					//if ((nRes = sscanf(lpPointer, "%hhu.%hhu.%hhu.%hhu:%hhu.%hhu.%hhu.%hhu~%u~%s", ipAddressBytes+0, ipAddressBytes+1,ipAddressBytes+2,ipAddressBytes+3, ipNettmaskBytes+0, ipNettmaskBytes+1,ipNettmaskBytes+2,ipNettmaskBytes+3, &nActive, quality)) == 10) 
 					if (nRes == 14)
 					{
-				        pr_info("tarakernel: Interpretation %s: %d.%d.%d.%d:%d.%d.%d.%d-%s(%08X/%08X), InfID: %d, Severity: %d: Botnet: %d, Info: %s\n", (nActive?"":"(NOTE! INACTIVE infection)"), 
-										(int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], (int)ipNettmaskBytes[0], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[21], (int)ipNettmaskBytes[3],
+				       /* pr_info("tarakernel: Interpretation %s: %d.%d.%d.%d:%d.%d.%d.%d-%s(%08X/%08X), InfID: %d, Severity: %d: Botnet: %d, Info: %s\n", (nActive?"":"(NOTE! INACTIVE infection)"), 
+								ip1,ip2,ip3,ip4, nm1,nm2,nm3,nm4,
+						//				(int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], (int)ipNettmaskBytes[0], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[21], (int)ipNettmaskBytes[3],
 												quality, ipAddress, ipNettmask,
 												nInfectionId, nSeverity, nBotnetId, cInfo);
+										*/
+
+						pr_info("tarakernel: Interpretation %s: %pI4:%pI4, InfID: %d, Severity: %d: Botnet: %d, Info: %s\n", (nActive?"":"(NOTE! INACTIVE infection)"), 
+										&ip_be, &nett_be,
+						//				(int)ipAddressBytes[0], (int)ipAddressBytes[1], (int)ipAddressBytes[2], (int)ipAddressBytes[3], (int)ipNettmaskBytes[0], (int)ipNettmaskBytes[1], (int)ipNettmaskBytes[21], (int)ipNettmaskBytes[3],
+						    						nInfectionId, nSeverity, nBotnetId,cInfo);
+
 				    	if (nActive)
 						{
-						    struct _InfectionSpecification *pInfection = (struct _InfectionSpecification *)storeInstruction(nBlockDescriptor, ipAddress, ipNettmask, port, quality);	//NOTE! Defined in module_configuration.c
-							if (pInfection)
+						    //struct _InfectionSpecification *pInfection = (struct _InfectionSpecification *)storeInstruction(nBlockDescriptor, ipAddress, ipNettmask, port, quality);	//NOTE! Defined in module_configuration.c
+						    //
+							struct _Node *pNode = storeInstruction(nBlockDescriptor, ip_be, nett_be, port=0, quality);	//NOTE! Defined in module_configuration.c
+							if (pNode)
 							{
-								//Store additional data.. 
-								pInfection->nInfectionId = nInfectionId;
-								pInfection->nSeverity = nSeverity;
-								pInfection->nBotnetId = nBotnetId;
-								pInfection->lpInfo = memAlloc(strlen(cInfo)+1);
-								if (pInfection->lpInfo)
-									strcpy(pInfection->lpInfo, cInfo);
+								struct _InfectionSpecification *pInfection = &pNode->cInfection;
+								if (pInfection)
+								{
+									//Store additional data.. 
+									pInfection->nInfectionId = nInfectionId;
+									pInfection->nSeverity = nSeverity;
+									pInfection->nBotnetId = nBotnetId;
+									pInfection->lpInfo = memAlloc(strlen(cInfo)+1);
+									if (pInfection->lpInfo)
+										strcpy(pInfection->lpInfo, cInfo);
+								}
 							}
 						}
 						else
@@ -431,9 +460,12 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 					else
 						pr_info("tarakernel: *************** ERROR! (res: %d) Infection: %s Interpretation failed\n", nRes, lpPointer);
 				}
+
+				//pr_info("tarakernel: Checking list after insertion...\n");
+				//listInfectionsPointerList();
 				break;
   
-                        case BLOCK_DESCRIPTIOR_PARTNERS:
+                case BLOCK_DESCRIPTIOR_PARTNERS:
 				{
 				pr_info("About to read partners: %s\n", lpPointer); 
 					char *lpColon = strchr(lpPointer, ':');
@@ -449,15 +481,15 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 				}
 				break;
 
-                        case BLOCK_DESCRIPTIOR_INSPECT:
-                        case BLOCK_DESCRIPTIOR_DROP:
+                case BLOCK_DESCRIPTIOR_INSPECT:
+                case BLOCK_DESCRIPTIOR_DROP:
 				{
 					//Format:  IP:Nettmask  e.g:  E4442EF5:FFFFFFFF
 					//char cIP[10];//, cNettmask[10];
 					int nRes;
 					char *lpColon = strchr(lpPointer, ':');
 					//char lpIp, lpNettmask;
-				//No idea why sscanf is returning 1 instead of 2 and cNettmask is undefine: if ((nRes = sscanf(lpPointer, "%s:%s", cIP, cNettmask)) >0) 
+					//No idea why sscanf is returning 1 instead of 2 and cNettmask is undefine: if ((nRes = sscanf(lpPointer, "%s:%s", cIP, cNettmask)) >0) 
 					if (lpColon)
 					{
 						*lpColon = 0;
@@ -487,8 +519,8 @@ char *interpretNextBatch(int nBlockDescriptor, char *lpConfiguration)
 				
 			case BLOCK_DESCRIPTIOR_ASSIST:
 			        {
-			                //Format: <ip>:<port>-<quality>-<want spoofed>-<active>^  e.g: 7F000001:0-0-0-1^
-					storeAssistanceRequest(lpPointer);    //See module_configuration.c
+			            //Format: <ip>:<port>-<quality>-<want spoofed>-<active>^  e.g: 7F000001:0-0-0-1^
+						storeAssistanceRequest(lpPointer);    //See module_configuration.c
 			        }
 				break;
                 }

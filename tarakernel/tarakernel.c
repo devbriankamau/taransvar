@@ -86,6 +86,8 @@ void saveStolenPackage(struct _PacketInspection *pPacket);
 uint8_t getDscp(struct _PacketInspection *pPacket);
 void setDscp(struct iphdr *iph, uint8_t newDscp);
 void recalcChecksum(struct _PacketInspection *pPacket);
+void listInfectionsPointerList(void);
+void setRemoteInfection(struct _Remote_infection *pRemoteInfection, struct _PacketInspection *pPacket, unsigned int dOwners_id, unsigned int dInfected, unsigned int dVersion, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo);
 
 //Old one: static unsigned int sendUdpPackageAndQueueRetransmit(struct sk_buff *skb, const struct nf_hook_state *state, char *lpString);
 static unsigned int sendUdpThreatPackage(__be32 destIp, __be32 sourceIp, __be16 sourcePort, struct _InfectionSpecification *pInfection);
@@ -107,7 +109,7 @@ static void send_to_user(const char *msg);
 
 static char *cBlockDescriptor[] = {"SERVERS","INFECTIONS","WHITE_LIST","BLACK_LIST","PARTNERS","INSPECT","HONEYPORT","ASSIST","DROP"};
 
-static struct _Setup *pSetup;
+static struct _Setup *pSetup = NULL;
 
 #include "module_configuration.h"
 #include "module_store_configuration.h"
@@ -179,7 +181,6 @@ int udpMsgFromSender(char *lpPayload)
 
         //Search "Tagging UDP msg coding/decoding" for usage in source	(in module_tagging.c)
         //Coded by: sprintf(cUdpTagString, "%d:%d^%d^%d^%d", pPacket->ip_header->saddr, pPacket->tcp_header->source , cUnion.cTag.version_no, cUnion.cTag.presumed_infected, cUnion.cTag.botnet_id);
-		int nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
 		unsigned int sIp, sPort, dVersion, dInfected, dOwners_id;
 		char cSourceIp[100];
 		unsigned int nInfectionId, nSeverity, nBotnetId;
@@ -198,37 +199,21 @@ int udpMsgFromSender(char *lpPayload)
 			sIp = hexstr_to_ip(cSourceIp);
 			__be32 networkIp = htonl(sIp);
 			__be16 networkPort = htons(sPort);
+			bool bRegister = true;
+			bool bRegistered;
 			pr_info("tarakernel SENDING: ******* UDP threat info (via taralink) received: %pI4(%s):%d^%d^%d^%d, InfID: %d, sev: %d, botnet: %d, info: %s\n", &networkIp, cSourceIp, sPort, dVersion, dInfected, dOwners_id, nInfectionId, nSeverity, nBotnetId, cInfo);
-			struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(networkIp, networkPort, &nAvailable);	
+			struct _Remote_infection *pRemoteInfection = findRemoteInfectionInfoReceived(networkIp, networkPort, bRegister = 1, &bRegistered);	
 
-			if (pAlreadyHave)
+			if (!pRemoteInfection)
+			{
+				pr_warn("tarakernel: ********* ERROR ********** Unable to allocate memory for remote infection info.\n");
+				return 0;
+			}
+
+			if (!bRegistered)
 				pr_info("tarakernel SENDING: Already have info for %d:%d - ignoring\n", sIp, sPort);
 			else
-			{
-				//Store the new info if available slot...
-				if (nAvailable >= 0)	//Initiated by findRemoteInfectionInfoReceived() while traversing the array
-				{
-					pr_info("tarakernel SENDING: Available slot found: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
-					//findRemoteInfectionInfoReceived() found an available slot
-
-					pAlreadyHave = kmalloc(sizeof(struct _Remote_infection), GFP_KERNEL);
-					if (pAlreadyHave)
-					{
-						pAlreadyHave->saddr = networkIp;	
-						pAlreadyHave->sport = networkPort;
-						pAlreadyHave->cTag.owners_id = dOwners_id;
-						pAlreadyHave->cTag.presumed_infected = dInfected;
-						pAlreadyHave->cTag.version_no = dVersion;
-						pAlreadyHave->timestamp = ktime_get_real_seconds();
-						pSetup->cRemoteInfectionInfoReceived[nAvailable] = pAlreadyHave;	//Init before putting in array because other processes may access it before finilized. 
-					}
-					//listRemoteInfections(sIp, sPort);
-				}
-				else
-				{
-					pr_info("tarakernel SENDING: ***** ERROR **** No available threat info slots.. And for some reason didn't manage to deleted the oldest.\n");
-				}
-			}
+				setRemoteInfection(pRemoteInfection, NULL, dOwners_id, dInfected, dVersion, nInfectionId, nSeverity, nBotnetId, cInfo);
 		}
 		else
 			pr_info("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);
@@ -343,11 +328,6 @@ static void send_to_user(const char *msg)
 }
 
 
-
-
-
-
-
 //Timer callback and includes
 #include <linux/timer.h>
 #include <linux/jiffies.h>
@@ -356,16 +336,18 @@ static struct timer_list my_timer;
 
 static void my_timer_cb(struct timer_list *t)
 {
-	pr_debug("tarakernel: my_timer fired\n");
-
+/*
+	printk("tarakernel: my_timer fired  ******************** DEBUGGING ONLY:::\n");
+		
     checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
 
-    /* rearm 1 second later (if wanted) */
+    // rearm 1 second later (if wanted) - or much for debug
+*/
+
     mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_SECONDS * 1000));
 
 	send_to_user("tarakernel here... I got a timer.. how are you?");
 }
-
 
 
 static int __init hello_init(void) 
@@ -375,12 +357,20 @@ static int __init hello_init(void)
 
     pr_info("tarakernel: Started (version %d). Start taralink to send configuration.\n", C_VERSION);
 	
-	if (!configuraton_init())		//defined in module_configuration.c;
-		pr_info("tarakernel: ****** ERROR ***** configuraton_init() returned false\n");
+	if (!configuration_init())		//defined in module_configuration.c;
+		pr_info("tarakernel: ****** ERROR ***** configuration_init() returned false\n");
 		//return -1;
-        
-        //pr_info("tarakernel: Finished testing... Going idle.\n");
-        //return 0;
+	/*
+	if (0) 	//Do testing here after pSetup is initialized
+	{
+		pr_info("******** DEBUGGING (not initializing) **************");
+		//Set up a timer
+		timer_setup(&my_timer, my_timer_cb, 0);
+    	mod_timer(&my_timer, jiffies + msecs_to_jiffies(5 * 1000));	// fire once after 1 second 
+
+    	printk("tarakernel: timer armed\n");
+		return 0;
+	}*/
 
 	if (SYSTEM_OPERATION_LEVEL > 1) //Without this there's nothing
 	{
@@ -447,7 +437,7 @@ static int __init hello_init(void)
 
 	//Set up a timer
 	timer_setup(&my_timer, my_timer_cb, 0);
-    mod_timer(&my_timer, jiffies + msecs_to_jiffies(1000));	// fire once after 1 second 
+    mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_SECONDS * 3 * 1000));	// 3 times normal in the start.. (in case debugging)
 
     pr_info("tarakernel: timer armed\n");
 

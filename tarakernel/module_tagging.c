@@ -494,9 +494,10 @@ void sendUdpPacketToReceiver(struct _PacketInspection *pPacket)
  }//sendUdpPacketToReceiver()
 
 
-struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPort, int *pAvailable)
+struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPort, bool bRegister, bool *pbRegistered)
 {
-    *pAvailable = -1;
+    int nAvailable = -1;
+    *pbRegistered = false;
 
 	int n;
 	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
@@ -513,11 +514,11 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPo
             //    pr_info("tarakernel: Checking %d - %pI4:%d not same as %pI4:%d\n", n, &sIp, sPort, &pInfection->saddr, pInfection->sport);
         }
         else
-            if (*pAvailable == -1)
-	    		*pAvailable = n;
+            if (nAvailable == -1)
+	    		nAvailable = n;
 	}			
 
-    if (n==N_MAX_REMOTE_INFECTION_INFOS && *pAvailable == -1)
+    if (n==N_MAX_REMOTE_INFECTION_INFOS && nAvailable == -1)
     {
         //Find and free the oldest
         int nOldest = -1;
@@ -537,8 +538,25 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPo
         pSetup->cRemoteInfectionInfoReceived[nOldest] = NULL;
         pr_info("tarakernel: No more slots for remote infections. Cleared the oldest (slot %d): %pI4:%d (%lld seconds since used)\n", nOldest, &pOldest->saddr, ntohs(pOldest->sport), ktime_get_real_seconds() - nOldestTimestamp);
         kfree(pOldest); //Free at last in case being used;
-		*pAvailable = nOldest;
+		nAvailable = nOldest;
     }
+
+    if (bRegister)
+		if (nAvailable >= 0)
+		{
+			pr_info("tarakernel SENDING: Available slot found: %d", nAvailable);	//Threat info from sender (via kernel) saved at slot 
+			//findRemoteInfectionInfoReceived() found an available slot
+
+			struct _Remote_infection *pInfection = memAlloc(sizeof(struct _Remote_infection));
+            if (!pInfection)
+                return NULL;
+
+            *pbRegistered = true;
+			pInfection->saddr = sIp;	
+			pInfection->sport = sPort;
+			pSetup->cRemoteInfectionInfoReceived[nAvailable] = pInfection;	//Init before putting in array because other processes may access it before finilized. 
+            return pInfection;
+        }
 
 	return NULL;	//Not found
 }
@@ -546,7 +564,7 @@ struct _Remote_infection *findRemoteInfectionInfoReceived(__be32 sIp, __be16 sPo
 void listRemoteInfections(__be32 sIp, unsigned int sPort);
 void listRemoteInfections(__be32 sIp, unsigned int sPort)
 {
-    char cBuf[1000];
+    char cBuf[900];
     *cBuf =0;
 	int n;
 	for (n=0; n<N_MAX_REMOTE_INFECTION_INFOS; n++)
@@ -573,15 +591,40 @@ void listRemoteInfections(__be32 sIp, unsigned int sPort)
 	return;	//Not found
 }
 
+void setRemoteInfection(struct _Remote_infection *pRemoteInfection, struct _PacketInspection *pPacket, unsigned int dOwners_id, unsigned int dInfected, unsigned int dVersion, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo)
+{
+    pRemoteInfection->cTag.owners_id = dOwners_id;
+	pRemoteInfection->cTag.presumed_infected = dInfected;
+	pRemoteInfection->cTag.version_no = dVersion;
+
+    pRemoteInfection->dOwners_id = dOwners_id;
+    pRemoteInfection->nInfectionId = nInfectionId;
+    pRemoteInfection->nSeverity = nSeverity;
+    pRemoteInfection->nBotnetId = nBotnetId;
+    
+    if (lpInfo)
+    {
+        pRemoteInfection->lpInfo = memAlloc(strlen(lpInfo)+1);
+        strcpy(pRemoteInfection->lpInfo, lpInfo);
+    }
+
+    if (pPacket)
+    {
+        pRemoteInfection->bByteCount++;
+		pRemoteInfection->bPacketCount += pPacket->skb->len;       
+    }
+
+	pRemoteInfection->timestamp = ktime_get_real_seconds();
+}
 
 void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 {
-	int nAvailable;
-	nAvailable = -1; 	//To tack if changed by findRemoteInfectionInfoReceived()
+    bool bRegister = 1;
+    bool bRegistered;
 
-	struct _Remote_infection *pAlreadyHave = findRemoteInfectionInfoReceived(pPacket->ip_header->saddr, pPacket->tcp_header->source, &nAvailable);
+	struct _Remote_infection *pRemoteInfection = findRemoteInfectionInfoReceived(pPacket->ip_header->saddr, pPacket->tcp_header->source, bRegister, &bRegistered);
 
-	if (!pAlreadyHave)
+	if (!pRemoteInfection ||bRegistered)    //Severe error if !pRemoteInfection
 	{
 		pr_info("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival?) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
 		//Store the new info if available slot...

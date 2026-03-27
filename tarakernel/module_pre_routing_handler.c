@@ -438,11 +438,21 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			if (cUnion.nTag)
 			{
 				struct _Remote_infection *pInfection = initElaboratedThreatInfo(pPacket);	//module_tagging.c
+				bool bDropping = cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel;
+				char cBuf[300];
 
-			    if (cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel)
+				snprintf(pSetup->c100, sizeof(pSetup->c100)-1, "%s Tag-severity %u/%u. %s->%s, severity: %d, botnet: %d, owner_id: %d, info: %s, unrep traff: %d/%d (check gatekeeper)\n", (bDropping?"**DROPPING packet**":"(tag removed)"), 
+						cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp, pInfection->nSeverity, pInfection->nBotnetId, pInfection->dOwners_id, pInfection->lpInfo, pInfection->nByteCount, pInfection->nPacketCount);
+
+				if (strlen(pSetup->c100) == sizeof(pSetup->c100)-1)	//NOTE c100 is now 200 chars
+					pr_warn("tarakernel: ***** ERROR **** pSetup->c100 buffer is to short. %zu bytes required (currently %zu)\n", strlen(cBuf)+1, sizeof(pSetup->c100));
+
+				pr_info("tarakernel: PR infected: %s", pSetup->c100);
+
+			    if (bDropping)
 			    {
-                    pr_info("tarakernel: **DROPPING**: Tag-severity %u/%u. %s -> %s, severity: %d, botnet: %d, owner_id: %d, info: %s, unrep traff: %d/%d (check gatekeeper)\n", 
-						cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp, pInfection->nSeverity, pInfection->nBotnetId, pInfection->dOwners_id, pInfection->lpInfo, pInfection->nByteCount, pInfection->nPacketCount); 
+                    //pr_info("tarakernel: **DROPPING**: Tag-severity %u/%u. %s->%s, severity: %d, botnet: %d, owner_id: %d, info: %s, unrep traff: %d/%d (check gatekeeper)\n", 
+					//	cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp, pInfection->nSeverity, pInfection->nBotnetId, pInfection->dOwners_id, pInfection->lpInfo, pInfection->nByteCount, pInfection->nPacketCount); 
 
 					checkFree(pPacket, true /*bLeavingPostRouting*/);	//leaving POST_ROUTING or returning NF_DROP doesn't matter.. it's leaving the system.
                     return NF_DROP;
@@ -450,7 +460,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 
 		        //Remove the tag by default. This is traffic to the server (forwarded traffic doesn't come here..??????)
 		        //Note! Sometimes (always?) even a Ubuntu computer droppes the package if tagged this way... (maybe because of checksum error?)
-		        sprintf(pSetup->c100, "Tag was %04X (removed) Infected: %u, owners_id: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id, pSetup->nBlockIncomingTaggedTrafficLevel);
+		        //sprintf(pSetup->c100, "Tag was %04X (removed) Infected: %u, owners_id: %u, block threshold: %u",  pPacket->tcp_header->urg_ptr, cUnion.cTag.presumed_infected, cUnion.cTag.owners_id, pSetup->nBlockIncomingTaggedTrafficLevel);
 		              
 				pPacket->tcp_header->urg_ptr = 0; //Removing tag. 
 			    checkThatTcp(pPacket,"after clearing urg_ptr");	//260320 - asdf... got problem with this....

@@ -211,9 +211,19 @@ int udpMsgFromSender(char *lpPayload)
 			}
 
 			if (!bRegistered)
-				pr_info("tarakernel SENDING: Already have info for %d:%d - ignoring\n", sIp, sPort);
-			else
-				setRemoteInfection(pRemoteInfection, NULL, dOwners_id, dInfected, dVersion, nInfectionId, nSeverity, nBotnetId, cInfo);
+			{
+				/*	bool bChanged = 0;
+
+				if (!pRemoteInfection->lpInfo || strcmp(pRemoteInfection->lpInfo, cInfo))
+				{
+					pr_warn("tarakernel: ***** WARNING ***** Info is updated... Should have been changed... (%s -> %s)\n", pRemoteInfection->lpInfo, cInfo);
+					bChanged = 1;
+				}*/
+
+				pr_info("tarakernel SENDING: Already have info for %pI4:%d - updated\n", &networkIp, sPort);
+			}
+
+			setRemoteInfection(pRemoteInfection, NULL, dOwners_id, dInfected, dVersion, nInfectionId, nSeverity, nBotnetId, cInfo);
 		}
 		else
 			pr_info("tarakernel SENDING: ****** ERROR ***** UDP message decoding failed. Found %d fields. Should have been 5\n", nFlds);

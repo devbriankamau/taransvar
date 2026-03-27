@@ -123,6 +123,7 @@ struct _InfectionSpecification {
 		struct _Tag		cTag;
 		uint16_t		nTag;
 	};
+	int bHandled : 1;			//Set to 1 if infection info is changed... will send info to all partners who's been communicating...
 	
 //	union _TagUnion	cUnion;
 };

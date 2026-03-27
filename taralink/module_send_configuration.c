@@ -211,7 +211,7 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 	    else
 	        lpHandledWhere = "active = b'1'";
 
-		sprintf(szSQL, "select inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, coalesce(status,'NULL'), infectionId, handled, coalesce(CAST(active AS UNSIGNED),0) as active, coalesce(infoSharePartners,'NULL'), coalesce(unitId,0), coalesce(severity,0), coalesce(botnetId,0) from internalInfections where %s", lpHandledWhere);
+		sprintf(szSQL, "select inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, coalesce(status,'NULL'), infectionId, handled, coalesce(CAST(active AS UNSIGNED),0) as active, coalesce(infoSharePartners,'NULL'), coalesce(unitId,0), coalesce(severity,0), coalesce(botnetId,0), ip, nettmask from internalInfections where %s", lpHandledWhere);
 		//printf("SQL: %s\n", szSQL);
 
 		if (mysql_query(conn, szSQL)) {
@@ -244,7 +244,10 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 
 			if (!row[4] || !atoi(row[4])) 
 				updateHandled(updateConn, "internalInfections", "infectionId", row[3]);
-      			        
+      			     
+			if (bReadChangesOnly)
+				init_background_infecton_change_partner_notification(atol(row[10]), atol(row[11]), row[5], atol(row[2]), atol(row[3]), atol(row[8]), atol(row[9]), row[6]);	//ip		nett	active status  infID   severity botnetId info
+
 			nFound++;
 		}
 
@@ -356,10 +359,10 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		
 		while ((row = mysql_fetch_row(res)) != NULL)
 		{
-        		if (!nFound)
+        	if (!nFound)
 				strcpy(cReply+strlen(cReply), "HONEY|");
 
-                        printf("%s : %s\n", row[0], row[1]);
+            printf("%s : %s\n", row[0], row[1]);
 			sprintf(cReply+strlen(cReply), "%s:%s^", row[0], row[1]);
 			nFound++;
 			updateHandled(updateConn, "honeyport", "port", row[0]);
@@ -367,10 +370,9 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		mysql_free_result(res);
 
 		if (nFound) {
-		        bFoundData = 1;
+			bFoundData = 1;
 			strcpy(cReply+strlen(cReply), "|");
-                }
-
+		}
 
 		//************** Add assistance request ([ASSIST]) *****************
 		/* Customers can at any time request assistance from partners fighting D-Dos or brute force attack. mics/checkload.pl
@@ -382,9 +384,9 @@ int sentConfiguration(struct _SocketData *pSockData, int nSequenceNumber, int bI
 		for filtering outbound presumed infected traffic. */ 
 		
 		if (bReadChangesOnly)
-		        lpHandledWhere = " and handled is null";
+		    lpHandledWhere = " and handled is null";
 		else
-		        lpHandledWhere = " and active = b'1'";
+		    lpHandledWhere = " and active = b'1'";
 		        
 		sprintf(szSQL, "select requestId, hex(ip), port, requestQuality, CAST(wantSpoofed AS UNSIGNED) as wantSpoofed, handled, CAST(active AS UNSIGNED) as active from assistanceRequest where purpose = 'fromPartner' %s order by ip", lpHandledWhere);
 		//printf("Assist requests: %s\n", szSQL);

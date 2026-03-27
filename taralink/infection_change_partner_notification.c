@@ -1,0 +1,440 @@
+//infection_change_partner_notification.c
+
+struct _InfectionSpecification {
+	__be32 ipAddress;
+	__be32 ipNettmask;
+	unsigned int nInfectionId, nSeverity, nBotnetId;
+	char *lpInfo;
+	union 
+	{
+		struct _Tag		cTag;
+		uint16_t		nTag;
+	};
+	int bHandled : 1;			//Set to 1 if infection info is changed... will send info to all partners who's been communicating...
+	
+//	union _TagUnion	cUnion;
+};
+
+
+#include <pthread.h>
+#include <arpa/inet.h>
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <regex.h>
+
+#include <ctype.h>
+
+#define CT_STRSZ 64
+#define CT_LINESZ 4096
+
+
+
+struct conntrack_tuple {
+    char src[CT_STRSZ];
+    char dst[CT_STRSZ];
+    int  sport;
+    int  dport;
+};
+
+struct conntrack_record {
+    char proto[16];
+    char state[32];
+    struct conntrack_tuple orig;
+    struct conntrack_tuple reply;
+};
+
+
+
+static int extract_conntrack_tuple(const char *line,
+                                   char *src, size_t src_sz,
+                                   char *dst, size_t dst_sz,
+                                   char *sport, size_t sport_sz,
+                                   char *dport, size_t dport_sz)
+{
+    regex_t regex;
+    regmatch_t matches[5];
+
+    const char *pattern =
+        "src=([^ ]+) dst=([^ ]+) sport=([^ ]+) dport=([^ ]+)";
+
+    if (regcomp(&regex, pattern, REG_EXTENDED) != 0) {
+        fprintf(stderr, "regcomp failed\n");
+        return -1;
+    }
+
+    if (regexec(&regex, line, 5, matches, 0) != 0) {
+        regfree(&regex);
+        return 1;   /* no match */
+    }
+
+    #define COPY_MATCH(dstbuf, dstbufsz, idx) do { \
+        int len = matches[idx].rm_eo - matches[idx].rm_so; \
+        if ((size_t)len >= (dstbufsz)) len = (dstbufsz) - 1; \
+        memcpy((dstbuf), line + matches[idx].rm_so, len); \
+        (dstbuf)[len] = '\0'; \
+    } while (0)
+
+    COPY_MATCH(src,   src_sz,   1);
+    COPY_MATCH(dst,   dst_sz,   2);
+    COPY_MATCH(sport, sport_sz, 3);
+    COPY_MATCH(dport, dport_sz, 4);
+
+    regfree(&regex);
+    return 0;
+}
+
+static void init_tuple(struct conntrack_tuple *t)
+{
+    if (!t)
+        return;
+
+    t->src[0] = '\0';
+    t->dst[0] = '\0';
+    t->sport = -1;
+    t->dport = -1;
+}
+
+static void init_record(struct conntrack_record *r)
+{
+    if (!r)
+        return;
+
+    r->proto[0] = '\0';
+    r->state[0] = '\0';
+    init_tuple(&r->orig);
+    init_tuple(&r->reply);
+}
+
+static int is_number_string(const char *s)
+{
+    if (!s || !*s)
+        return 0;
+
+    while (*s) {
+        if (!isdigit((unsigned char)*s))
+            return 0;
+        s++;
+    }
+    return 1;
+}
+
+static void safe_copy(char *dst, size_t dst_sz, const char *src)
+{
+    if (!dst || dst_sz == 0)
+        return;
+
+    if (!src) {
+        dst[0] = '\0';
+        return;
+    }
+
+    strncpy(dst, src, dst_sz - 1);
+    dst[dst_sz - 1] = '\0';
+}
+
+static int parse_conntrack_line(const char *line, struct conntrack_record *rec)
+{
+    char buf[CT_LINESZ];
+    char *saveptr = NULL;
+    char *tok;
+    int tuple_index = 0;      /* 0 = orig, 1 = reply */
+    int tuple_fields = 0;     /* count src/dst/sport/dport seen in current tuple */
+    int saw_proto = 0;
+    int saw_state = 0;
+
+    if (!line || !rec)
+        return -1;
+
+    init_record(rec);
+
+    safe_copy(buf, sizeof(buf), line);
+
+    tok = strtok_r(buf, " \t\r\n", &saveptr);
+    while (tok) {
+        struct conntrack_tuple *cur =
+            (tuple_index == 0) ? &rec->orig : &rec->reply;
+
+        if (!saw_proto) {
+            /*
+             * First token is usually protocol, e.g. tcp / udp / icmp
+             */
+            safe_copy(rec->proto, sizeof(rec->proto), tok);
+            saw_proto = 1;
+            tok = strtok_r(NULL, " \t\r\n", &saveptr);
+            continue;
+        }
+
+        if (!saw_state) {
+            /*
+             * Typical format starts:
+             * tcp 6 431999 ESTABLISHED ...
+             * udp 17 29 ...
+             *
+             * So skip numeric tokens until first non-numeric token
+             * that is not key=value.
+             */
+            if (!strchr(tok, '=') && !is_number_string(tok)) {
+                safe_copy(rec->state, sizeof(rec->state), tok);
+                saw_state = 1;
+                tok = strtok_r(NULL, " \t\r\n", &saveptr);
+                continue;
+            }
+        }
+
+        if (strncmp(tok, "src=", 4) == 0) {
+            safe_copy(cur->src, sizeof(cur->src), tok + 4);
+            tuple_fields++;
+        } else if (strncmp(tok, "dst=", 4) == 0) {
+            safe_copy(cur->dst, sizeof(cur->dst), tok + 4);
+            tuple_fields++;
+        } else if (strncmp(tok, "sport=", 6) == 0) {
+            cur->sport = atoi(tok + 6);
+            tuple_fields++;
+        } else if (strncmp(tok, "dport=", 6) == 0) {
+            cur->dport = atoi(tok + 6);
+            tuple_fields++;
+
+            /*
+             * After a full src/dst/sport/dport set, move to reply tuple.
+             */
+            if (tuple_index == 0 && tuple_fields >= 4) {
+                tuple_index = 1;
+                tuple_fields = 0;
+            }
+        }
+
+        tok = strtok_r(NULL, " \t\r\n", &saveptr);
+    }
+
+    /*
+     * Require at least an original tuple to be present.
+     */
+    if (rec->orig.src[0] == '\0' ||
+        rec->orig.dst[0] == '\0' ||
+        rec->orig.sport < 0 ||
+        rec->orig.dport < 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
+static int record_matches_client_nat(const struct conntrack_record *rec,
+                                     const char *client_ip,
+                                     const char *public_ip)
+{
+    if (!rec || !client_ip || !public_ip)
+        return 0;
+
+    if (strcmp(rec->orig.src, client_ip) != 0)
+        return 0;
+
+    /*
+     * Confirm reply tuple points back to our public/NAT IP.
+     */
+    if (rec->reply.dst[0] == '\0')
+        return 0;
+
+    if (strcmp(rec->reply.dst, public_ip) != 0)
+        return 0;
+
+    /*
+     * Optional consistency checks.
+     */
+    if (rec->reply.src[0] != '\0' &&
+        strcmp(rec->reply.src, rec->orig.dst) != 0)
+        return 0;
+
+    if (rec->reply.sport >= 0 &&
+        rec->reply.sport != rec->orig.dport)
+        return 0;
+
+    return 1;
+}
+
+static void print_record(const struct conntrack_record *rec)
+{
+    if (!rec)
+        return;
+
+    printf("proto=%s\n", rec->proto);
+    printf("state=%s\n", rec->state[0] ? rec->state : "(none)");
+
+    printf("orig:  src=%s dst=%s sport=%d dport=%d\n",
+           rec->orig.src, rec->orig.dst,
+           rec->orig.sport, rec->orig.dport);
+
+    printf("reply: src=%s dst=%s sport=%d dport=%d\n",
+           rec->reply.src, rec->reply.dst,
+           rec->reply.sport, rec->reply.dport);
+}
+
+
+/*
+static int record_matches_client_nat(const struct conntrack_record *rec,
+                                     const char *client_ip,
+                                     const char *public_ip)
+{
+    if (strcmp(rec->orig.src, client_ip) != 0)
+        return 0;
+
+    if (strcmp(rec->reply.dst, public_ip) != 0)
+        return 0;
+
+    if (strcmp(rec->reply.src, rec->orig.dst) != 0)
+        return 0;
+
+    if (rec->reply.sport != rec->orig.dport)
+        return 0;
+
+    return 1;
+}*/
+
+void *worker(void *arg) {
+
+	MYSQL *conn, *updateConn;
+	MYSQL_RES *res;
+	MYSQL_ROW row;
+
+	struct _InfectionSpecification  *pInfection = (struct _InfectionSpecification *) arg;	
+
+	char cInfectedIpAddr[INET_ADDRSTRLEN];
+
+	struct in_addr addr;
+    addr.s_addr = htonl(pInfection->ipAddress);   // 192.168.1.1
+
+    if (inet_ntop(AF_INET, &addr, cInfectedIpAddr, sizeof(cInfectedIpAddr)) == NULL) {
+        perror("inet_ntop");
+        return NULL;
+    }
+
+    printf("\n****************** Hello from thread. I'm supposed to inform about %s - %s\n\n", cInfectedIpAddr, pInfection->lpInfo);
+
+	//*** Read internal- and external IP Address from setup */
+	char *lpSQL = "select adminIp, internalIP, inet_ntoa(adminIp), inet_ntoa(internalIP) from setup";
+	printf("About to read setup\n");
+	conn = getConnection();
+	printf("Connection opened\n");
+		
+	if (mysql_query(conn, lpSQL)) {
+		fprintf(stderr, "taralink: %s\n", mysql_error(conn));
+			reportErrorReadin("setup");
+        return NULL;
+	}
+	printf("Query executed\n");
+
+	res = mysql_use_result(conn);
+	printf("mysql_use_result called\n");
+		
+	if ((row = mysql_fetch_row(res)) == NULL)
+	{
+		printf("*********** ERROR ********** Reading IP addresses from setup");
+        return NULL;
+	}
+	
+	printf("Setup row fetched\n");
+
+	char cInternalIp[100];
+	char cExternalIp[100];
+	strcpy(cInternalIp, row[3]);
+	strcpy(cExternalIp, row[2]);
+	printf("InternalIP: %s, external IP: %s\n", cInternalIp, cExternalIp);
+
+	mysql_free_result(res);
+	mysql_close(conn);
+
+
+	//conntrack -L | grep 'src=192.168.50.104 '
+	FILE *fp = popen("conntrack -L", "r");
+
+	if (!fp) {
+        perror("popen");
+        return NULL;
+    }
+
+    char line[512];
+
+    while (fgets(line, sizeof(line), fp)) {
+
+/*  	const char *line =
+        	"tcp 6 431999 ESTABLISHED "
+        	"src=192.168.50.104 dst=1.2.3.4 sport=54321 dport=443 "
+        	"src=1.2.3.4 dst=192.168.50.104 sport=443 dport=54321 [ASSURED] mark=0 use=1";
+
+		char src[64], dst[64], sport[32], dport[32];
+
+    	int rc = extract_conntrack_tuple(line, src, sizeof(src),
+                                     dst, sizeof(dst),
+                                     sport, sizeof(sport),
+                                     dport, sizeof(dport));
+    	if (rc == 0) {
+        	printf("src=%s\n", src);
+        	printf("dst=%s\n", dst);
+        	printf("sport=%s\n", sport);
+        	printf("dport=%s\n", dport);
+
+			if (!strcmp(src, cInternalIp))
+
+    	} else {
+        	printf("No match\n");
+    	}
+			*/
+
+
+/*    const char *line =
+        "tcp 6 431999 ESTABLISHED "
+        "src=192.168.50.104 dst=8.8.8.8 sport=54321 dport=443 "
+        "src=8.8.8.8 dst=203.0.113.5 sport=443 dport=54321 "
+        "[ASSURED] mark=0 use=1";
+*/
+	    struct conntrack_record rec;
+    	int rc;
+
+	    rc = parse_conntrack_line(line, &rec);
+    	if (rc != 0) {
+        	printf("******** parse failed ** rc=%d: %s\n", rc, line);
+	        //printf("Line read: %s", line);
+		}
+		else
+		{
+		    if (record_matches_client_nat(&rec, cInfectedIpAddr, cExternalIp))	//cInternalIp - is the gateway...
+			{
+    		    printf("MATCHES client + NAT public IP\n");
+			    print_record(&rec);
+
+				char *lpSendToIp = rec.orig.dst;
+				char *lpFromIp = cInfectedIpAddr;
+				unsigned int sport = rec.orig.sport;
+				printf("Send to %s: %s:%d is infected... info: %s\n", lpSendToIp, lpFromIp, sport, pInfection->lpInfo);				
+			}
+	//    	else
+    //	    	printf("NO MATCH\n");
+		}
+	}
+
+    pclose(fp);
+
+	//Clean up
+	free(pInfection->lpInfo);
+	free(pInfection);
+    return NULL;
+}
+
+void init_background_infecton_change_partner_notification(unsigned int ip, unsigned int nett, char *lpActive, unsigned int nStatus, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo)
+{
+	struct _InfectionSpecification  *pInfection = malloc(sizeof(struct _InfectionSpecification));
+	memset(pInfection, sizeof(struct _InfectionSpecification), 0);
+	pInfection->ipAddress = ip;
+	pInfection->ipNettmask = nett;
+	pInfection->lpInfo = malloc(strlen(lpInfo)+1);
+	strcpy(pInfection->lpInfo, lpInfo);
+
+	pthread_t t;
+    pthread_create(&t, NULL, worker, pInfection);
+    pthread_join(t, NULL);
+
+    printf("\n\n*********** SCHEDULING NEW THREAD ******************\n\n");
+
+}

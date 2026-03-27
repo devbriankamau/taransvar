@@ -439,55 +439,57 @@ void storeServerInfo(int port, char *lpQuality)
 }
 
 _Node *storeInfectionInPointerList(__be32 ipAddress, __be32 ipNettmask, char *lpQuality);
-_Node *storeInfectionInPointerList(__be32 ipAddress, __be32 ipNettmask, char *lpQuality)
+_Node *storeInfectionInPointerList(__be32 ipAddress, __be32 ipNettmask, char *lpQuality)	
 {	
-/*struct _InfectionSpecification {
-	volatile uint32_t ipAddress;
-	volatile uint32_t ipNettmask;
-	struct _threatSpecification cThreat;
-};*/
-
-/*	struct _InfectionSpecification cNewElement;
-	struct _InfectionSpecification *pInfectionArray;
-	cNewElement.ipAddress = ipAddress;
-	cNewElement.ipNettmask = ipNettmask;
-	int n;
-*/
-//	ØT 260303 - Check first if already in the list???? (what about the other categories??)
 	int nMaxOwnersId = 0;
+	struct _Node *pInfection;
 
-	for (_Node *pInfection = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pInfection; pInfection = pInfection->pNext)
+	for (pInfection = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pInfection; pInfection = pInfection->pNext)
 	{
 		if (pInfection->cInfection.ipAddress == ipAddress)
 		{
-			pr_info("tarakernel: %08X is already registered. Aborting\n", ipAddress);
-			return NULL;
+			pr_info("tarakernel: %pI4 is already registered. Exit for updating it\n", &ipAddress);
+			break;
 		}
 
 		if (pInfection->cInfection.cTag.owners_id > nMaxOwnersId)
 			nMaxOwnersId = pInfection->cInfection.cTag.owners_id;
 	}
-	pr_info("tarakernel: (260303) %08X is a new infection.. add it\n", ipAddress);
 
-	_Node *pNode = getNewBefore(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
-	struct _InfectionSpecification *pInfection = &pNode->cInfection;
-	pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS] = pNode;
-	if (pNode)
+	if (!pInfection)
 	{
-		pInfection->ipAddress = ipAddress;
-		pInfection->ipNettmask = ipNettmask;
-		pInfection->lpInfo = NULL;
-		pInfection->nTag = 0;	//Init all fields.
-		pInfection->cTag.owners_id = nMaxOwnersId + 1;
+		pr_info("tarakernel: %pI4 is a new infection.. add it\n", &ipAddress);
+
+		pInfection = getNewBefore(pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS], sizeof(struct _InfectionSpecification));
+		pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS] = pInfection;
+	}
+	else
+	{
+		//Found an existing one... 
+		if (pInfection->cInfection.lpInfo)
+		{
+			kfree(pInfection->cInfection.lpInfo);
+			pInfection->cInfection.lpInfo = NULL;
+		}
+	}
+
+	if (pInfection)
+	{
+		pInfection->cInfection.ipAddress = ipAddress;
+		pInfection->cInfection.ipNettmask = ipNettmask;
+		//NOTE! Caller will updae these...
+		pInfection->cInfection.lpInfo = NULL;
+		pInfection->cInfection.nTag = 0;	//Init all fields.
+		pInfection->cInfection.cTag.owners_id = nMaxOwnersId + 1;
 		if (!strcmp(lpQuality, "firsttime"))
 		{
 			//cNewElement.cThreat. = C_REQUESTS_CLEAN;
 			//NOTE! category is char:3 - value 0-7
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
-			pInfection->cTag.presumed_infected = 7;
+			pInfection->cInfection.cTag.presumed_infected = 7;
 		}
 		else
-			pInfection->cTag.presumed_infected = 7;
+			pInfection->cInfection.cTag.presumed_infected = 7;
 			//pNode->cInfection.cThreat.category = 7; //Somewhere in the middle... Just for test for now...
 	}
 	else
@@ -501,7 +503,7 @@ _Node *storeInfectionInPointerList(__be32 ipAddress, __be32 ipNettmask, char *lp
 	unsigned int botNetId;	//Assigned by AkiliBomba
 };*/
 	listInfectionsPointerList();
-	return pNode;
+	return pInfection;
 }//storeInfectionInPointerList()
 
 

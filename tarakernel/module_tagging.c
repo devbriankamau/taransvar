@@ -599,8 +599,11 @@ void setRemoteInfection(struct _Remote_infection *pRemoteInfection, struct _Pack
 
 	if (lpInfo)
 	{
-		pRemoteInfection->lpInfo = memAlloc(strlen(lpInfo)+1);
-		strcpy(pRemoteInfection->lpInfo, lpInfo);
+        if (pRemoteInfection->lpInfo)
+            kfree(pRemoteInfection->lpInfo);
+
+   		pRemoteInfection->lpInfo = memAlloc(strlen(lpInfo)+1);
+    	strcpy(pRemoteInfection->lpInfo, lpInfo);
     }
 
     if (pPacket)

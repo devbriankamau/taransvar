@@ -70,6 +70,7 @@ void checkRequestAssistance(void);
 int addPendingWgetOk(et_wgetCategories eCategory, char *lpUrl, int nRegardingId);
 char *wget(char *lpUrl, char *szBuff, int nBuffSize);
 void handleTrafficReportFromKernel(char *lpPayload, int nDataLength);
+void init_background_infecton_change_partner_notification(unsigned int ip, unsigned int nett, char *lpActive, unsigned int nStatus, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo);
 
 
 #include "module_send_configuration.c"
@@ -84,6 +85,7 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength);
 #include "module_traffic_report.c"
 #include "module_msg_from_kernel.c"
 #include "module_functions.c"
+#include "infection_change_partner_notification.c"
 //*/
 
 

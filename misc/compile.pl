@@ -273,7 +273,9 @@ if ($nFileSize <= 0) {
 	#This works, but starts taralink in separate window that closes if taralink aborts... and then we want to see error message... so drop for now
 	#It also seems to leave a part active that we can't get rid of (compile complains that taralink is open in other window)
 	#startTaraLinkOk();
-	
+
+	print "Assuming you compiled from taransvar/misc, you might want to:\nsudo cp -r ../html/ /var/www/html/\nsudo cp *.* /root/taransvar/perl\n\n";
+
 	system ($szFilename);	#Start taralink
 	exit 0;
 }

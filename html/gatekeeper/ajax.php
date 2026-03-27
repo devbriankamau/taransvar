@@ -227,7 +227,7 @@ else
 function internalInfections()
 {
     //Update internalInfections table...
-	$sql = "SELECT infectionId, inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, status, CAST(active AS UNSIGNED) as active, I.lastSeen, hostname, description from internalInfections I left outer join unit u on u.unitId = I.unitId order by I.lastSeen desc";
+	$sql = "SELECT infectionId, inet_ntoa(ip) as ip, inet_ntoa(nettmask) as nettmask, status, CAST(active AS UNSIGNED) as active, I.lastSeen, hostname, description, severity, botnetId, infoSharePartner, infoSharePartners from internalInfections I left outer join unit u on u.unitId = I.unitId order by I.lastSeen desc";
 
     $conn = getConnection();
     $stmt = $conn->prepare($sql);
@@ -239,8 +239,9 @@ function internalInfections()
         $szDesc = "-".$row["description"]."-";
         
 		$szActivateLinks = getActivateInfectionLinks($row); //($row["active"])?"Active":"Disabled"
-
-        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],"&nbsp;","&nbsp;",$szActivateLinks); //
+        //$szEditLink = '<img src="../img/edit.png" alt="Edit info" onclick="editInfection('.$row["infectionId"].')" style="cursor:pointer;">';
+        $szEditLink = '<a href="index.php?f=editInfection&id='.$row["infectionId"].'"> <img src="../img/edit.png" alt="Edit infection info" style="cursor:pointer;"></a>';
+        $cArr = array($row["lastSeen"],$row["ip"],$row["nettmask"],"&nbsp;","&nbsp;",$szActivateLinks, $row["severity"], $row["botnetId"], $row["infoSharePartner"], $row["infoSharePartners"], $szEditLink); //
         $szRowId = "inf".$row["infectionId"];
         CXmlCommand::addTableRow("infectionsTbl", "top", $szRowId, $cArr, "", $szRowId);//$szHTML)
     }

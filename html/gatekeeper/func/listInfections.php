@@ -1,3 +1,9 @@
+<script>
+	function editInfection(nId)
+	{
+		alert("....here now with "+nId);
+	}
+</script>
 <?php
 
 /*

@@ -593,25 +593,28 @@ void listRemoteInfections(__be32 sIp, unsigned int sPort)
 
 void setRemoteInfection(struct _Remote_infection *pRemoteInfection, struct _PacketInspection *pPacket, unsigned int dOwners_id, unsigned int dInfected, unsigned int dVersion, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo)
 {
-    pRemoteInfection->cTag.owners_id = dOwners_id;
+	pRemoteInfection->cTag.owners_id = dOwners_id;
 	pRemoteInfection->cTag.presumed_infected = dInfected;
 	pRemoteInfection->cTag.version_no = dVersion;
 
-    pRemoteInfection->dOwners_id = dOwners_id;
-    pRemoteInfection->nInfectionId = nInfectionId;
-    pRemoteInfection->nSeverity = nSeverity;
-    pRemoteInfection->nBotnetId = nBotnetId;
-    
-    if (lpInfo)
-    {
-        pRemoteInfection->lpInfo = memAlloc(strlen(lpInfo)+1);
-        strcpy(pRemoteInfection->lpInfo, lpInfo);
+	if (lpInfo)
+	{
+		pRemoteInfection->lpInfo = memAlloc(strlen(lpInfo)+1);
+		strcpy(pRemoteInfection->lpInfo, lpInfo);
     }
 
     if (pPacket)
     {
         pRemoteInfection->nByteCount++;
 		pRemoteInfection->nPacketCount += pPacket->skb->len;       
+    }
+    else
+    {
+        pRemoteInfection->dOwners_id = dOwners_id;
+        pRemoteInfection->nInfectionId = nInfectionId;
+        pRemoteInfection->nSeverity = nSeverity;
+        pRemoteInfection->nBotnetId = nBotnetId;
+
     }
 
 	pRemoteInfection->timestamp = ktime_get_real_seconds();
@@ -624,7 +627,13 @@ struct _Remote_infection *initElaboratedThreatInfo(struct _PacketInspection *pPa
 
 	struct _Remote_infection *pRemoteInfection = findRemoteInfectionInfoReceived(pPacket->ip_header->saddr, pPacket->tcp_header->source, bRegister, &bRegistered);
 
-	if (!pRemoteInfection ||bRegistered)    //Severe error if !pRemoteInfection
+    if (!pRemoteInfection)
+    {
+        pr_warn("****** ERROR ***** Unable to register new threat!\n");
+        return NULL;
+    }
+
+	if (bRegistered)    //Severe error if !pRemoteInfection
 	{
 		pr_info("tarakernel SENDING: Didn't receive elaborated threat info (due to recent reboot or delayed receival?) for %pI4:%d (implement request for it)\n", &pPacket->ip_header->saddr, ntohs(pPacket->tcp_header->source));
 		//Store the new info if available slot...
@@ -641,6 +650,9 @@ struct _Remote_infection *initElaboratedThreatInfo(struct _PacketInspection *pPa
         send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
         pr_info("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
     }
+
+	setRemoteInfection(pRemoteInfection, pPacket, 0, 0, 0, 0, 0, 0, NULL);  //Update traffic data and timestamp
+
     return pRemoteInfection;
 }
 

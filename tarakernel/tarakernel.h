@@ -184,8 +184,8 @@ struct _Remote_infection {
 
         u32 seq;
         u64 timestamp;
-		unsigned int 	bByteCount;
-		unsigned int	bPacketCount;
+		unsigned int 	nByteCount;
+		unsigned int	nPacketCount;
 		int bHandled : 1;
 
 };

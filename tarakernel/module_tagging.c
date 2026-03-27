@@ -610,14 +610,14 @@ void setRemoteInfection(struct _Remote_infection *pRemoteInfection, struct _Pack
 
     if (pPacket)
     {
-        pRemoteInfection->bByteCount++;
-		pRemoteInfection->bPacketCount += pPacket->skb->len;       
+        pRemoteInfection->nByteCount++;
+		pRemoteInfection->nPacketCount += pPacket->skb->len;       
     }
 
 	pRemoteInfection->timestamp = ktime_get_real_seconds();
 }
 
-void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
+struct _Remote_infection *initElaboratedThreatInfo(struct _PacketInspection *pPacket)
 {
     bool bRegister = 1;
     bool bRegistered;
@@ -632,8 +632,8 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
         struct iphdr *iph = ip_hdr(pPacket->skb);
         if (!iph || iph->version != 4 || iph->protocol != IPPROTO_TCP)
         {
-            pr_info("tarakernel SENDING: **** ERROR **** Sending UDP request. Not IPv4 TCP\n");
-            return;// NF_ACCEPT;   /* fail open */
+            pr_info("tarakernel SENDING: **** ERROR **** while sending UDP request: Packet is NOT IPv4 TCP\n");
+            return NULL;// NF_ACCEPT;   /* fail open */
         }        
 
         char cBuf[200];
@@ -641,6 +641,7 @@ void initElaboratedThreatInfo(struct _PacketInspection *pPacket)
         send_udp_json(iph->saddr, htons(TARAKERNEL_LISTENING_TO_PORT), cBuf);
         pr_info("tarakernel SENDING: *** Requesting threat info from sender: %s\n", cBuf);
     }
+    return pRemoteInfection;
 }
 
 

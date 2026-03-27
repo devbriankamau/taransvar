@@ -60,7 +60,7 @@ void initPacket(struct _PacketInspection *pPacket, struct sk_buff *skb, const st
 struct _PacketInspection *getPacketInfo(void *priv, struct sk_buff *skb, const struct nf_hook_state *state);
 void checkFree(struct _PacketInspection *pPacket, bool bLeavingPostRouting);
 int isRequestForThreatElaboration(char *lpPayload,  struct iphdr *iph, struct udphdr *udph);
-void initElaboratedThreatInfo(struct _PacketInspection *pPacket);
+struct _Remote_infection *initElaboratedThreatInfo(struct _PacketInspection *pPacket);
 __be32 hexstr_to_ip(const char *str);
 
 

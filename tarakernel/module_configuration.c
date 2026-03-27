@@ -566,20 +566,24 @@ void storeInfection(volatile uint32_t ipAddress, volatile uint32_t ipNettmask, c
 struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress);
 struct _InfectionSpecification *isInfectedPointerList(volatile uint32_t ipAddress)
 {
-	char cInfectedUnits[1000];
-	strcpy(cInfectedUnits, "");
+	//Commented out code is for listing internal infected units.
+//	char cInfectedUnits[1000];
+//	strcpy(cInfectedUnits, "");
 
 	for (struct _Node *pNode = pSetup->pConfigurationPointerList[BLOCK_DESCRIPTIOR_INFECTIONS]; pNode; pNode = pNode->pNext)
 	{
-		if (strlen(cInfectedUnits)<sizeof(cInfectedUnits)-50)
+/*		if (strlen(cInfectedUnits)<sizeof(cInfectedUnits)-50)
 			sprintf(cInfectedUnits+strlen(cInfectedUnits), "%d:%pI4, ", pNode->cInfection.cTag.owners_id, &pNode->cInfection.ipAddress);	
 		else
 			if (strlen(cInfectedUnits)<sizeof(cInfectedUnits)-15)
 				strcpy(cInfectedUnits+strlen(cInfectedUnits), "TRUNCATED");
+*/
 
 		if (pNode && ipAddress == pNode->cInfection.ipAddress)
 		{
-		    pr_info("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
+		    //pr_info("tarakernel: **** Traffic from infected unit! Threat category: %d. Infected units: %s\n", pNode->cInfection.cTag.presumed_infected, cInfectedUnits); 
+			pr_info("tarakernel: **** Traffic from infected unit %pI4! Cat: %d, ID: %d, severity: %d, botnetId: %d, info: %s.\n", 
+				&pNode->cInfection.ipAddress, pNode->cInfection.cTag.presumed_infected, pNode->cInfection.nInfectionId, pNode->cInfection.nSeverity, pNode->cInfection.nBotnetId, pNode->cInfection.lpInfo); 
 		    return &pNode->cInfection;
 		}
 	}

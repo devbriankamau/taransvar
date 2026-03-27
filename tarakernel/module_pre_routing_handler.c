@@ -437,11 +437,13 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			
 			if (cUnion.nTag)
 			{
-				initElaboratedThreatInfo(pPacket);	//module_tagging.c
+				struct _Remote_infection *pInfection = initElaboratedThreatInfo(pPacket);	//module_tagging.c
 
 			    if (cUnion.cTag.presumed_infected > pSetup->nBlockIncomingTaggedTrafficLevel)
 			    {
-                    pr_info("tarakernel: ******* WARNING ***** Dropping tagged data with presumed severity (%u) exceeding blocking threshold (%u). (%s -> %s)\n", cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp); 
+                    pr_info("tarakernel: ******* WARNING ***** Dropping tagged data with presumed tag-severity (%u) exceeding blocking threshold (%u). (%s -> %s), severity: %d, botnet: %d, owner_id: %d, info: %s, unrep traff: %d/%d (check gatekeeper)\n", 
+						cUnion.cTag.presumed_infected, pSetup->nBlockIncomingTaggedTrafficLevel, pPacket->cSourceIp, pPacket->cDestIp, pInfection->nSeverity, pInfection->nBotnetId, pInfection->dOwners_id, pInfection->lpInfo, pInfection->nByteCount, pInfection->nPacketCount); 
+
 					checkFree(pPacket, true /*bLeavingPostRouting*/);	//leaving POST_ROUTING or returning NF_DROP doesn't matter.. it's leaving the system.
                     return NF_DROP;
 			    }

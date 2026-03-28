@@ -71,6 +71,7 @@ int addPendingWgetOk(et_wgetCategories eCategory, char *lpUrl, int nRegardingId)
 char *wget(char *lpUrl, char *szBuff, int nBuffSize);
 void handleTrafficReportFromKernel(char *lpPayload, int nDataLength);
 void init_background_infecton_change_partner_notification(unsigned int ip, unsigned int nett, char *lpActive, unsigned int nStatus, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo);
+unsigned int inet__aton(char *lpIp);
 
 
 #include "module_send_configuration.c"

@@ -352,7 +352,6 @@ void *worker(void *arg) {
 	printf("InternalIP: %s, external IP: %s\n", cInternalIp, cExternalIp);
 
 	mysql_free_result(res);
-	mysql_close(conn);
 
 
 	//conntrack -L | grep 'src=192.168.50.104 '
@@ -448,17 +447,65 @@ void *worker(void *arg) {
 	struct _SeenPtNode	*pNext = NULL;
 	for (pFound = pSeenPointerChain; pFound; pFound = pNext)
 	{
-		printf("Would send to: %s - %s:%d\n", pFound->szSendToIp, pFound->szMyIp, pFound->nPort);
+		//Check if partner....
+
+		MYSQL_STMT *stmt;
+		MYSQL_BIND param[1], result[1];
+
+		stmt = mysql_stmt_init(conn);
+
+		char *lpSql = "SELECT routerId from parterRouter R join partner P on P.partnerId = R.partnerId where ip = ?";
+		mysql_stmt_prepare(stmt, lpSql, strlen(lpSql));
+
+		memset(param, 0, sizeof(param));
+
+		param[0].buffer_type = MYSQL_TYPE_LONG;
+		long lIp = inet__aton(pFound->szSendToIp);
+		param[0].buffer = &lIp;
+
+		mysql_stmt_bind_param(stmt, param);
+		mysql_stmt_execute(stmt);
+
+		memset(result, 0, sizeof(result));
+
+		/*String result
+		result[0].buffer_type = MYSQL_TYPE_STRING;
+		result[0].buffer = ip;
+		result[0].buffer_length = sizeof(ip);
+		result[0].length = &ip_len;
+		*/
+
+		int nRouterId;
+		result[0].buffer_type = MYSQL_TYPE_LONG;
+		result[0].buffer = &nRouterId;
+
+		mysql_stmt_bind_result(stmt, result);
+		bool bFound = false;
+
+		while (mysql_stmt_fetch(stmt) == 0) {
+				//If string:
+    			//ip[ip_len] = '\0';
+
+				printf("RouterId: %d\n", nRouterId);
+				bFound = true;
+		}
+
+		printf("Router %s is%s a partner.\n", (bFound?"":" NOT"));
+
+		printf("Might send to: %s - %s:%d %s\n", pFound->szSendToIp, pFound->szMyIp, pFound->nPort, (bFound?"- and would if could 'coz it's a partner":"- but it's NOT a partner"));
 
 		pNext = pFound->pNext;
 		free(pFound);
 	}
+	
+	mysql_close(conn);
 
     return NULL;
 }
 
 void init_background_infecton_change_partner_notification(unsigned int ip, unsigned int nett, char *lpActive, unsigned int nStatus, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo)
 {
+    printf("\n\n*********** ABOUT TO SCHEDULING NEW THREAD ******************\n\n");
 	struct _InfectionSpecification  *pInfection = malloc(sizeof(struct _InfectionSpecification));
 	memset(pInfection, sizeof(struct _InfectionSpecification), 0);
 	pInfection->ipAddress = ip;

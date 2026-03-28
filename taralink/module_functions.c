@@ -44,7 +44,7 @@ void addWarningRecord_PREPARED_STATEMENT_NOT_WORKING(char *szWarning) //Now work
 
 	//printf("************ Debug ********** About to prepare..\n");
 
-        status = mysql_stmt_prepare(stmt, lpSQL, strlen(lpSQL));
+	status = mysql_stmt_prepare(stmt, lpSQL, strlen(lpSQL));
 	test_stmt_error(stmt, status); //line which gives me the syntax error 
 
 	memset(ps_params, 0, sizeof(ps_params));
@@ -65,51 +65,41 @@ void addWarningRecord_PREPARED_STATEMENT_NOT_WORKING(char *szWarning) //Now work
 	// Run the stored procedure
         //printf("************ Debug ********** About to execute..(status: %d)\n", status);
 	status = mysql_stmt_execute(stmt);
-        printf("************ Debug ********** After execute..(status: %d)\n", status);
+	printf("************ Debug ********** After execute..(status: %d)\n", status);
 	test_stmt_error(stmt, status);
 	MYSQL_BIND rec;
 	unsigned int nWarningId;
 	
-        char cBuf[200];
+	char cBuf[200];
 	rec.buffer_type = MYSQL_TYPE_LONG;//MYSQL_TYPE_VAR_STRING;
-        rec.buffer = (char*) &nWarningId;   
-        rec.buffer_length = sizeof(unsigned int);
-        rec.length = 0; //int-field;
-        rec.is_unsigned = 1;
-        rec.is_null = 0;
+    rec.buffer = (char*) &nWarningId;   
+	rec.buffer_length = sizeof(unsigned int);
+	rec.length = 0; //int-field;
+	rec.is_unsigned = 1;
+	rec.is_null = 0;
 
-        printf("************ Debug ********** About to bind result..(status: %d)\n", status);
+	printf("************ Debug ********** About to bind result..(status: %d)\n", status);
 	
 	if (!mysql_stmt_bind_result(stmt, &rec))
 	{
-                printf("************ Debug ********** About to fetch..\n");
+        printf("************ Debug ********** About to fetch..\n");
 		status = mysql_stmt_fetch(stmt);  //NOTE ! This succeeds if there's no hit but makes the program abort if there's record...
-                printf("************ Debug ********** Fetched..(status: %d)\n", status);
+        printf("************ Debug ********** Fetched..(status: %d)\n", status);
 		if (status == 1 || status == MYSQL_NO_DATA)
 		{
-  		        printf("\n***** Message not yet registered... \n\n");
-  		        
-  		        insertWarningMessage(conn, szWarning, &ps_params[0]); 
-  		        
-  		        
-  		        
+  		    printf("\n***** Message not yet registered... \n\n");
+  		    insertWarningMessage(conn, szWarning, &ps_params[0]); 
 		}
 		else
-		{
-		
 			printf("\n***** Message already exists with id: %u\n\n", nWarningId);
-		}
-	        
 	} 
 	else
-	{
 		printf("\n***** Message not yet registered (bind_result failed)... \n\n");
-	}
 	
 	//test_stmt_error(stmt, status);
 	
 	
-      mysql_close(conn);
+	mysql_close(conn);
 	
 /*
 	res = conn->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
@@ -126,6 +116,22 @@ void addWarningRecord_PREPARED_STATEMENT_NOT_WORKING(char *szWarning) //Now work
 		$sth->execute($szWarning) or die "execution failed: $sth->errstr()";
 	}
 	*/
+}
+
+unsigned int inet__aton(char *lpIp)
+{
+	unsigned char ip1,ip2,ip3,ip4;
+	
+	int nRes = sscanf(lpIp, "%hhu.%hhu.%hhu.%hhu", &ip1,&ip2,&ip3,&ip4);
+
+	unsigned int nIp;
+
+	nIp = 	((unsigned int)ip1 << 24) |
+            ((unsigned int)ip2 << 16) |
+            ((unsigned int)ip3 <<  8) |
+            (unsigned int)ip4;
+
+	return nIp;
 }
 
 void addWarningRecord(char *szWarning)

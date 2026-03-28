@@ -292,11 +292,20 @@ static int record_matches_client_nat(const struct conntrack_record *rec,
     return 1;
 }*/
 
+struct _SeenPtNode;
+struct _SeenPtNode {
+	char szSendToIp[100];
+	char szMyIp[100];			//May handle multiple IPs later
+	unsigned int nPort;
+	struct _SeenPtNode *pNext;
+};
+
 void *worker(void *arg) {
 
 	MYSQL *conn, *updateConn;
 	MYSQL_RES *res;
 	MYSQL_ROW row;
+	struct _SeenPtNode	*pSeenPointerChain;
 
 	struct _InfectionSpecification  *pInfection = (struct _InfectionSpecification *) arg;	
 
@@ -398,7 +407,6 @@ void *worker(void *arg) {
 	        //printf("Line read: %s", line);
 		}
 		else
-		{
 		    if (record_matches_client_nat(&rec, cInfectedIpAddr, cExternalIp))	//cInternalIp - is the gateway...
 			{
     		    printf("MATCHES client + NAT public IP\n");
@@ -407,11 +415,26 @@ void *worker(void *arg) {
 				char *lpSendToIp = rec.orig.dst;
 				char *lpFromIp = cInfectedIpAddr;
 				unsigned int sport = rec.orig.sport;
-				printf("Send to %s: %s:%d is infected... info: %s\n", lpSendToIp, lpFromIp, sport, pInfection->lpInfo);				
+				printf("Send to (if partner and only once for ip/port match...) %s: %s:%d is infected... info: %s\n", lpSendToIp, lpFromIp, sport, pInfection->lpInfo);	
+				
+				struct _SeenPtNode	*pFound;
+				for (pFound = pSeenPointerChain; pFound; pFound = pFound->pNext)
+					if (!strcmp(pFound->szSendToIp, lpSendToIp))
+						break;
+
+				if (pFound)
+					printf("Already in the list: %s - %s:%d\n", lpSendToIp, lpFromIp, sport);
+				else
+				{
+					struct _SeenPtNode	*pNew = malloc(sizeof(struct _SeenPtNode));
+					strcpy(pNew->szMyIp, lpFromIp);
+					strcpy(pNew->szSendToIp, lpSendToIp);
+					pNew->nPort = sport;
+					pNew->pNext = pSeenPointerChain;
+					pSeenPointerChain = pNew;
+					printf("New element put in list: %s - %s:%d\n", lpSendToIp, lpFromIp, sport);
+				}
 			}
-	//    	else
-    //	    	printf("NO MATCH\n");
-		}
 	}
 
     pclose(fp);
@@ -419,6 +442,18 @@ void *worker(void *arg) {
 	//Clean up
 	free(pInfection->lpInfo);
 	free(pInfection);
+
+	//Send the messages...
+	struct _SeenPtNode	*pFound;
+	struct _SeenPtNode	*pNext = NULL;
+	for (pFound = pSeenPointerChain; pFound; pFound = pNext)
+	{
+		printf("Would send to: %s - %s:%d\n", pFound->szSendToIp, pFound->szMyIp, pFound->nPort);
+
+		pNext = pFound->pNext;
+		free(pFound);
+	}
+
     return NULL;
 }
 

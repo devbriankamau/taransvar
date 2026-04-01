@@ -27,6 +27,7 @@ function delAttack()
 				break;
 		}
         	//print "I think it's ".$_GET["action"]."d...<br><br><a href=\"index.php?f=attack\">See list</a>";
+			include "attack.php";
         	attack();
 	}	
 	else

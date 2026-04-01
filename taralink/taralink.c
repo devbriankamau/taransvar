@@ -399,8 +399,108 @@ int create_netlink_socket(void)
     return fd;
 }
 
+void registerRemoteInfection(char *lpMessage)
+{
+    printf("About to interprete: %s\n", lpMessage);
+
+    char cPrefix[100], cSourceIp[100], cInfo[255];
+    unsigned int sPort, dVersion, dInfected, dOwners_id, nInfectionId, nSeverity, nBotnetId; 
+
+    int nFlds = sscanf(lpMessage, "%99[^ ] %99[^:]:%u^%u^%u^%u^%255[^\n]", cPrefix, cSourceIp, &sPort, &nInfectionId, &nSeverity, &nBotnetId, cInfo);
+
+    if (nFlds != 7)
+    {
+        printf("Unable to decode.. %d fields founs\n", nFlds);
+        return;
+    }
+
+    printf("Able to decode: %s:%d-%d-%d-%d, info: %s\n", cSourceIp, sPort, nInfectionId, nSeverity, nBotnetId, cInfo);
+
+
+    MYSQL *conn;
+    conn = getConnection();
+
+    MYSQL_STMT *stmt = mysql_stmt_init(conn);
+    MYSQL_BIND param[7];
+    memset(param, 0, sizeof(param));
+
+    const char *sql = "insert into hackReport (ip, port, sentByIp, status, handledTime, infectionId, severity, botnetId) values (?, ?, ?, ?, now(), ?, ?, ?)";
+
+    if (mysql_stmt_prepare(stmt, sql, strlen(sql)) != 0) {
+        printf("prepare failed: %s\n", mysql_stmt_error(stmt));
+        return;
+    }
+
+    /* ---- VALUES ---- */
+    printf("Trying to insert in hackReport with IP: %s, port: %u\n", cSourceIp, sPort);
+
+    struct in_addr addr;
+    if (inet_aton(cSourceIp, &addr) == 0) {
+        printf("Invalid IP: %s\n", cSourceIp);
+        return;
+    }
+
+    unsigned int ip = ntohl(addr.s_addr);
+    //unsigned int ip = inet_addr(cSourceIp);   // or your actual value
+    unsigned short port = sPort;
+    unsigned int sentByIp = ip;
+
+    unsigned long cInfoLen = strlen(cInfo);
+
+    /* ---- BIND ---- */
+    param[0].buffer_type = MYSQL_TYPE_LONG;
+    param[0].buffer = &ip;
+    param[0].is_unsigned = 1;
+
+    param[1].buffer_type = MYSQL_TYPE_SHORT;
+    param[1].buffer = &port;
+    param[1].is_unsigned = 1;
+
+    param[2].buffer_type = MYSQL_TYPE_LONG;
+    param[2].buffer = &sentByIp;
+    param[2].is_unsigned = 1;
+
+    param[3].buffer_type   = MYSQL_TYPE_STRING;
+    param[3].buffer        = cInfo;
+    param[3].buffer_length = sizeof(cInfo);
+    param[3].length        = &cInfoLen;
+
+    param[4].buffer_type = MYSQL_TYPE_LONG;
+    param[4].buffer = &nInfectionId;
+    param[4].is_unsigned = 1;
+
+    param[5].buffer_type = MYSQL_TYPE_LONG;
+    param[5].buffer = &nSeverity;
+    param[5].is_unsigned = 1;
+
+    param[6].buffer_type = MYSQL_TYPE_LONG;
+    param[6].buffer = &nBotnetId;
+    param[6].is_unsigned = 1;
+
+ 
+
+    /* ---- BIND PARAMS ---- */
+    if (mysql_stmt_bind_param(stmt, param) != 0) {
+        printf("bind failed: %s\n", mysql_stmt_error(stmt));
+        return;
+    }
+
+    /* ---- EXECUTE ---- */
+    if (mysql_stmt_execute(stmt) != 0) {
+        printf("execute failed: %s\n", mysql_stmt_error(stmt));
+        return;
+    }   
+
+    mysql_stmt_close(stmt);
+    mysql_close(conn);
+}
+
 void handle_udp(int udp_fd)
 {
+    //Received messssage from owner of infected unit. Some infor is sent via utg_ptr field or other method, the resti is sent here. 
+    //Additional info in this messages. This message is also sent for ongoing sessions where threat information is updated. 
+    //Message is being sent to tarakernel but DB (hackAttempt table) should also be updated with the extended information contained herein.  
+
     char buf[2048 + strlen(UDP_MSG_PREFIX)];
     struct sockaddr_in src;
     socklen_t slen = sizeof(src);
@@ -427,6 +527,8 @@ void handle_udp(int udp_fd)
            inet_ntoa(src.sin_addr),
            ntohs(src.sin_port),
            buf);
+
+    registerRemoteInfection(buf + strlen(UDP_MSG_PREFIX));
 
     send_to_kernel(fd, buf, strlen(buf) + 1);
 }
@@ -627,6 +729,13 @@ static void on_sigint(int sig)
 {
     g_stop = 1;
 }
+
+
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+#include <arpa/inet.h>
+
 
 
 int main(void)

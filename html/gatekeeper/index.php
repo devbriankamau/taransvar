@@ -448,10 +448,11 @@ function addAssistanceRequest()
 	{
 		if(filter_var($_GET["ip"], FILTER_VALIDATE_IP))
 		{
-			$szSQL = "insert into assistanceRequest(ip, port, category, comment, purpose) values (inet_aton(?), ?, 'bruteForce', 'Added through dashboard', 'internalRequest')";
+			$nThreshold = isset($_GET["thrshld"])?intval($_GET["thrshld"]):5;
+			$szSQL = "insert into assistanceRequest(ip, port, category, comment, purpose, requestQuality) values (inet_aton(?), ?, 'bruteForce', 'Added through dashboard', 'internalRequest', ?)";
 			$conn = getConnection();
 			$stmt = $conn->prepare($szSQL);
-			$stmt->bind_param("si", $_GET["ip"],$_GET["port"]); //$_GET["ip"], 
+			$stmt->bind_param("sii", $_GET["ip"],$_GET["port"], $nThreshold); //$_GET["ip"], 
 	        $stmt->execute();
         	print "I think it's registered...".$_GET["ip"].":".$_GET["port"]."<br><br><a href=\"index.php?f=attack\">See list</a>";
         	return;
@@ -465,6 +466,7 @@ function addAssistanceRequest()
         <table>
         <tr><td>IP</td><td><input name="ip"></td><td></td></tr>
         <tr><td>Port</td><td><input name="port"></td><td>Blank means all ports</td></tr>
+        <tr><td>Threat threshold</td><td><input name="thrshld" value="5"></td><td>Block threats above this</td></tr>
         <tr><td>&nbsp;</td><td><input type="submit" name="submit"><input type="hidden" name="f" value="addassreq"></td></tr>
         </table>
         </form>

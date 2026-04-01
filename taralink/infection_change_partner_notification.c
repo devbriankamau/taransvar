@@ -292,6 +292,35 @@ static int record_matches_client_nat(const struct conntrack_record *rec,
     return 1;
 }*/
 
+
+int send_UDP_message(int sock, char *lpIP, unsigned int nPort, char *lpMessage);
+int send_UDP_message(int sock, char *lpIP, unsigned int nPort, char *lpMessage)
+{
+    struct sockaddr_in addr;
+
+    // 2. Set destination address
+    memset(&addr, 0, sizeof(addr));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(5551);  // destination port
+    inet_pton(AF_INET, lpIP, &addr.sin_addr);
+
+    // 3. Send message
+    if (sendto(sock, lpMessage, strlen(lpMessage), 0,
+               (struct sockaddr *)&addr, sizeof(addr)) < 0) {
+        perror("sendto");
+        close(sock);
+        return 1;
+    }
+
+    printf("UDP message sent\n");
+
+    close(sock);
+    return 0;
+}
+
+
+
+
 struct _SeenPtNode;
 struct _SeenPtNode {
 	char szSendToIp[100];
@@ -305,7 +334,7 @@ void *worker(void *arg) {
 	MYSQL *conn, *updateConn;
 	MYSQL_RES *res;
 	MYSQL_ROW row;
-	struct _SeenPtNode	*pSeenPointerChain;
+	struct _SeenPtNode	*pSeenPointerChain = NULL;
 
 	struct _InfectionSpecification  *pInfection = (struct _InfectionSpecification *) arg;	
 
@@ -319,7 +348,7 @@ void *worker(void *arg) {
         return NULL;
     }
 
-    printf("\n****************** Hello from thread. I'm supposed to inform about %s - %s\n\n", cInfectedIpAddr, pInfection->lpInfo);
+    printf("\n****************** Hello from thread. I'm supposed to inform about %s - (infId: %u, severity: %u, botnet: %u) %s\n\n", cInfectedIpAddr, pInfection->nInfectionId, pInfection->nSeverity, pInfection->nBotnetId, pInfection->lpInfo);
 
 	//*** Read internal- and external IP Address from setup */
 	char *lpSQL = "select adminIp, internalIP, inet_ntoa(adminIp), inet_ntoa(internalIP) from setup";
@@ -361,6 +390,17 @@ void *worker(void *arg) {
         perror("popen");
         return NULL;
     }
+
+    int sock;
+
+    // 1. Create socket
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        perror("socket");
+        return NULL;
+    }
+
+
 
     char line[512];
 
@@ -408,72 +448,106 @@ void *worker(void *arg) {
 		else
 		    if (record_matches_client_nat(&rec, cInfectedIpAddr, cExternalIp))	//cInternalIp - is the gateway...
 			{
-    		    printf("MATCHES client + NAT public IP\n");
-			    print_record(&rec);
-
-				char *lpSendToIp = rec.orig.dst;
-				char *lpFromIp = cInfectedIpAddr;
-				unsigned int sport = rec.orig.sport;
-				printf("Send to (if partner and only once for ip/port match...) %s: %s:%d is infected... info: %s\n", lpSendToIp, lpFromIp, sport, pInfection->lpInfo);	
-				
-				struct _SeenPtNode	*pFound;
-				for (pFound = pSeenPointerChain; pFound; pFound = pFound->pNext)
-					if (!strcmp(pFound->szSendToIp, lpSendToIp))
-						break;
-
-				if (pFound)
-					printf("Already in the list: %s - %s:%d\n", lpSendToIp, lpFromIp, sport);
-				else
+				if (!strcmp(rec.proto, "tcp"))
 				{
-					struct _SeenPtNode	*pNew = malloc(sizeof(struct _SeenPtNode));
-					strcpy(pNew->szMyIp, lpFromIp);
-					strcpy(pNew->szSendToIp, lpSendToIp);
-					pNew->nPort = sport;
-					pNew->pNext = pSeenPointerChain;
-					pSeenPointerChain = pNew;
-					printf("New element put in list: %s - %s:%d\n", lpSendToIp, lpFromIp, sport);
+				    print_record(&rec);
+
+					char *lpSendToIp = rec.orig.dst;
+					char *lpFromIp = cExternalIp;//cInfectedIpAddr;
+					unsigned int sport = rec.orig.sport;
+					printf("Send to (if partner and only once for ip/port match...) %s: %s:%d is infected... info: %s\n", lpSendToIp, lpFromIp, sport, pInfection->lpInfo);	
+				
+					struct _SeenPtNode	*pFound;
+					for (pFound = pSeenPointerChain; pFound; pFound = pFound->pNext)
+					{
+						bool bFoundNow = (!strcmp(pFound->szSendToIp, lpSendToIp) && pFound->nPort == sport);
+						printf("%s Comparing %s & %s --and -- %d & %d\n", (!bFoundNow?"not match":"**MATCHING**"), pFound->szSendToIp, lpSendToIp, pFound->nPort, sport);
+						if (bFoundNow)
+							break;
+					}
+
+					if (pFound)
+						printf("Already in the list: %s - %s:%d\n", lpSendToIp, lpFromIp, sport);
+					else
+					{
+						struct _SeenPtNode	*pNew = malloc(sizeof(struct _SeenPtNode));
+						strcpy(pNew->szMyIp, lpFromIp);	
+						strcpy(pNew->szSendToIp, lpSendToIp);
+						pNew->nPort = sport;
+						pNew->pNext = pSeenPointerChain;
+						pSeenPointerChain = pNew;
+						printf("New element put in list: %s - %s:%d\n", lpSendToIp, lpFromIp, sport);
+					}
 				}
+				else
+					printf("\nSkipping protocol: %s\n\n", rec.proto);
 			}
 	}
 
     pclose(fp);
 
-	//Clean up
-	free(pInfection->lpInfo);
-	free(pInfection);
+	MYSQL_STMT *stmt = NULL;
+	MYSQL_BIND param[1];
+	MYSQL_BIND result[1];
+	unsigned long ip_len;
+	int nRouterId;
+
+	stmt = mysql_stmt_init(conn);
+	if (!stmt) {
+   		printf("mysql_stmt_init failed\n");
+   		return NULL;
+	}
+
+	const char *lpSql =
+    		"SELECT R.routerId "
+    		"FROM partnerRouter R "
+    		"JOIN partner P ON P.partnerId = R.partnerId "
+    		"WHERE R.ip = INET_ATON(?)";
+
+	if (mysql_stmt_prepare(stmt, lpSql, strlen(lpSql)) != 0) {
+   		printf("prepare failed: %s\n", mysql_stmt_error(stmt));
+   		mysql_stmt_close(stmt);
+   		return NULL;
+	}
+
+	memset(param, 0, sizeof(param));
+
+	char cSearchPartnerIpAddress[100];
+
+	param[0].buffer_type   = MYSQL_TYPE_STRING;
+	param[0].buffer        = cSearchPartnerIpAddress;
+	param[0].buffer_length = sizeof(cSearchPartnerIpAddress);
+	param[0].length        = &ip_len;
+
+	if (mysql_stmt_bind_param(stmt, param) != 0) {
+   		printf("bind_param failed: %s\n", mysql_stmt_error(stmt));
+   		mysql_stmt_close(stmt);
+   		return NULL;
+	}
 
 	//Send the messages...
 	struct _SeenPtNode	*pFound;
 	struct _SeenPtNode	*pNext = NULL;
 	for (pFound = pSeenPointerChain; pFound; pFound = pNext)
 	{
-		//Check if partner....
-
+/*
 		MYSQL_STMT *stmt;
 		MYSQL_BIND param[1], result[1];
 
 		stmt = mysql_stmt_init(conn);
 
-		char *lpSql = "SELECT routerId from parterRouter R join partner P on P.partnerId = R.partnerId where ip = ?";
+		char *lpSql = "SELECT routerId from partnerRouter R join partner P on P.partnerId = R.partnerId where ip = inet_aton(?)";
 		mysql_stmt_prepare(stmt, lpSql, strlen(lpSql));
 
 		memset(param, 0, sizeof(param));
 
-		param[0].buffer_type = MYSQL_TYPE_LONG;
-		long lIp = inet__aton(pFound->szSendToIp);
-		param[0].buffer = &lIp;
+		param[0].buffer_type = MYSQL_TYPE_STRING;
+		param[0].buffer = pFound->szSendToIp;
 
 		mysql_stmt_bind_param(stmt, param);
 		mysql_stmt_execute(stmt);
 
 		memset(result, 0, sizeof(result));
-
-		/*String result
-		result[0].buffer_type = MYSQL_TYPE_STRING;
-		result[0].buffer = ip;
-		result[0].buffer_length = sizeof(ip);
-		result[0].length = &ip_len;
-		*/
 
 		int nRouterId;
 		result[0].buffer_type = MYSQL_TYPE_LONG;
@@ -489,15 +563,76 @@ void *worker(void *arg) {
 				printf("RouterId: %d\n", nRouterId);
 				bFound = true;
 		}
+				*/
 
-		printf("Router %s is%s a partner.\n", (bFound?"":" NOT"));
+		strcpy(cSearchPartnerIpAddress, pFound->szSendToIp);
+		ip_len = strlen(pFound->szSendToIp);
 
-		printf("Might send to: %s - %s:%d %s\n", pFound->szSendToIp, pFound->szMyIp, pFound->nPort, (bFound?"- and would if could 'coz it's a partner":"- but it's NOT a partner"));
+
+		if (mysql_stmt_execute(stmt) != 0) {
+    		printf("execute failed: %s\n", mysql_stmt_error(stmt));
+    		mysql_stmt_close(stmt);
+    		return NULL;
+		}
+
+		memset(result, 0, sizeof(result));
+
+		result[0].buffer_type = MYSQL_TYPE_LONG;
+		result[0].buffer      = &nRouterId;
+
+		if (mysql_stmt_bind_result(stmt, result) != 0) {
+    		printf("bind_result failed: %s\n", mysql_stmt_error(stmt));
+    		mysql_stmt_close(stmt);
+    		return NULL;
+		}
+
+		bool bFound = false;
+
+		while (1) {
+    		int rc = mysql_stmt_fetch(stmt);
+
+		    if (rc == 0) {
+        		printf("RouterId: %d\n", nRouterId);
+		        bFound = true;
+    		} else if (rc == MYSQL_NO_DATA) {
+        		break;
+    		} else {
+        		printf("fetch failed: %s\n", mysql_stmt_error(stmt));
+        		break;
+    		}
+		}
+
+		printf("Router %s is%s a partner.\n",		
+       		pFound->szSendToIp,
+       		bFound ? "" : " NOT");
+
+		/*printf("Might send to: %s - %s:%d %s\n",
+		    pFound->szSendToIp,
+		    pFound->szMyIp,
+       		pFound->nPort,
+       		bFound ? "- and would if could 'coz it's a partner"
+            	  : "- but it's NOT a partner");
+				  */
+
+		if (bFound) 
+        {
+			char cMessage[400];
+			//sprintf(cMessage, "%s %s:%u^%u^%u^%u asdfasdf is infected (message from owner): ?????", INFECTION_CHANGED_PREFIX, pFound->szMyIp, pFound->nPort);
+            sprintf(cMessage, "%s %s:%u^%u^%u^%u^%s", INFECTION_CHANGED_PREFIX, pFound->szMyIp, pFound->nPort, pInfection->nInfectionId, pInfection->nSeverity, pInfection->nBotnetId, pInfection->lpInfo);
+            printf("Trying to send to %s:%d - %s\n", pFound->szSendToIp, TARALINK_LISTENING_TO_PORT, cMessage);
+       		
+			send_UDP_message(sock, pFound->szSendToIp, TARALINK_LISTENING_TO_PORT, cMessage);
+		}
 
 		pNext = pFound->pNext;
 		free(pFound);
 	}
+
+	//Clean up
+	free(pInfection->lpInfo);
+	free(pInfection);
 	
+	mysql_stmt_close(stmt);
 	mysql_close(conn);
 
     return NULL;
@@ -512,6 +647,10 @@ void init_background_infecton_change_partner_notification(unsigned int ip, unsig
 	pInfection->ipNettmask = nett;
 	pInfection->lpInfo = malloc(strlen(lpInfo)+1);
 	strcpy(pInfection->lpInfo, lpInfo);
+
+    pInfection->nBotnetId = nBotnetId;
+    pInfection->nSeverity = nSeverity;
+    pInfection->nInfectionId = nInfectionId;
 
 	pthread_t t;
     pthread_create(&t, NULL, worker, pInfection);

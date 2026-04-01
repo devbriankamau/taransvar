@@ -206,8 +206,8 @@ function hackReport()
     $result = $stmt->get_result();
 
     while ($row = $result->fetch_assoc()) {    
-        $szDesc = "-".$row["description"]."-";
-        $cArr = array($row["created"],$row["ip"],$row["port"],"&nbsp;", $row["partnerIp"],$row["partnerPort"],$szDesc); //
+        $szDesc = $row["status"];
+        $cArr = array($row["created"],$row["ip"].":".$row["port"],"&nbsp;", $row["partnerIp"].":".$row["partnerPort"],$szDesc); //
         $szRowId = "hr".$row["reportId"];
         CXmlCommand::addTableRow("hackReportTbl", "top", "", $cArr, "", $szRowId);//$szHTML)
     }

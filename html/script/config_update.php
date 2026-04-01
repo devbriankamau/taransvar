@@ -46,6 +46,8 @@ if (isset($_GET["f"]))
             }
 			$szOurId = $_GET["ourid"];
 			//NOTE! No break here... continue to "report'
+			//ØT 260318 - Didn't break... resulting in new record that lead to another round of records in hackReport... I think the point is just to tag the record with the owners ID.
+			break;
                         
         case "report":
             {

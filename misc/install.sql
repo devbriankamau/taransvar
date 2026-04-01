@@ -80,8 +80,19 @@ alter table internalInfections add severity int not null default 0;
 alter table internalInfections add botnetId int null;
 update setup set dbVersion = 54;
 
+#version 55 (260331)
+alter table hackReport add infoSharePartners varchar(255);
+alter table hackReport add severity int not null default 0;
+alter table hackReport add botnetId int null;
+alter table hackReport add partnerId int null;
+alter table hackReport add infectionId int null;
+alter table hackReport add remoteUnitId int null;
+alter table hackReport modify status varchar(255);
+update setup set dbVersion = 55;
+
+
 #******** NEXT TIME ALSO add *****
-#update setup set dbVersion = 55;
+#update setup set dbVersion = 56;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

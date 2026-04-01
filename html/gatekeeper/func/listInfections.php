@@ -51,6 +51,7 @@ var szUpdateRoutine = "hackReport";
 	$result = $conn->query($sql);
 
 	print "<h2>Registered infections in our net:</h2>";
+	$nFound = 0;
 
 	if ($result) 
 	{
@@ -74,7 +75,7 @@ var szUpdateRoutine = "hackReport";
 					break;
 			}
 			$szWho = $row["hostname"].$row["description"];
-			print '<tr id="inf'.$row["infectionId"].'"><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'</td><td>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td>';
+			print '<tr id="inf'.$row["infectionId"].'"><td>'.$row["lastSeen"].'<td>'.$szFont.$row["ip"].$szFontEnd.'<br>'.$szFont.$row["nettmask"].$szFontEnd.'</td><td></td><td>'.$szWho.'</td><td>'.$szFont.$row["status"].$szFontEnd.'</td><td>';
 			$szActivateLinks = getActivateInfectionLinks($row);
 			print $szActivateLinks;
 			print '</td>';
@@ -103,32 +104,27 @@ var szUpdateRoutine = "hackReport";
 		$nCount=0;
 		while($row = $result->fetch_assoc()) 
 		{       
-		        if ($nCount == 0)
-		        {
-		                print '<tr><th>Reported</th><th colspan="3">Attacker</th><th colspan="2">Reporter</th></tr>';
-		        }
-		        $szWhom =       ($row["description"] && strlen($row["description"])?$row["description"]:$row["hostname"]);
-			print '<tr id="hr'.$row['reportId'].'"><td>'.$row["created"].'</td><td>'.$row["ip"].'</td><td>'.$row["port"].'</td><td>'.$szWhom.'</td><td>'.$row["partnerIp"].'</td><td>'.$row["partnerPort"].'</td><td>'.$row["status"].'</td>';
+			if (++$nCount == 1)
+				print "<tr><th>Time</th><th>Attacker</th><th>Who</th><th>Status</th><th>Action</th></tr>";
+
+	        $szWhom = ($row["description"] && strlen($row["description"])?$row["description"]:$row["hostname"]);
+			print '<tr id="hr'.$row['reportId'].'"><td>'.$row["created"].'</td><td>'.$row["ip"].':'.$row["port"].'</td><td>'.$szWhom.'</td><td>'.$row["partnerIp"].'</td><td>'.$row["partnerPort"].'</td><td>'.$row["status"].'</td>';
 			//print "<td>" . $row["toIP"]. "</td><td>" . $row["protocol"]."</td>";
-	    		print "</tr>";
-			$nCount++;
+    		print "</tr>";
 	  	}
 		if (!$nCount)
 			print "No hacking attempts reported.<br>";
 	} 
 	else 
 	{
-			print "No hacking attempts reported.<br>";
+		print "No hacking attempts reported.<br>";
 	}
 	print "</table>";
 
-        print "<a href=\"index.php?f=reportHack\">Register hacking attempt</a>";
-
-
-        
-        $conn->close();
-
+    print "<a href=\"index.php?f=reportHack\">Register hacking attempt</a>";
 	print '<br><a href="index.php?f=addinfection">Add infection</a>';
+        
+    $conn->close();
 }
 
 ?>

@@ -43,17 +43,10 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 	MYSQL_ROW row;
 	MYSQL_FIELD *field;
 	MYSQL_RES *rs_metadata;
-	MYSQL_STMT *stmt;
 	MYSQL_BIND ps_params[4];
 
 	//length[0] = strlen(cod);
     
-	stmt = mysql_stmt_init(conn);
-	if (stmt == NULL) {
-		printf("Could not initialize statement\n");
-		exit(1);
-	}
-
 	#define N_MAX_RECORDS 100
 	char *cRecord[N_MAX_RECORDS];
 	int nRecordCount = 0;
@@ -77,19 +70,24 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 		//printf("Traffic found: %s\n", cRecord[j]);
 
 		//Split the traffic record
+		char cBackup[200];	//Just for debugging
+		strcpy(cBackup, cRecord[j]);
 		char *token = strtok(cRecord[j], "-");
 		char *cFields[10];
+		int n = 0;
+
 		//Record format: AA4AFA8E-1BB-AA4AFA8E-D6CE-1-999   (6 fields... so 10 should be enough for a while)
 		// <hex ip from>-<portfrom>-<hex ip to>-<port to>-<count>-<tag> 
 
-		while (token != NULL) {
-			cFields[j++] = token;
+		while (token != NULL && n<sizeof(cFields)) 
+		{
+			cFields[n++] = token;
 			token = strtok(NULL, "-");
 		}
 
-		if (j != 6)
+		if (n != 6)
 		{
-			printf("***** ERROR ****** Incomplete record.. %d fields, supposed to be 6. Skipping record.\n", j);
+			printf("***** ERROR ****** Incomplete record.. %d fields, supposed to be 6. Skipping record: %s\n", n, cBackup);
 		}
 		else
 		{

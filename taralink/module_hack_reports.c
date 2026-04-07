@@ -16,6 +16,7 @@ void sendToGlogalDbServers(_GlobalServers *cGlobalDb, char *szParams)
     {
 		printf("About to send to global DB server: %s\n", lpGlobalDbIp);
     	char szUrl[255];
+		char szWgetBuff[2000];
     	sprintf(szUrl, "http://%s/%s", lpGlobalDbIp, szParams);
     	*szWgetBuff = 0;
     	wget(szUrl, szWgetBuff, sizeof(szWgetBuff));  //Using global static buffers because reply doesn't come immediately.
@@ -94,7 +95,7 @@ void checkHackReports()
 	//strcpy(szGlobalDb2, row[3]);
 	//strcpy(szGlobalDb3, row[4]);
 	
-        mysql_free_result(res);
+    mysql_free_result(res);
 	
 	//NOTE! Not checking hackReports regarding units in our network until 10 seconds later to give the system the chance to import recent port assignments
 	sprintf(szSQL, "select reportId, ip, port, inet_ntoa(ip), created, TIMESTAMPDIFF(MINUTE, created, NOW()) as MinutesSince, sendAttemptCount from hackReport where handledTime is null and (ip <> %u or created < DATE_SUB(NOW(), INTERVAL 10 SECOND))", nMyIp);
@@ -234,7 +235,7 @@ void checkHackReports()
 			mysql_free_result(lookupRes);
 
 			if (bUpdateHandled) {
-			        setHackReportAsHandled("firstTime", atoi(row[0]));
+			    setHackReportAsHandled("firstTime", atoi(row[0]));
 			}
 		}
 		else
@@ -242,7 +243,7 @@ void checkHackReports()
 			//This is hacking report regarding other IP. Check if it's a registered partner. If so, send it to that partner...
 			//NOTE! For now only handles routers with one IP.. Changes have to be made to support chunks of IP addresses..
 			char *lpStatus;
-		    	sprintf(szSQL, "select routerId, partnerId, nettmask from partnerRouter where ip = %s", row[1]); 
+		    sprintf(szSQL, "select routerId, partnerId, nettmask from partnerRouter where ip = %s", row[1]); 
 			printf ("SQL: %s\n", szSQL);
 		        
 			if (mysql_query(updateConn, szSQL)) {

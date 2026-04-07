@@ -1,3 +1,23 @@
+//Undefine these to look for memory leak... 
+#define DO_SETUP_CHECK  1
+#define DO_TRAFFIC_LOGGING 1
+#define DO_REQUEST_ASSISTANCE 1
+#define DO_REPORT_STATUS    1
+#define DO_REQUEST_STATUS 1
+
+//This influences others and eats nothing(?), so normally leave on
+#define DO_TIMER 1
+
+#define DO_SEND_CONFIGURATION 1
+#define SETUP_INTERNAL_SERVERS  1
+#define SETUP_BLACK_AND_WHITELISTS 1
+#define SETUP_INTERNAL_INFECTIONS   1
+#define SETUP_PARTNERS      1
+#define SETUP_INSPECTIONS   1
+#define SETUP_HONEYPOTS     1
+#define SETUP_SETUP         1
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +54,6 @@
 #define CONFIG_FILENAME "configfile.txt"
 
 static clock_t lastPing = 0;
-static char szWgetBuff[2000];
 
 int configFileExists(void);
 MYSQL *getConnection();
@@ -46,6 +65,8 @@ struct _SocketData {
   struct nlmsghdr *nlh;
   struct iovec iov;
 };
+
+static char szWgetBuff[2000]; //Used by wget because result doesn't come immediately so can't use cach 
 
 struct _SocketData *pSockData = NULL;   //Get rid of this....
 
@@ -72,7 +93,9 @@ char *wget(char *lpUrl, char *szBuff, int nBuffSize);
 void handleTrafficReportFromKernel(char *lpPayload, int nDataLength);
 void init_background_infecton_change_partner_notification(unsigned int ip, unsigned int nett, char *lpActive, unsigned int nStatus, unsigned int nInfectionId, unsigned int nSeverity, unsigned int nBotnetId, char *lpInfo);
 unsigned int inet__aton(char *lpIp);
+int send_to_kernel(int fd, const void *data, size_t len);
 
+int fd = 0;
 
 #include "module_send_configuration.c"
 
@@ -94,14 +117,11 @@ unsigned int inet__aton(char *lpIp);
 //#define UDP_PORT 5555         now using TARALINK_LISTENING_TO_PORT (tarakernel/module_globals.h)
 #define NETLINK_USER 31   /* example only */
 
-int fd = 0;
-
 //New communication functions..
 int create_netlink_socket(void);
 int create_udp_socket(int port);
 void handle_udp(int udp_fd);
 void handle_netlink(int nl_fd);
-int send_to_kernel(int fd, const void *data, size_t len);
 
 
 //Compatibility functions....
@@ -141,7 +161,6 @@ int getKernelSocket(struct _SocketData *pSockData)
 MYSQL *getConnection()
 {
     MYSQL *conn;
-    conn = mysql_init(0);
 	char *server ="localhost";
     //server ="10.10.10.10";
 	//char *user = "'scriptUsrAces3f3'@'10.10.10.20'";
@@ -533,30 +552,6 @@ void handle_udp(int udp_fd)
     send_to_kernel(fd, buf, strlen(buf) + 1);
 }
 
-/*void handle_udp(int udp_fd)
-{
-    //#define UDP_MSG_PREFIX "UDP_JSON:"    Defined in tarakernel/module_globals.h
-    char buf[2048+strlen(UDP_MSG_PREFIX)];
-    struct sockaddr_in src;
-    socklen_t slen = sizeof(src)-strlen(UDP_MSG_PREFIX);
-    strcpy(buf, UDP_MSG_PREFIX);
-
-    int n = recvfrom(udp_fd, buf + strlen(UDP_MSG_PREFIX), sizeof(buf) - 1, 0, (struct sockaddr *)&src, &slen);
-    if (n < 0) {
-        perror("recvfrom");
-        return;
-    }
-
-    buf[n+strlen(UDP_MSG_PREFIX)] = '\0';
-
-    printf("\n************************ WARNING ***************************\n\nUDP from %s:%d -> %s\n\n",
-           inet_ntoa(src.sin_addr),
-           ntohs(src.sin_port),
-           buf);
-
-    //send_to_kernel(fd, buf, strlen(buf) + 1);
-}*/
-
 void interpretFromKernel(char *lpPayload, int nDataLength);
 void interpretFromKernel(char *lpPayload, int nDataLength)
 {
@@ -568,8 +563,11 @@ void interpretFromKernel(char *lpPayload, int nDataLength)
     {
         int bReadChangesOnly;
 
-		printf("Configuration requested..\n");
-		sentConfiguration(pSockData, nSequenceNumber, 1, bReadChangesOnly = 0);
+        #ifdef DO_SEND_CONFIGURATION
+		    printf("Configuration requested..\n");
+		    //sentConfiguration(pSockData, nSequenceNumber, 1, bReadChangesOnly = 0);
+		    sentConfiguration(nSequenceNumber, 1, bReadChangesOnly = 0);
+        #endif
 	} 
     else
 	{
@@ -593,27 +591,47 @@ void interpretFromKernel(char *lpPayload, int nDataLength)
 		   	char *lpStatus = lpSeparator+1;//lpPayload+strlen(lpSearchKey); 
 			printf("%s\n", lpStatus);
 			
+            #ifdef DO_REPORT_STATUS
 			checkReportStatus(lpStatus);
+            #endif
 		}
 		else
 		{
 		    if (!strcmp(cKeyword, "TRAFFIC"))
 		    {
-                char cBuf[400];	//was 200
-                int nTrafficLen = strlen(lpSeparator+1); 
+                char cBuf[500];	//NOTE! Just for displaying(before:200)
+                int nTrafficLen = (lpSeparator?strlen(lpSeparator+1):0); 
                 //bufferToHex((char*)lpPayload, (nDataLength>60?60:nDataLength), cBuf, 200);
                 //printf("**** Traffic hex dump: %s\n", cBuf);
-                strncpy(cBuf, lpSeparator+1, (nTrafficLen>250?250:nTrafficLen+1));	//was (nTrafficLen>50?50:nTrafficLen+1));
-                if (nTrafficLen > 250)	//was 50
+
+                //How many positions reserved for tranaction text and the end of the buffer:
+                #define N_POS_FOR_TRUNCATRION_TEXT 75
+                
+                int nMaxLen = sizeof(cBuf)-N_POS_FOR_TRUNCATRION_TEXT;
+                int nCopied = nTrafficLen>nMaxLen?nMaxLen:nTrafficLen+1;
+                strncpy(cBuf, (lpSeparator?lpSeparator+1:""), nCopied);	//was (nTrafficLen>50?50:nTrafficLen+1));
+                cBuf[nCopied] = 0;
+                if (nCopied < nTrafficLen)	//was 50
                 {
-                    sprintf(cBuf+250," *** truncated, len: %d *** ", nTrafficLen);	//was 50
-                    strcpy(cBuf+strlen(cBuf), lpSeparator+1+nTrafficLen-50);
+                    sprintf(cBuf+nCopied," *** truncated, len: %d *** ", nTrafficLen);	//was 50
+                    int nCharsLeftInBuffer = sizeof(cBuf)-strlen(cBuf);
+                    
+                    //Copies the end of the buffer after the text above... 
+                    strcpy(cBuf+strlen(cBuf), lpSeparator+3+nTrafficLen-nCharsLeftInBuffer);    //NOTE! +2 is necessary... increase to not use the whole buffer...
                 }
 
+            /*  Just for debugging... Check how many available positions in buffer...
+                if (strlen(cBuf)> sizeof(cBuf)-10)
+                {
+                    printf("************ WARNING ************* Risky... Buffer is %d, strlen is %d\n", sizeof(cBuf), strlen(cBuf));
+                }
+            */
+
+                #ifdef DO_TRAFFIC_LOGGING
                 printf("**** Traffic received: %s\n", cBuf);//lpSeparator+1);
-		        
 		        //handleTrafficReportFromKernel(lpPayload+strlen(lpSearchKey), nDataLength - strlen(lpSearchKey));
 		        handleTrafficReportFromKernel(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
+                #endif
 		    }
     		else 
                 if (!strcmp(cKeyword, "CHECK"))
@@ -623,7 +641,7 @@ void interpretFromKernel(char *lpPayload, int nDataLength)
     		    else 
                     if (!strcmp(cKeyword, "DUMMY"))
     		        {
-    		          testingTesting(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
+    		            testingTesting(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
     	        	}
 	        		else
 	              		printf("Unhandled msg (keyword: %s) from kernel (%d bytes): %s\n", cKeyword, nDataLength, lpPayload);
@@ -667,8 +685,6 @@ void handle_netlink(int nl_fd)
         //printf("payload = %.*s\n", payload_len, payload); 
         
         interpretFromKernel(payload, payload_len);
-        //asdf 
-
     }
     else   
         printf("****** ERROR ****** Payload is not ok!");
@@ -730,17 +746,13 @@ static void on_sigint(int sig)
     g_stop = 1;
 }
 
-
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
 
-
-
 int main(void)
 {
-
     //To ensure that can Ctrl-C to break
     struct sigaction sa;
     memset(&sa, 0, sizeof(sa));
@@ -749,10 +761,11 @@ int main(void)
     sigaction(SIGINT, &sa, NULL);
     sigaction(SIGTERM, &sa, NULL);
 
-
     pSockData = getSockData();  //This is no longer in use....
 
-	init_timer();
+    #ifdef DO_TIMER
+	    init_timer();
+    #endif
 
     int nl_fd = create_netlink_socket();
     int udp_fd = create_udp_socket(TARALINK_LISTENING_TO_PORT);
@@ -796,7 +809,6 @@ int main(void)
             perror("select");
             break;
         }
-
 
         if (FD_ISSET(nl_fd, &rfds))
             handle_netlink(nl_fd);

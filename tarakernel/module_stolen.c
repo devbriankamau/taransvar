@@ -155,7 +155,7 @@ static void delayed_forward_cb(struct work_struct *work)
         goto out;
 
     job->skb->dev = job->outdev;
-
+    
     ret = dev_queue_xmit(job->skb);
     if (ret)
         pr_info("tarakernel SENDING: dev_queue_xmit failed: %d\n", ret);

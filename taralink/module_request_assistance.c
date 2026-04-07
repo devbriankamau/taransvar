@@ -106,11 +106,11 @@ void checkRequestAssistance()
         //printf("Dropping requestassistance.. \n");
         //return;
         
-	MYSQL *conn, *setupConn, *updateConn;
+	MYSQL *conn, *setupConn;
 	MYSQL_RES *res, *setupRes;
 	MYSQL_ROW row, setupRow;
 	conn = getConnection();
-	updateConn = setupConn = NULL;
+	setupConn = NULL;
 	printf("Checking requests for assistance.....\n");
 
         //Select unhandled (handled is null) assistance requests  
@@ -145,9 +145,6 @@ void checkRequestAssistance()
 			{
 				//char cSQL;
 				setupConn = getConnection();
-				
-				if (!updateConn)
-				    updateConn = getConnection();
 				      
 				if (mysql_query(setupConn, "select inet_ntoa(globalDb1ip) as ip1, inet_ntoa(globalDb2ip) as ip2, inet_ntoa(globalDb3ip) as ip3, inet_ntoa(adminIP) as adminIP from setup")) 
 				{
@@ -288,7 +285,4 @@ void checkRequestAssistance()
         	mysql_free_result(setupRes);
 		mysql_close(setupConn);
 	}
-	
-	if (updateConn)
-		mysql_close(updateConn);
 }

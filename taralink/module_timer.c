@@ -39,12 +39,12 @@ int init_timer()
      * it_value and it_interval must not be zero */
 
     struct itimerspec its = {   .it_value.tv_sec  = C_TIMER_INTERVAL_SECONDS,   //Number of seconds before first timer.. (defined in ../tarakernel/module_globals.h)
-                                .it_value.tv_nsec = 0,
+                                .it_value.tv_nsec = C_TIMER_INTERVAL_MILLISECONDS * 1000000 ,
                                 .it_interval.tv_sec  = C_TIMER_INTERVAL_SECONDS,  //Then number of secongs between timers
-                                .it_interval.tv_nsec = 0
+                                .it_interval.tv_nsec = C_TIMER_INTERVAL_MILLISECONDS * 1000000
                             };
 
-    printf("Simple Threading Timer - thread-id: %d\n", gettid());
+    printf("Simple Threading Timer (changed) - thread-id: %d\n", gettid());
 
     sev.sigev_notify = SIGEV_THREAD;
     sev.sigev_notify_function = &timer_callback;
@@ -69,42 +69,48 @@ int init_timer()
         addWarningRecord("****** ERROR ***** Taralink failed to run timer_settime() and has stopped (T006).");
         exit(-1);
     }
-
-/*    printf("Press ETNER Key to Exit\n");
-    while(getchar()!='\n'){}
-    return 0;*/
 }
 
 void timer_callback(union sigval timer_data)
 {
 	char *lpPayload;
 	//struct t_eventData *data = timer_data.sival_ptr;
-	printf("Timer fired - thread-id: %d\n", gettid());
+	printf("Timer fired - thread-id (changed): %d\n", gettid());
 
-    struct _SocketData *pSockData = 0;
+    //struct _SocketData *pSockData = 0;
         
 	
 	//Check if there's unhandled requests for assistance (under d-dos or brute force attack)
 	//Check assistanceRequest mysql table (misc/install.sql) 
 	//printf("About to check for requests for assistance..\n");
-	checkRequestAssistance();
-	printf("Finished checking for requests for assistance..\n");
-                
-    checkHackReports();   //Checks if there's reported attacks by units in our network  (module_hack_reports.c)              
-                
-	pSockData = getSockData();
-	getKernelSocket(pSockData);
 
-    int nSequenceNumber, bIsInbound, bReadChangesOnly;
-	int nRetval = sentConfiguration(pSockData, nSequenceNumber=0, bIsInbound=0, bReadChangesOnly=1); 
-	//printf("After sentConfiguration\n");
+    #ifdef DO_REQUEST_ASSISTANCE
+	    checkRequestAssistance();
+	    printf("Finished checking for requests for assistance..\n");
+    #endif
+          
+    #ifdef DO_CHECK_HACK_REPORTS
+        checkHackReports();   //Checks if there's reported attacks by units in our network  (module_hack_reports.c)              
+    #endif
+          
+    #ifdef DO_SETUP_CHECK    
+    	//pSockData = getSockData();
+	    //getKernelSocket(pSockData);
 
-    if (!nRetval)
-    {
-        //NOTE! Reply to messages sent here is picked up by recvmsg called by main() function (see abmonitor.c)... That's why code below is commented out. 
-    	printf("Requesting status\n");
-	    sendMessage(pSockData, "request_tarakernel_status");
-	}
+        int nSequenceNumber, bIsInbound, bReadChangesOnly;
+    	int nRetval = sentConfiguration(nSequenceNumber=0, bIsInbound=0, bReadChangesOnly=1); 
+	    //printf("After sentConfiguration\n");
+
+        #ifdef DO_REQUEST_STATUS        
+        if (!nRetval)
+        {
+            //NOTE! Reply to messages sent here is picked up by recvmsg called by main() function (see abmonitor.c)... That's why code below is commented out. 
+        	printf("Requesting status\n");
+            char *lpMsg = "request_tarakernel_status";
+	        //sendMessage(pSockData, lpMsg);
+            send_to_kernel(fd, lpMsg, strlen(lpMsg));
+	    }
+        #endif
 
 //*************** NOTE! Try to comment out to fix big time memory leak.....
 /*        
@@ -129,9 +135,10 @@ void timer_callback(union sigval timer_data)
 //************ Comment out until here.... (never gets here anyway....)
 
 
-	close (pSockData->sock_fd);
-	free(pSockData->nlh);
-	free(pSockData);
+    	//close (pSockData->sock_fd);
+	    //free(pSockData->nlh);
+	    //free(pSockData);
+    #endif
 }
     
  

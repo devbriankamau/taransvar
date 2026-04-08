@@ -111,7 +111,7 @@ void checkRequestAssistance()
 	MYSQL_ROW row, setupRow;
 	conn = getConnection();
 	setupConn = NULL;
-	printf("Checking requests for assistance.....\n");
+	//printf("Checking requests for assistance.....\n");
 
         //Select unhandled (handled is null) assistance requests  
 	char *szSQL = "select hex(ip) as ip, port, category, comment, coalesce(requestQuality,0) as requestQuality, wantSpoofed, requestId, senderIp, hex(senderIp) as senderIpHex, purpose from assistanceRequest where handled is null";

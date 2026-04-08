@@ -50,7 +50,7 @@ void updateHandled(MYSQL *updateConn, char *lpTableName, char *lpKeyField, char 
 {
 	char cSQL[300];
 	snprintf(cSQL, sizeof(cSQL), "update %s set handled = b'1' where %s = %s", lpTableName, lpKeyField, lpId);
- 	printf("Updating: %s\n", cSQL);
+ 	//printf("Updating: %s\n", cSQL);
 	if (mysql_query(updateConn, cSQL)) {
 	    fprintf(stderr, "%s\n", mysql_error(updateConn));
 	    addWarningRecord("*********** ERROR *********** Taralink couldn't update handled fields.");
@@ -161,7 +161,7 @@ bool getSetupStringOk(MYSQL *conn, MYSQL *updateConn, char *cSetupString, int nB
 				//strcpy(cReply+strlen(cReply), "SETUP|");
 				//strcpy(cReply+strlen(cReply), row[0]);
 				//strcpy(cReply+strlen(cReply), "|");
-			printf("Setup added now : %s^%s^%s\n", row[0], row[1], row[2]);
+			//printf("Setup added now : %s^%s^%s\n", row[0], row[1], row[2]);
 			if (!atoi(row[3])) {
 				printf("Setting setup as handled..\n");
 				if (mysql_query(updateConn, "update setup set handled = b'1'")) {
@@ -245,10 +245,10 @@ bool getSetupStringNewOk(MYSQL *conn, MYSQL *updateConn, char *cSetupString, int
 
 	if ((row = mysql_fetch_row(res)) != NULL)
 	{
-		printf("Found setup row...\n");
+		//printf("Found setup row...\n");
 		if (!bReadChangesOnly || !atoi(row[3]))
 		{
-			printf("processing it...\n");
+			//printf("processing it...\n");
 			union _showStatusBitsUnion cShowStatusBits;
 			cShowStatusBits.nValues = 0; //Initialize the whole union / structure
 			//cShowStatusBits.bits.nDummy = 0;
@@ -816,7 +816,7 @@ int sentConfiguration(int nSequenceNumber, int bIsInbound, int bReadChangesOnly)
 
 			if ((row = mysql_fetch_row(res)) == NULL)
 			{
-				printf("Setup not changed. Skipping reading.\n");
+				//printf("Setup not changed. Skipping reading.\n");
 				bReadSetup = false;
 			}
 			else 
@@ -848,8 +848,8 @@ int sentConfiguration(int nSequenceNumber, int bIsInbound, int bReadChangesOnly)
 
 		    bFoundData = 1;
 		}
-		else	
-			printf("Skipping reading (already handled)\n");
+		//else	
+		//	printf("Skipping reading (already handled)\n");
 			
 		//printf("Freeing up connections\n");
 #endif //#ifdef SETUP_SETUP
@@ -880,17 +880,17 @@ int sentConfiguration(int nSequenceNumber, int bIsInbound, int bReadChangesOnly)
     {
         //sendMessage(pSockData, cReply);
 		send_to_kernel(fd, cReply, strlen(cReply));		
-		printf("Configuration sent(%ld chars): %s.\nPreparing to read again\n", strlen(cReply), cReply);
+		printf("Configuration sent(%ld chars): %s\n", strlen(cReply), cReply);
 		return 1; //Did send data
 	}
-	else
-		printf("Configuration is unchanged.\n");
+	//else
+	//	printf("Configuration is unchanged.\n");
 	
 	//Note... This is not complete.. If there's some available space, it will add just part of the buffer and not add anything to nCharsTruncated (especially if it's the last section - the setup table)
 	if (nCharsTruncated)
 		printf("\n************* WARNING **************************\n\nLacking estimated at least %d char buffer space to send setup!\n\n*************************************************\n", nCharsTruncated);
-	else	
-		printf("Setup: %d chars, buffer size: %d\n", strlen(cReply), sizeof(cReply));
+	//else	
+	//	printf("Setup: %lu chars, buffer size: %lu\n", strlen(cReply), sizeof(cReply));
 
 	return 0;
 }

@@ -44,7 +44,7 @@ int init_timer()
                                 .it_interval.tv_nsec = C_TIMER_INTERVAL_MILLISECONDS * 1000000
                             };
 
-    printf("Simple Threading Timer (changed) - thread-id: %d\n", gettid());
+    printf("Simple Threading Timer - thread-id: %d\n", gettid());
 
     sev.sigev_notify = SIGEV_THREAD;
     sev.sigev_notify_function = &timer_callback;
@@ -75,7 +75,11 @@ void timer_callback(union sigval timer_data)
 {
 	char *lpPayload;
 	//struct t_eventData *data = timer_data.sival_ptr;
-	printf("Timer fired - thread-id (changed): %d\n", gettid());
+    //#include <time.h>
+
+    time_t rawtime;
+    time(&rawtime); // Get current time in seconds since epoch
+    printf("Timer fired: %s", ctime(&rawtime));
 
     //struct _SocketData *pSockData = 0;
         
@@ -86,7 +90,7 @@ void timer_callback(union sigval timer_data)
 
     #ifdef DO_REQUEST_ASSISTANCE
 	    checkRequestAssistance();
-	    printf("Finished checking for requests for assistance..\n");
+	    //printf("Finished checking for requests for assistance..\n");
     #endif
           
     #ifdef DO_CHECK_HACK_REPORTS
@@ -105,7 +109,7 @@ void timer_callback(union sigval timer_data)
         if (!nRetval)
         {
             //NOTE! Reply to messages sent here is picked up by recvmsg called by main() function (see abmonitor.c)... That's why code below is commented out. 
-        	printf("Requesting status\n");
+        	//printf("Requesting status\n");
             char *lpMsg = "request_tarakernel_status";
 	        //sendMessage(pSockData, lpMsg);
             send_to_kernel(fd, lpMsg, strlen(lpMsg));

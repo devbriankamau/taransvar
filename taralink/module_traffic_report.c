@@ -57,6 +57,33 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
 		cRecord[nRecordCount++] = token;
 		token = strtok(NULL, "^");
 
+		if (!token)
+		{
+			printf("****** ERROR ***** unable to find trailing '^'. Aborting.\n");
+			break;
+		}
+
+		if (!strcmp(token, "EOF"))
+		{
+			//printf("EOF found. Aborting.\n");
+			break;
+		}
+
+		//lpPayload is a NULL terminated string (sender, tarakernel, ensures).. Still make sure we don't go beyond the buffer...
+		int nTokenOffset = token - lpPayload;
+		int nCharsLeft = nDataLength - nTokenOffset;
+
+		if (nCharsLeft < 28)	//Less than what "normally takes for one repot and not EOF (checked above)"
+			printf("**** WARNING **** Only %d chars left of payload. Record: %s\n", nCharsLeft, (token?token:"(null)"));
+		//else
+		//	printf("**** %d chars left of payload: %s\n", nCharsLeft, (token?token:"(null)"));
+
+		if (nCharsLeft < 3)
+		{
+			printf("*** ERROR! End reached without EOF... Aborting.\n");	//Probably never gets here...
+			break;
+		}
+
 		if (nRecordCount > N_MAX_RECORDS - 3)
 		{
 			//No need for further error handling since this is just informational....????
@@ -105,7 +132,7 @@ void handleTrafficReportFromKernel(char *lpPayload, int nDataLength)
                 //     printf("******** ERROR inserting traffic record.\n");
 		}
 	}
-	//printf("%d records inserted in traffic table.\n", nRecordCount);
+	printf("%d records inserted in traffic table.\n", nRecordCount);
 
 	mysql_close(conn);
 }

@@ -96,7 +96,7 @@ static unsigned int queueRetransmit(struct sk_buff *skb, const struct nf_hook_st
 static int send_udp_json(__be32 daddr, __be16 dport, const char *json);
 
 void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere);	//260320 - asdf... got problem with this....
-static void send_to_user(const char *msg);
+//static void send_to_user(const char *msg);
 
 //static int tcp_read_timestamp_option(struct sk_buff *skb, __be32 *tsval_be, __be32 *tsecr_be);
 //static int tcp_set_timestamp_option(struct sk_buff *skb, bool set_tsval, __be32 new_tsval_be, bool set_tsecr, __be32 new_tsecr_be);
@@ -145,7 +145,7 @@ void sendMessage(int pid, char *msg)
 	int msg_size;
 	int res;
 	struct sk_buff *skb_out;
-	msg_size=strlen(msg);
+	msg_size=strlen(msg)+1;
 	skb_out = nlmsg_new(msg_size,0);
 	if(!skb_out)
 	{
@@ -296,7 +296,7 @@ static void hello_nl_recv_msg(struct sk_buff *skb)
 }
 
 
-
+/*
 static void send_to_user(const char *msg)
 {
 	//Use this to send messages to user space initiated from kernel... 
@@ -335,7 +335,7 @@ static void send_to_user(const char *msg)
     res = nlmsg_unicast(nl_sk, skb_out, pid);
     if (res < 0)
         printk(KERN_INFO "Error while sending to user: %d\n", res);
-}
+}*/
 
 
 //Timer callback and includes
@@ -344,21 +344,23 @@ static void send_to_user(const char *msg)
 
 static struct timer_list my_timer;
 
+/*
 static void my_timer_cb(struct timer_list *t)
 {
-/*
-	printk("tarakernel: my_timer fired  ******************** DEBUGGING ONLY:::\n");
+	pr_info("For now not getting here..... (unless you read this message)\n");
+
+	//printk("tarakernel: my_timer fired  ******************** DEBUGGING ONLY:::\n");
 		
-    checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
+    //checkTimedOperation();  //module_timed_operations.h	- should be implemented as true timed operation - don't delay packets here....
 
     // rearm 1 second later (if wanted) - or much for debug
-*/
+
 
     mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_SECONDS * 1000));
 
-	send_to_user("tarakernel here... I got a timer.. how are you?");
+	//send_to_user("tarakernel here... I got a timer.. how are you?");
 }
-
+*/
 
 static int __init hello_init(void) 
 {
@@ -445,11 +447,13 @@ static int __init hello_init(void)
 	}
 	warn("tarakernel: Netfilter hooks registered\n");
 
+	/*
 	//Set up a timer
 	timer_setup(&my_timer, my_timer_cb, 0);
     mod_timer(&my_timer, jiffies + msecs_to_jiffies(TIMER_SECONDS * 3 * 1000));	// 3 times normal in the start.. (in case debugging)
-
     pr_info("tarakernel: timer armed\n");
+	*/
+    pr_info("tarakernel: Timer disabled for now..\n");	//NOTE! Timer is for now handled by timer in taralink requesting.. Better try move it here.
 
 	return 0;
 }

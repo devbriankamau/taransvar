@@ -628,7 +628,7 @@ void interpretFromKernel(char *lpPayload, int nDataLength)
             */
 
                 #ifdef DO_TRAFFIC_LOGGING
-                printf("**** Traffic received: %s\n", cBuf);//lpSeparator+1);
+                //printf("**** Traffic received: %s\n", cBuf);//lpSeparator+1);
 		        //handleTrafficReportFromKernel(lpPayload+strlen(lpSearchKey), nDataLength - strlen(lpSearchKey));
 		        handleTrafficReportFromKernel(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
                 #endif
@@ -644,7 +644,8 @@ void interpretFromKernel(char *lpPayload, int nDataLength)
     		            testingTesting(lpSeparator+1, nDataLength - (strlen(cKeyword)+1));
     	        	}
 	        		else
-	              		printf("Unhandled msg (keyword: %s) from kernel (%d bytes): %s\n", cKeyword, nDataLength, lpPayload);
+                        if (strcmp(lpPayload, "n/a"))
+	              		    printf("Unhandled msg (keyword: %s) from kernel (%d bytes): %s\n", cKeyword, nDataLength, lpPayload);
 		}
 	}	
 }//interpretFromKernel()

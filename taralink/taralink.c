@@ -18,6 +18,12 @@
 #define SETUP_SETUP         1
 
 
+//#define TARALINK_LISTENING_TO_PORT 5551   defined in ../tarakernel/module_global.h
+#define SYSLOG_UDP_PORT 514
+#define SYSLOG_TCP_PORT 514     //Add this later
+#define SYSLOG_TLS_PORT 6514    //Add this later
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +35,6 @@
 #include <linux/netlink.h>
 
 #include "mariadb/mysql.h"
-
 
 #include <stdbool.h>
 #include <sys/syscall.h>
@@ -110,8 +115,8 @@ int fd = 0;
 #include "module_msg_from_kernel.c"
 #include "module_functions.c"
 #include "infection_change_partner_notification.c"
-//*/
 
+#include "soc_syslog.c"
 
 
 //#define UDP_PORT 5555         now using TARALINK_LISTENING_TO_PORT (tarakernel/module_globals.h)
@@ -771,6 +776,12 @@ int main(void)
     int nl_fd = create_netlink_socket();
     int udp_fd = create_udp_socket(TARALINK_LISTENING_TO_PORT);
 
+    int soc_fd = create_udp_socket(SYSLOG_UDP_PORT);
+
+    //Later add
+    //int syslog_tcp_fd = create_tcp_listener(SYSLOG_TCP_PORT);
+    //int syslog_tls_fd = create_tcp_listener(SYSLOG_TLS_PORT);   /* later wrap with TLS */
+
     if (nl_fd < 0 || udp_fd < 0) {
         if (nl_fd >= 0) close(nl_fd);
         if (udp_fd >= 0) close(udp_fd);
@@ -797,10 +808,14 @@ int main(void)
         FD_ZERO(&rfds);
         FD_SET(nl_fd, &rfds);
         FD_SET(udp_fd, &rfds);
+        FD_SET(soc_fd, &rfds);
 
-        maxfd = (nl_fd > udp_fd) ? nl_fd : udp_fd;
+        maxfd = nl_fd;
+        if (udp_fd > maxfd) maxfd = udp_fd;
+        if (soc_fd > maxfd) maxfd = soc_fd;        
 
         ret = select(maxfd + 1, &rfds, NULL, NULL, NULL);
+
         if (ret < 0) {
             if (errno == EINTR) {
                 if (g_stop)
@@ -816,10 +831,27 @@ int main(void)
 
         if (FD_ISSET(udp_fd, &rfds))
             handle_udp(udp_fd);
+
+
+        if (FD_ISSET(soc_fd, &rfds))
+        {
+            fflush(stdout);
+            handle_soc_syslogmsg(soc_fd);
+        }
+
+        /*Later add: 
+        if (FD_ISSET(syslog_tcp_fd, &rfds))
+            handle_soc_syslog_tcp(syslog_tcp_fd);
+
+        if (FD_ISSET(syslog_tls_fd, &rfds))
+            handle_soc_syslog_tls(syslog_tls_fd);
+        */
+
     }
 
     close(nl_fd);
     close(udp_fd);
+    close(soc_fd);
     printf("\nQuitting taralink. To stop tarakernel: sudo rmmod tarakernel\n");
     return 0;
 }

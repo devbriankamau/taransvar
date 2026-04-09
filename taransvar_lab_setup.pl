@@ -25,10 +25,11 @@ my $LAB_NET_NAME    = 'taransvar-lab';
 my $LAB_SUBNET      = '10.10.10.0/24';
 my $LAB_GATEWAY     = '10.10.10.254';
 my $LAB_PREFIX      = 24;
-my $ROUTERVM_IP     = '10.10.10.1';
+my $ROUTERVM_IP     = '10.10.10.10';
+my $HONEYPOT_IP     = '10.10.10.11';
 my $NODE2_IP        = '10.10.10.2';
 my $NODE3_IP        = '10.10.10.3';
-my @TARGET_VMS      = qw(routervm node2 node3);
+my @TARGET_VMS      = qw(routervm node2 node3 honeypotvm);
 
 # -------------------------
 # Generic helpers
@@ -485,6 +486,7 @@ sub print_plan_summary {
     print "Lab subnet         : $LAB_SUBNET\n";
     print "Host bridge IP     : $LAB_GATEWAY/$LAB_PREFIX\n";
     print "routervm           : $ROUTERVM_IP\n";
+    print "honeypotvm         : $HONEYPOT_IP\n";
     print "node2              : $NODE2_IP\n";
     print "node3              : $NODE3_IP\n";
     print "routervm role      : ordinary node on 10.10.10.0/24, plus optional hotspot subnet via USB Wi-Fi dongle\n";
@@ -619,7 +621,7 @@ sub create_cloud_init_seed {
     my $hash = cloud_init_password_hash($password);
 
     my ($ufh, $user_data) = tempfile(SUFFIX => ".user-data");
-    print $ufh <<"EOF";
+print $ufh <<"EOF";
 #cloud-config
 hostname: $name
 manage_etc_hosts: true
@@ -630,7 +632,11 @@ users:
     groups: sudo
     shell: /bin/bash
     lock_passwd: false
-    passwd: $hash
+
+chpasswd:
+  list: |
+    $user:$password
+  expire: false
 
 ssh_pwauth: true
 disable_root: false
@@ -640,13 +646,8 @@ packages:
   - net-tools
   - curl
   - wget
-
-runcmd:
-  - systemctl enable qemu-guest-agent || true
-  - systemctl start qemu-guest-agent || true
 EOF
     close $ufh;
-
     my ($mfh, $meta_data) = tempfile(SUFFIX => ".meta-data");
     print $mfh <<"EOF";
 instance-id: $name
@@ -658,22 +659,15 @@ EOF
     print $nfh <<"EOF";
 version: 2
 ethernets:
-  labnic:
+  default:
     match:
-      macaddress: $mac
-    set-name: labnic
+      name: "en*"
     dhcp4: false
     addresses:
       - $ip/$prefix
-EOF
-    if ($gateway) {
-        print $nfh <<"EOF";
     routes:
       - to: default
         via: $gateway
-EOF
-    }
-    print $nfh <<"EOF";
     nameservers:
       addresses: [$dns]
 EOF
@@ -788,7 +782,7 @@ sub define_or_install_cloud_vm {
 }
 
 sub next_free_node_ip {
-    my %reserved = map { $_ => 1 } ($ROUTERVM_IP, $NODE2_IP, $NODE3_IP, $LAB_GATEWAY);
+    my %reserved = map { $_ => 1 } ($ROUTERVM_IP, $HONEYPOT_IP, $NODE2_IP, $NODE3_IP, $LAB_GATEWAY);
 
     for my $last (4 .. 253) {
         my $candidate = "10.10.10.$last";
@@ -1073,6 +1067,13 @@ sub maybe_create_vms {
             ip       => $ROUTERVM_IP,
         },
         {
+            name     => 'honeypotvm',
+            memory   => 2048,
+            vcpus    => 2,
+            disk_gb  => 12,
+            ip       => $HONEYPOT_IP,
+        },        
+        {
             name     => 'node2',
             memory   => 3072,
             vcpus    => 2,
@@ -1156,7 +1157,7 @@ sub maybe_attach_dongle_to_routervm {
         print "  ID   : $dev->{vendor}:$dev->{product}\n";
         print "  Desc : $dev->{desc}\n";
 
-        if (yesno("Attach this dongle to routervm?", 1)) {
+        if (yesno("Attach this dongle to routervm (if not already attached)?", 1)) {
             attach_usb_hostdev_to_vm('routervm', $dev->{vendor}, $dev->{product});
             $already{$key} = 1;
         }
@@ -1236,18 +1237,19 @@ Guest IP note:
   but guest-side role configuration is still up to you.
 
 Suggested static guest IPs on the lab network:
-  routervm : 10.10.10.1/24
-  node2    : 10.10.10.2/24
-  node3    : 10.10.10.3/24
+  routervm   : 10.10.10.10/24
+  honeypotvm : 10.10.10.11/24
+  node2      : 10.10.10.2/24
+  node3      : 10.10.10.3/24
 
 Suggested host bridge IP:
   labbr0   : 10.10.10.254/24
 
 If routervm also serves a hotspot subnet through a passed-through Wi-Fi dongle,
 that hotspot can use a different network such as:
-  10.20.20.0/24
+  192.168.50.0/24
 with routervm Wi-Fi IP:
-  10.20.20.1/24
+  192.168.50.1/24
 
 TXT
 }

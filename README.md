@@ -21,3 +21,10 @@ Known issues:
 - (Wnen running install again??): it "hangs" on sudo apt install iptables-persistent until you press enter. This is a known linux issue
 - misc/startup.pl is supposed to run on startup to set up network properly. Run it manually if trouble.
 - there's also misc/diagnsoe.pl A if problems (A means it's the main server with clients (check top of script)
+
+If you install the honeypot (using taransvar_lab_setup.pl):
+- Make Cowrie listen to port 22:
+sed -i 's/^listen_endpoints =.*/listen_endpoints = tcp:22:interface=0.0.0.0/' /home/cowrie/cowrie/etc/cowrie.cfg
+- On he host, block honeypot from going out on internet:
+iptables -A FORWARD -s 10.10.10.11 -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A FORWARD -s 10.10.10.11 -j DROP

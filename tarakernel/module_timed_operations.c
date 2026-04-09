@@ -64,8 +64,8 @@ bool trafficReportToTaralinkFound(int nProcessId)
         return false;
     }
 
-//    #define N_SENDBUF_SIZE 2000
-    #define N_SENDBUF_SIZE 200
+    #define N_SENDBUF_SIZE 2000
+//    #define N_SENDBUF_SIZE 200
     int n;
     char *lpSendBuf = kmalloc(N_SENDBUF_SIZE, GFP_KERNEL);
         

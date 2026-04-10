@@ -90,9 +90,46 @@ alter table hackReport add remoteUnitId int null;
 alter table hackReport modify status varchar(255);
 update setup set dbVersion = 55;
 
+#version 56 (260409)
+create table syslog (
+	syslogId int unsigned not null auto_increment, 
+	senderIp int unsigned not null, 
+    senderPort smallint unsigned not null,
+	created timestamp not null default current_timestamp,
+    pri integer null,
+    facility integer null,
+    severity integer null,
+	hostname varchar(256),
+    tag varchar(128),
+    message text,
+    rawmessage text,
+	isSyslog tinyint null,
+	primary key(syslogId)
+);
+create table syslogThreat(
+	syslogThreatId int unsigned not null auto_increment, 
+	syslogId int unsigned,
+	created timestamp not null default current_timestamp,
+	owner_id int unsigned null,
+	unit_id int unsigned null,
+	confirmed_unit_id int unsigned null,
+    is_attack smallint unsigned null,
+    action char(32),
+	src_ip int unsigned not null, 
+    src_port smallint unsigned not null,
+	dst_ip int unsigned not null, 
+    dst_port int unsigned not null,
+    protocol varchar(16),
+    device varchar(128),
+	botnetId int unsigned null,
+	severity int unsigned null, 
+	handled bit(1),
+	primary key(syslogThreatId)
+);
+update setup set dbVersion = 56;
 
 #******** NEXT TIME ALSO add *****
-#update setup set dbVersion = 56;
+#update setup set dbVersion = 57;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

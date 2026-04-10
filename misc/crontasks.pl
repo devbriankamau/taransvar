@@ -19,6 +19,61 @@ use lib_dhcp;
 use lib_cron;
 use lib_net;
 
+
+
+use POSIX qw(setsid);
+
+sub start_iptables_monitor
+{
+	my $script     = "/root/taransvar/perl/iptables_log_monitor.pl";
+	my $pidfile    = "/root/setup/log/iptables_monitor.pid";
+	my $logfile    = "/root/setup/log/iptables_monitor.log";
+
+    # Check if already running
+    if (-f $pidfile)
+    {
+        open(my $pf, "<", $pidfile) or die "Cannot read pidfile: $!";
+        my $oldpid = <$pf>;
+        chomp $oldpid;
+        close($pf);
+
+        if ($oldpid && kill(0, $oldpid))
+        {
+            print "iptables monitor already running (PID $oldpid)\n";
+            return;
+        }
+        else
+        {
+            print "Stale pidfile found, removing\n";
+            unlink $pidfile;
+        }
+    }
+
+    my $pid = fork();
+    die "fork failed: $!" unless defined $pid;
+
+    if ($pid == 0)
+    {
+        # --- child (daemon) ---
+        chdir "/" or die "chdir failed: $!";
+        setsid() or die "setsid failed: $!";
+
+        open(STDIN,  "<", "/dev/null") or die $!;
+        open(STDOUT, ">>", $logfile) or die $!;
+        open(STDERR, ">>", $logfile) or die $!;
+
+        # Write PID file
+        open(my $pf, ">", $pidfile) or die "Cannot write pidfile: $!";
+        print $pf $$;
+        close($pf);
+
+        exec("/usr/bin/perl", $script) or die "exec failed: $!";
+    }
+
+    print "Started iptables monitor (PID $pid)\n";
+}
+
+
 my $nSecondsToSleepBetweenIterations = 5;
 my $nNumberOfWhoIsLookupsPerIteration = 5;	#Increase if too few have owner name in traffic list in http://localhost/index.php?f=traffic
 
@@ -41,7 +96,6 @@ if (!runningAsCron() && !runningBootCheck())	#Run "sudo perl crontasks.pl whatev
 	#Displays a warning in dashboard so don't forget to disable this code...
 
 	#print (networkSetupOk()?"Network set up properly":"Failed to set up network!");
-
 	#checkRequests();
 	#startTaraLinkOk();
         #handleConntrack($dbh);
@@ -53,7 +107,7 @@ if (!runningAsCron() && !runningBootCheck())	#Run "sudo perl crontasks.pl whatev
 	#doKill("taralink");
 	#logDmesg();
 	#checkWhoIs($dbh, $nNumberOfWhoIsLookupsPerIteration);
-	sendPendingWgets();
+	#sendPendingWgets();
 	#checkNetworkSetup();
 	#startFirewall();
 	#dhcpServerStatusOk();
@@ -109,6 +163,7 @@ createDirectories();
 #fixDevicesOldWay(); - 260311 - Don't do this... it messed up good setup when there's multiple NICs
 updateGlobalDemo(); #NOTE! Not reflecting the new code where each user may have individual demo setup (not yet working properly)
 workshopSetup();	#If workshopId is set in dashboard setup, it will register other computers with same workshopId as partners.
+start_iptables_monitor();	#Check if iptables_log_monitor.pl is already running. If not, starts it
 
 #handleRequestsForDmsg();
 

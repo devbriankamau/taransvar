@@ -371,9 +371,16 @@ int parse_cowrie_JSON(const char *msg, struct _AttackEvent *ev)
     int dst_port       = cJSON_GetObjectItem(json, "dst_port")->valueint;
     int severity       = cJSON_GetObjectItem(json, "severity")->valueint;
     const char *event  = cJSON_GetObjectItem(json, "event")->valuestring;
+    const char *proto  = cJSON_GetObjectItem(json, "proto")->valuestring;
 
     if (!src_ip || !strlen(src_ip))     return 0;
     if (!dst_ip || !strlen(dst_ip))     return 0;
+
+	strcpy(ev->protocol, proto);
+	strcpy(ev->src_ip, src_ip);
+	strcpy(ev->dst_ip, dst_ip);
+	ev->src_port = src_port;
+	ev->dst_port = dst_port;
 
     const char *timestamp  = cJSON_GetObjectItem(json, "timestamp")->valuestring;
     const char *session  = cJSON_GetObjectItem(json, "session")->valuestring;
@@ -540,6 +547,8 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
 //select created, syslogId, rawmessage from syslog where substr(rawmessage,1,4) <> 'DROP' order by syslogId desc limit 20;
 //select syslogThreatId, created, service, description from syslogThreat order by syslogThreatId desc limit 5;
 
+//Select of crontask handling them: 
+//select syslogId, src_ip, inet_ntoa(src_ip) as src, src_port, dst_ip, inet_ntoa(dst_ip) as dst, dst_port, protocol, service from syslogThreat where handled is null limit 1000
 
 
     MYSQL *conn = getConnection();
@@ -571,7 +580,7 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
    	param[1].is_unsigned = 1;
 
    	param[2].buffer_type   = MYSQL_TYPE_STRING;
-   	param[2].buffer        = pMsg->szRaw;
+   	param[2].buffer        = (void *)pMsg->szRaw;
    	param[2].buffer_length = sizeof(pMsg->szRaw);
    	param[2].length        = &cMsgLen;
 
@@ -603,10 +612,10 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
                 ev.dst_ip, ev.dst_port);
 
 	   	MYSQL_STMT *stmt = mysql_stmt_init(conn);
-	    MYSQL_BIND param[7];
+	    MYSQL_BIND param[8];
 	    memset(param, 0, sizeof(param));
 
-		char *sql = "insert into syslogThreat(syslogId, src_ip, src_port, dst_ip, dst_port, service, description) values (?, ?, ?, ?, ?, ?, ?)";
+		char *sql = "insert into syslogThreat(syslogId, protocol, src_ip, src_port, dst_ip, dst_port, service, description) values (?, ?, ?, ?, ?, ?, ?, ?)";
 
 	    if (mysql_stmt_prepare(stmt, sql, strlen(sql)) != 0) {
    		    printf("prepare failed: %s\n", mysql_stmt_error(stmt));
@@ -624,51 +633,62 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
    		param[0].buffer = &syslogId;
    		param[0].is_unsigned = 1;
 
+		//protocol
+        char cProtocol[20];
+        strcpy(cProtocol, ev.protocol);
+       	unsigned long cProtocolLen = strlen(cProtocol);
+       	param[1].buffer_type   = MYSQL_TYPE_STRING;
+   	    param[1].buffer        = cProtocol;
+   	    param[1].buffer_length = sizeof(cProtocol);
+   	    param[1].length        = &cProtocolLen;
+
 		//src_ip
 	   	unsigned int srcIp = ntohl(inet_addr(ev.src_ip));   // or your actual value
-   		param[1].buffer_type = MYSQL_TYPE_LONG;
-   		param[1].buffer = &srcIp;
-   		param[1].is_unsigned = 1;
+   		param[2].buffer_type = MYSQL_TYPE_LONG;
+   		param[2].buffer = &srcIp;
+   		param[2].is_unsigned = 1;
 
 	    //src_port smallint unsigned not null,
-		param[2].buffer_type = MYSQL_TYPE_SHORT;
+		param[3].buffer_type = MYSQL_TYPE_SHORT;
 		unsigned short srcPort = ev.src_port;
-   		param[2].buffer = &srcPort;
-   		param[2].is_unsigned = 1;
+   		param[3].buffer = &srcPort;
+   		param[3].is_unsigned = 1;
 
 		//dst_ip int unsigned not null, 
 	   	unsigned int dstIp = ntohl(inet_addr(ev.dst_ip));   // or your actual value
-   		param[3].buffer_type = MYSQL_TYPE_LONG;
-   		param[3].buffer = &dstIp;
-   		param[3].is_unsigned = 1;
+   		param[4].buffer_type = MYSQL_TYPE_LONG;
+   		param[4].buffer = &dstIp;
+   		param[4].is_unsigned = 1;
     
 		//dst_port int unsigned not null,
-		param[4].buffer_type = MYSQL_TYPE_SHORT;
+		param[5].buffer_type = MYSQL_TYPE_SHORT;
 		unsigned short dstPort = ev.dst_port;
-   		param[4].buffer = &dstPort;
-   		param[4].is_unsigned = 1;
+   		param[5].buffer = &dstPort;
+   		param[5].is_unsigned = 1;
 
         //service
         char cService[20];
         strcpy(cService, lpIdentifiedAs);
        	unsigned long cServiceLen = strlen(cService);
-       	param[5].buffer_type   = MYSQL_TYPE_STRING;
-   	    param[5].buffer        = cService;
-   	    param[5].buffer_length = sizeof(cService);
-   	    param[5].length        = &cServiceLen;
+       	param[6].buffer_type   = MYSQL_TYPE_STRING;
+   	    param[6].buffer        = cService;
+   	    param[6].buffer_length = sizeof(cService);
+   	    param[6].length        = &cServiceLen;
 
         //description
-       	unsigned long cDescriptionLen = strlen(ev.cDescription);
-       	param[6].buffer_type   = MYSQL_TYPE_STRING;
-   	    param[6].buffer        = ev.cDescription;
-   	    param[6].buffer_length = sizeof(ev.cDescription);
-   	    param[6].length        = &cDescriptionLen;
+		unsigned long cDescriptionLen = strlen(ev.cDescription);
+		param[7].buffer_type   = MYSQL_TYPE_STRING;
+		param[7].buffer        = ev.cDescription;
+		param[7].buffer_length = sizeof(ev.cDescription);
+		param[7].length        = &cDescriptionLen;
 
-    	/* ---- BIND PARAMS ---- */
-   		if (mysql_stmt_bind_param(stmt, param) != 0) {
-       		printf("bind failed: %s\n", mysql_stmt_error(stmt));
-        	return;
-   		}
+		printf("Added to syslogThreat: %s(%u):%u -> %s(%u):%u\n", ev.src_ip, srcIp, srcPort, ev.dst_ip, dstIp, dstPort);
+
+		/* ---- BIND PARAMS ---- */
+		if (mysql_stmt_bind_param(stmt, param) != 0) {
+			printf("bind failed: %s\n", mysql_stmt_error(stmt));
+			return;
+		}
 
 	    /* ---- EXECUTE ---- */
    		if (mysql_stmt_execute(stmt) != 0) {

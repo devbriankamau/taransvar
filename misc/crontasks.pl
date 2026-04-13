@@ -21,6 +21,15 @@ use lib_net;
 
 use POSIX qw(setsid);
 
+sub print_hashref {
+	my ($row) = @_;
+    for my $key (keys %$row) {
+        my $val = defined $row->{$key} ? $row->{$key} : "NULL";
+        print "$key = $val\n";
+    }
+    print "----\n";
+}
+
 sub find_conntrack_entry {
     my (%args) = @_;
 
@@ -65,13 +74,13 @@ sub find_conntrack_entry {
 
 sub handle_cowrid {
 	my ($row) = @_;
-	my $lookup = "src=$row->{'src'} dst=src=$row->{'src'} sport=$row->{'src_port'} dport=$row->{'dst_port'}";
+	my $lookup = "src=$row->{'src'} dst=src=$row->{'dst'} sport=$row->{'src_port'} dport=$row->{'dst_port'}";
 	print "About to handle id $row->{'syslogId'} - $lookup\n";
 
 	my $ct = find_conntrack_entry(
-    		proto       => 'tcp',
-    		target_ip   => '10.10.10.11',
-    		target_port => 2222,
+    		proto       => $row->{'protocol'},
+    		target_ip   => $row->{'dst'},
+    		target_port => $row->{'dst_port'},
 		);
 
 	if ($ct) {
@@ -94,6 +103,9 @@ sub handle_syslogThreat_table
 	
 	while (my $row = $sth->fetchrow_hashref()) {
 		$nFound++;
+	
+		print_hashref($row);
+
 		my $szLookupIp = $row->{'ipFromA'};
 
 		if (! defined $row->{'service'}) {

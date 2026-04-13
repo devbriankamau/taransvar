@@ -18,6 +18,12 @@ echo 'IN=eth0 OUT= MAC= SRC=1.2.3.4 DST=10.0.0.1 LEN=60 PROTO=TCP SPT=12345 DPT=
 echo '%ASA-6-106100: access-list denied tcp 1.2.3.4/12345 -> 10.0.0.1/22' | nc -u 10.10.10.254 514
 echo 'srcip=1.2.3.4 srcport=12345 dstip=10.0.0.1 dstport=22 proto=6 action=deny' | nc -u 10.10.10.254 514
 
+NOTE! ***** REMEMBER TO OPEN THE SAID PORTS IN IPTABLES *****************
+ACCEPT  udp  --  enp1s0  *  10.10.10.0/24  0.0.0.0/0  udp dpt:514
+ACCEPT  udp  --  enp1s0  *  10.10.10.0/24  0.0.0.0/0  udp dpt:5551
+
+sudo tcpdump -i any -nn udp port 514
+
 */
 
 #include <arpa/inet.h>
@@ -63,6 +69,7 @@ struct _AttackEvent
     char protocol[16];
     char device[128];
     char raw[4096];
+    char cDescription[256];
 } AttackEvent;
 
 /*
@@ -337,6 +344,57 @@ int parse_cisco(const char *msg, struct _AttackEvent *ev)
     return 0;
 }
 
+#include <cjson/cJSON.h>
+
+int parse_cowrie_JSON(const char *msg, struct _AttackEvent *ev)
+{
+/*    const char *json_str =
+        "{\"action\":\"archive\",\"dst_port\":2222,\"src_port\":38260,"
+        "\"timestamp\":1775845748.2726,\"login_success\":1,"
+        "\"event\":\"cowrie_session_closed\",\"confidence\":\"medium\","
+        "\"dst_ip\":\"10.10.10.11\",\"sensor\":\"honeypotvm\","
+        "\"src_ip\":\"10.10.10.10\",\"command_count\":0,"
+        "\"proto\":\"tcp\",\"duration_sec\":\"218.442\","
+        "\"session\":\"b5ee5263cc50\",\"severity\":4}";
+    */
+
+    cJSON *json = cJSON_Parse(msg);
+    if (!json) {
+        printf("Error parsing JSON\n");
+        return 0;
+    }
+
+    // Extract fields
+    const char *src_ip = cJSON_GetObjectItem(json, "src_ip")->valuestring;
+    const char *dst_ip = cJSON_GetObjectItem(json, "dst_ip")->valuestring;
+    int src_port       = cJSON_GetObjectItem(json, "src_port")->valueint;
+    int dst_port       = cJSON_GetObjectItem(json, "dst_port")->valueint;
+    int severity       = cJSON_GetObjectItem(json, "severity")->valueint;
+    const char *event  = cJSON_GetObjectItem(json, "event")->valuestring;
+
+    if (!src_ip || !strlen(src_ip))     return 0;
+    if (!dst_ip || !strlen(dst_ip))     return 0;
+
+    const char *timestamp  = cJSON_GetObjectItem(json, "timestamp")->valuestring;
+    const char *session  = cJSON_GetObjectItem(json, "session")->valuestring;
+    const char *sensor  = cJSON_GetObjectItem(json, "sensor")->valuestring;
+    const char *action  = cJSON_GetObjectItem(json, "action")->valuestring;
+
+    snprintf(ev->cDescription, sizeof(ev->cDescription), "%s %s %s %s", timestamp, session, sensor, action);
+
+    printf("Event: %s\n", event);
+    printf("Source: %s:%d\n", src_ip, src_port);
+    printf("Dest:   %s:%d\n", dst_ip, dst_port);
+    printf("Severity: %d\n", severity);
+
+    cJSON_Delete(json);
+    return 1;
+}
+
+
+
+
+
 
 /*
  * Very lightweight syslog decoder.
@@ -464,13 +522,25 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
 	char *lpIdentifiedAs = NULL;
 
     if (parse_cisco(pMsg->szMessage, &ev))
-		lpIdentifiedAs = "Cisco";
+		lpIdentifiedAs = "cisco";
     else 
         if (parse_fortinet(pMsg->szMessage, &ev))
-			lpIdentifiedAs = "Fortinet";
+			lpIdentifiedAs = "fortinet";
 		else
 			if (parse_iptables(pMsg->szMessage, &ev))
 				lpIdentifiedAs = "iptables";
+            else
+                if (parse_cowrie_JSON(pMsg->szMessage, &ev))
+    				lpIdentifiedAs = "cowrie";
+                else
+    				lpIdentifiedAs = "other";
+
+//select syslogThreatId, L.syslogId, L.created, owner_id, unit_id, inet_ntoa(src_ip) as source, inet_ntoa(dst_ip) as dest, protocol, service, description, CAST(handled AS UNSIGNED) as handled, dst_ip, rawmessage from syslogThreat T join syslog L on L.syslogId = T.syslogId where rawmessage like '%cowrie%' order by syslogThreatId desc limit 3;
+//select syslogId, rawmessage from syslog order by syslogId desc limit 20;
+//select created, syslogId, rawmessage from syslog where substr(rawmessage,1,4) <> 'DROP' order by syslogId desc limit 20;
+//select syslogThreatId, created, service, description from syslogThreat order by syslogThreatId desc limit 5;
+
+
 
     MYSQL *conn = getConnection();
 
@@ -533,10 +603,10 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
                 ev.dst_ip, ev.dst_port);
 
 	   	MYSQL_STMT *stmt = mysql_stmt_init(conn);
-	    MYSQL_BIND param[5];
+	    MYSQL_BIND param[7];
 	    memset(param, 0, sizeof(param));
 
-		char *sql = "insert into syslogThreat(syslogId, src_ip, src_port, dst_ip, dst_port) values (?, ?, ?, ?, ?)";
+		char *sql = "insert into syslogThreat(syslogId, src_ip, src_port, dst_ip, dst_port, service, description) values (?, ?, ?, ?, ?, ?, ?)";
 
 	    if (mysql_stmt_prepare(stmt, sql, strlen(sql)) != 0) {
    		    printf("prepare failed: %s\n", mysql_stmt_error(stmt));
@@ -578,6 +648,21 @@ static void printSocSyslogMsg(const SOC_SYSLOG_MSG *pMsg)
    		param[4].buffer = &dstPort;
    		param[4].is_unsigned = 1;
 
+        //service
+        char cService[20];
+        strcpy(cService, lpIdentifiedAs);
+       	unsigned long cServiceLen = strlen(cService);
+       	param[5].buffer_type   = MYSQL_TYPE_STRING;
+   	    param[5].buffer        = cService;
+   	    param[5].buffer_length = sizeof(cService);
+   	    param[5].length        = &cServiceLen;
+
+        //description
+       	unsigned long cDescriptionLen = strlen(ev.cDescription);
+       	param[6].buffer_type   = MYSQL_TYPE_STRING;
+   	    param[6].buffer        = ev.cDescription;
+   	    param[6].buffer_length = sizeof(ev.cDescription);
+   	    param[6].length        = &cDescriptionLen;
 
     	/* ---- BIND PARAMS ---- */
    		if (mysql_stmt_bind_param(stmt, param) != 0) {

@@ -19,9 +19,112 @@ use lib_dhcp;
 use lib_cron;
 use lib_net;
 
-
-
 use POSIX qw(setsid);
+
+sub find_conntrack_entry {
+    my (%args) = @_;
+
+    my $proto      = $args{proto}      // 'tcp';
+    my $target_ip  = $args{target_ip}  // die "target_ip required";
+    my $target_port= $args{target_port}// die "target_port required";
+
+    open(my $fh, "-|", "conntrack", "-L", "-p", $proto)
+        or die "Cannot run conntrack: $!";
+
+    while (my $line = <$fh>) {
+        chomp $line;
+
+        # Match original tuple: src=... dst=... sport=... dport=...
+        # and later NAT/reply tuple containing honeypot target
+        my ($src1,$dst1,$sport1,$dport1,
+            $src2,$dst2,$sport2,$dport2) =
+            $line =~ /src=([0-9.]+)\s+dst=([0-9.]+)\s+sport=(\d+)\s+dport=(\d+).*?src=([0-9.]+)\s+dst=([0-9.]+)\s+sport=(\d+)\s+dport=(\d+)/;
+
+        next unless defined $src1;
+
+        # Find flows whose translated/reply side involves the honeypot
+        if ($src2 eq $target_ip && $sport2 == $target_port) {
+            close($fh);
+            return {
+                raw_line       => $line,
+                orig_src_ip    => $src1,
+                orig_dst_ip    => $dst1,
+                orig_src_port  => $sport1,
+                orig_dst_port  => $dport1,
+                reply_src_ip   => $src2,
+                reply_dst_ip   => $dst2,
+                reply_src_port => $sport2,
+                reply_dst_port => $dport2,
+            };
+        }
+    }
+
+    close($fh);
+    return undef;
+}
+
+sub handle_cowrid {
+	my ($row) = @_;
+	my $lookup = "src=$row->{'src'} dst=src=$row->{'src'} sport=$row->{'src_port'} dport=$row->{'dst_port'}";
+	print "About to handle id $row->{'syslogId'} - $lookup\n";
+
+	my $ct = find_conntrack_entry(
+    		proto       => 'tcp',
+    		target_ip   => '10.10.10.11',
+    		target_port => 2222,
+		);
+
+	if ($ct) {
+	    print "Real attacker: $ct->{orig_src_ip}:$ct->{orig_src_port}\n";
+	} else {
+    	print "No conntrack match found\n";
+	}	
+}
+
+sub handle_syslogThreat_table
+{
+	my ($dbh) = @_;
+
+	my $szSQL = "select syslogId, src_ip, inet_ntoa(src_ip) as src, src_port, dst_ip, inet_ntoa(dst_ip) as dst, dst_port, protocol, service from syslogThreat where handled is null limit 1000";
+	my $sth = $dbh->prepare($szSQL);
+	print "\n\nFinding unhandled syslogThreat records.\n";
+	$sth->execute() or die "execution failed: $sth->errstr()";
+	my @cIDs;
+	my $nFound = 0;
+	
+	while (my $row = $sth->fetchrow_hashref()) {
+		$nFound++;
+		my $szLookupIp = $row->{'ipFromA'};
+
+		if (! defined $row->{'service'}) {
+			#print "Service field not set for $row->{'syslogId'} - setting to handled.\n";
+			push @cIDs, $row->{'syslogId'};
+		} else {
+			if ($row->{'service'} eq 'cowrie') {
+				print ("$row->{'src'}:$row->{'src_port'} -> $row->{'dst'}:$row->{'dst_port'}\n");
+				handle_cowrid($row);
+			} else {
+				if ($row->{'service'} eq 'iptable') {
+					print ("iptable found $row->{'src'}:$row->{'src_port'} -> $row->{'dst'}:$row->{'dst_port'} (set to handled)\n");
+					push @cIDs, $row->{'syslogId'};
+				} else {
+					print "Unknown record found: $row->{'service'}\n";
+				}
+			}
+		}
+	}
+
+	$sth->finish();	
+	$sth = $dbh->prepare("update syslogThreat set handled = b'1' where syslogId = ?");
+
+	foreach my $nId (@cIDs) {
+		#print "Handle id $nId\n";
+		$sth->execute($nId) or die "execution failed: $sth->errstr()";
+	}
+	$sth->finish();	
+	print "$nFound records handled.\n";
+}
+
 
 sub start_iptables_monitor
 {
@@ -95,10 +198,12 @@ if (!runningAsCron() && !runningBootCheck())	#Run "sudo perl crontasks.pl whatev
 	#  That way you can check any debug code without the cron job distrubing the process.
 	#Displays a warning in dashboard so don't forget to disable this code...
 
+	handle_syslogThreat_table($dbh);
+
 	#print (networkSetupOk()?"Network set up properly":"Failed to set up network!");
 	#checkRequests();
 	#startTaraLinkOk();
-        #handleConntrack($dbh);
+    #handleConntrack($dbh);
 	#process_dhcpdump($dbh);	#NOTE! Maybe it's risky to run it this often?
 	#checkDbVersion($dbh);
 	
@@ -111,7 +216,6 @@ if (!runningAsCron() && !runningBootCheck())	#Run "sudo perl crontasks.pl whatev
 	#checkNetworkSetup();
 	#startFirewall();
 	#dhcpServerStatusOk();
-        #handleConntrack($dbh);
 	#setupPortForwarding();
 	#print "***** System ".(systemBooted()?"booted since last run.":"did NOT boot since last run.")."\n";
 	

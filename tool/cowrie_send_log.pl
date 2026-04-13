@@ -10,14 +10,18 @@
 #  In runs forever, captures the log, sends it to the IP specified below
 #  where (hopefully) Taralink listens to port 514 and logs to 
 #  syslog and syslogThreat tables along with logs from Cisco, Fortinet, ipbables and others. 
-
+#
+#  Nothing received? 
+#  - Run on receiver: 	sudo tcpdump -i any -nn udp port 514
+#  - Open port: 		sudo iptables -I INPUT 1 -i <nic_here> -s <network/ip here> -p udp --dport 514  -j ACCEPT
+#
 # --------------------------------------------------
 # Configuration
 # --------------------------------------------------
 my $COWRIE_JSON   = "/home/cowrie/cowrie/var/log/cowrie/cowrie.json";
-my $ROUTERVM_IP   = "10.10.10.10";   # change if needed
+my $REPORT_TO_IP   = "10.10.10.10";   # change if needed
 my $ROUTERVM_PORT = 514;             # Use port 514 UDP if you want taralink to handle it on receiving end.
-my $ALET_PROTO = "udp";
+my $ALERT_PROTO = "udp";
 my $SENSOR_NAME   = "honeypotvm";
 
 my $OBSERVED_PROTO  = "tcp";			# Protocol used in attack - ssh (TCP)
@@ -44,16 +48,16 @@ my %session_map;
 my $json = JSON::PP->new->utf8->allow_nonref;
 
 my $sock = IO::Socket::INET->new(
-	PeerAddr => $ROUTERVM_IP,
+	PeerAddr => $REPORT_TO_IP,
 	PeerPort => $ROUTERVM_PORT,
 	Proto    => $ALERT_PROTO,
-) or die "Could not create UDP socket to $ROUTERVM_IP:$ROUTERVM_PORT: $!";
+) or die "Could not create UDP socket to $REPORT_TO_IP:$ROUTERVM_PORT: $!";
 
 $| = 1;
 
 print "Starting Cowrie watcher\n";
 print "Reading: $COWRIE_JSON\n";
-print "Sending alerts to $ROUTERVM_IP:$ROUTERVM_PORT\n";
+print "Sending alerts to $REPORT_TO_IP:$ROUTERVM_PORT\n";
 
 monitor_cowrie();
 
@@ -339,7 +343,7 @@ sub send_event
         return;
     }
 
-    print "SEND $msg\n";
+    print "Reporting to $REPORT_TO_IP:$ROUTERVM_PORT: $msg\n";
 
     my $ok = $sock->send($msg);
     warn "UDP send failed: $!\n" unless defined $ok;

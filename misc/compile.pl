@@ -252,7 +252,7 @@ chdir "taralink";
 
 $szLogFile = getSysRoot()."log/gcc.txt"; 
 print "**** Now compiling with debug symbols.... (-g)\n";
-system ("TMPDIR=/home/user/temp gcc -g taralink.c -o taralink -L/usr/lib/mysql -lmariadb -lcurl > $szLogFile");
+system ("TMPDIR=/home/user/temp gcc -g taralink.c -o taralink -L/usr/lib/mysql -lmariadb -lcurl -lcjson > $szLogFile");
 my $szFilename = './taralink';
 $nFileSize = fileModified($szFilename, 45*1000, 10);
 if ($nFileSize <= 0) {

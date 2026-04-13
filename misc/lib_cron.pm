@@ -296,30 +296,31 @@ sub checkWhoIs {
 		foreach (@lines) {
 			my $szLine = $_;
 			
-	                if ($szLine =~ /No\ssuch\sfile\sor\sdirectory/ ) {
+	        if ($szLine =~ /No\ssuch\sfile\sor\sdirectory/ ) {
 				#bash: /usr/bin/whois: No such file or directory
 				system("apt-get install whois");# > ".$szLogFile);
 				print "\n\n********* ERROR ******* whois seemed not to be installed... So tried to install.. Aborting.\n\n";
 				exit;
 			}
 			
-	                if ($szLine =~ /^inetnum:\s*(\S+)\s-\s(\S+)/ ) {
-	                	print "Found range: $1 - $2\n";
-	                	$szIpFrom = $1;
-	                	$szIpTo = $2;
-	                }
-	                if ($szLine =~ /^org-name:\s*(\S+)/ ) {
-	                	print "Org name found: $1\n";
-	                	$szOrgName = $1;
-	                }
-	                if ($szLine =~ /^netname:\s*(\S+)/ ) {
-	                	print "Org name found: $1\n";
-	                	$szNetName = $1;
-	                }
-	                if ($szLine =~ /^country:\s*(\S+)/ ) {
-	                	print "Country found: $1\n";
-	                	$szCountry = $1;
-	                }
+	        if ($szLine =~ /^inetnum:\s*(\S+)\s-\s(\S+)/ ) {
+               	print "Found range: $1 - $2\n";
+               	$szIpFrom = $1;
+               	$szIpTo = $2;
+            }
+
+            if ($szLine =~ /^org-name:\s*(\S+)/ ) {
+              	print "Org name found: $1\n";
+               	$szOrgName = $1;
+            }
+            if ($szLine =~ /^netname:\s*(\S+)/ ) {
+               	print "Org name found: $1\n";
+              	$szNetName = $1;
+            }
+            if ($szLine =~ /^country:\s*(\S+)/ ) {
+              	print "Country found: $1\n";
+              	$szCountry = $1;
+            }
 		}
 		if ($szOrgName eq "") {
 			$szOrgName = $szNetName;
@@ -393,15 +394,15 @@ sub handleConntrack {
 	    print "Setup log/conntrack directory already exists...\n";
 	}
 	else {
-	       system("mkdir ".getLogRoot()."conntrack");
+       system("mkdir ".getLogRoot()."conntrack");
 	}
 
 	if (length($szGrabFile) > 35) {
 		my $szCmd = "conntrack -L -n > $szGrabFile";
 		print "\n\n************** RUNNING:\n$szCmd\n\n";
-	        system($szCmd);
+        system($szCmd);
 	} else {
-	        print "**************** Short file name.. assuming test fine.. Dropping getting new file..\n";
+        print "**************** Short file name.. assuming test fine.. Dropping getting new file..\n";
 	}
 
 	my $dbLookupH = getConnection();
@@ -422,58 +423,57 @@ sub handleConntrack {
 	my $szGatewayIp = "";
 
 	while( my $szLine = <$info>)  {
-	        # Matching [ASSURED] - records
-	        #tcp      6 48 CLOSE_WAIT src=192.168.50.100 dst=172.217.170.163 sport=40968 dport=443 src=172.217.170.163 dst=192.168.100.10 sport=443 dport=40968 [ASSURED] mark=0 use=1
+        # Matching [ASSURED] - records
+        #tcp      6 48 CLOSE_WAIT src=192.168.50.100 dst=172.217.170.163 sport=40968 dport=443 src=172.217.170.163 dst=192.168.100.10 sport=443 dport=40968 [ASSURED] mark=0 use=1
 
-	        #udp      17 52 src=192.168.50.100 dst=8.8.8.8 sport=48886 dport=443 src=8.8.8.8 dst=192.168.100.10 sport=443 dport=48886 [ASSURED] mark=0 use=1
+        #udp      17 52 src=192.168.50.100 dst=8.8.8.8 sport=48886 dport=443 src=8.8.8.8 dst=192.168.100.10 sport=443 dport=48886 [ASSURED] mark=0 use=1
         
-	        my $bMatchFound = 0;
-	        my $nSourcePort, my $nDestPort, my $szSourceIp, my $szDestIp, my $szRetSourceIp, my $szRetDestIp, my $nRetSourcePort, my $nRetDestPort;        
+        my $bMatchFound = 0;
+        my $nSourcePort, my $nDestPort, my $szSourceIp, my $szDestIp, my $szRetSourceIp, my $szRetDestIp, my $nRetSourcePort, my $nRetDestPort;        
 
-	        if ($szLine =~ /tcp\s*(\d+)\s(\d+)\s(\w*)\ssrc\=(\S*)\sdst=(\S*)\ssport=(\d*)\sdport=(\d*)\ssrc\=(\S*)\sdst=(\S*)\ssport\=(\d*)\sdport=(\d*)(.+)/)        	
+        if ($szLine =~ /tcp\s*(\d+)\s(\d+)\s(\w*)\ssrc\=(\S*)\sdst=(\S*)\ssport=(\d*)\sdport=(\d*)\ssrc\=(\S*)\sdst=(\S*)\ssport\=(\d*)\sdport=(\d*)(.+)/)        	
 		{
-		        $bMatchFound = 1;
-		        print "$1|$2|$3|$4|$5|$6|$7|$8|$9|$10|$11|$12\n"; 
-		        $szSourceIp = $4;
-		        $szDestIp = $5;
-		        $nSourcePort = $6;
-		        $nDestPort = $7;
-		        $szRetSourceIp = $8;
-		        $szRetDestIp = $9;
-		        $nRetSourcePort = $10;
-		        $nRetDestPort = $11;
+	        $bMatchFound = 1;
+	        print "$1|$2|$3|$4|$5|$6|$7|$8|$9|$10|$11|$12\n"; 
+	        $szSourceIp = $4;
+	        $szDestIp = $5;
+	        $nSourcePort = $6;
+	        $nDestPort = $7;
+	        $szRetSourceIp = $8;
+	        $szRetDestIp = $9;
+	        $nRetSourcePort = $10;
+	        $nRetDestPort = $11;
 		} else {
-	                # Matching [UNREPLIED] - records
-	                if ($szLine =~ /tcp\s*(\d+)\s(\d+)\s(\w*)\ssrc\=(\S*)\sdst=(\S*)\ssport=(\d*)\sdport=(\d*)\s\S*\ssrc\=(\S*)\sdst=(\S*)\ssport\=(\d*)\sdport=(\d*)(.+)/)
-	                {
-		#tcp      6 95 ESTABLISHED src=192.168.50.100 dst=4.152.45.219 sport=44228 dport=443 [UNREPLIED] src=4.152.45.219 dst=192.168.100.19 sport=443 dport=44228 mark=0 use=1
-	        	        $bMatchFound = 1;
-	        	        print "$1|$2|$3|$4|$5|$6|$7|$8|$9|$10|$11|$12\n"; 
-	        	        $szSourceIp = $4;
-	        	        $szDestIp = $5;
-	               	        $nSourcePort = $6;
-	        	        $nDestPort = $7;
-	        	        $szRetSourceIp = $8;
-	        	        $szRetDestIp = $9;
-	        	        $nRetSourcePort = $10;
-	        	        $nRetDestPort = $11;
-	                }
-		
+            # Matching [UNREPLIED] - records
+            if ($szLine =~ /tcp\s*(\d+)\s(\d+)\s(\w*)\ssrc\=(\S*)\sdst=(\S*)\ssport=(\d*)\sdport=(\d*)\s\S*\ssrc\=(\S*)\sdst=(\S*)\ssport\=(\d*)\sdport=(\d*)(.+)/)
+            {
+				#tcp      6 95 ESTABLISHED src=192.168.50.100 dst=4.152.45.219 sport=44228 dport=443 [UNREPLIED] src=4.152.45.219 dst=192.168.100.19 sport=443 dport=44228 mark=0 use=1
+	    		$bMatchFound = 1;
+				print "$1|$2|$3|$4|$5|$6|$7|$8|$9|$10|$11|$12\n"; 
+	        	$szSourceIp = $4;
+	        	$szDestIp = $5;
+	            $nSourcePort = $6;
+	        	$nDestPort = $7;
+	        	$szRetSourceIp = $8;
+	        	$szRetDestIp = $9;
+	        	$nRetSourcePort = $10;
+	        	$nRetDestPort = $11;
+	        }
 		}
 	
 		if ($bMatchFound) {
-		       if ($szGatewayIp eq "")
-		       {
-		                $szGatewayIp = $szRetDestIp; 
-		       } else {
-		                if ($szGatewayIp ne $szRetDestIp) {
-		                        print "Return destination IP should always be the gateway IP ($szGatewayIp <> $szRetDestIp)....\n"; 
+			if ($szGatewayIp eq "")
+	    	{
+                $szGatewayIp = $szRetDestIp; 
+	    	} else {
+		    	if ($szGatewayIp ne $szRetDestIp) {
+		        	print "Return destination IP should always be the gateway IP ($szGatewayIp <> $szRetDestIp)....\n"; 
 					saveWarning("Return destination IP should always be the gateway IP ($szGatewayIp <> $szRetDestIp)....");
-		                }
-		       }
+		        }
+			}
 
-		        print "$szSourceIp:$nSourcePort -> $szDestIp:$nDestPort | $szRetSourceIp:$nRetSourcePort -> $szRetDestIp:$nRetDestPort\n"; 
-		 #       print "$szLine\n";
+		    print "$szSourceIp:$nSourcePort -> $szDestIp:$nDestPort | $szRetSourceIp:$nRetSourcePort -> $szRetDestIp:$nRetDestPort\n"; 
+		 	#print "$szLine\n";
 
 			my $szInternalIp;
 			my $nInternalPort;
@@ -502,101 +502,100 @@ sub handleConntrack {
 				}
 			}
 
-		       #Skip saving if last use of same port was same IP.. NOTE! Should also check if it's same mac or other ID...
-	               my $szSQL = "select portAssignmentId, inet_ntoa(ipAddress) as ip, unitId from unitPort where port = $nInternalPort order by portAssignmentId desc limit 1";
+	       #Skip saving if last use of same port was same IP.. NOTE! Should also check if it's same mac or other ID...
+            my $szSQL = "select portAssignmentId, inet_ntoa(ipAddress) as ip, unitId from unitPort where port = $nInternalPort order by portAssignmentId desc limit 1";
 
-	                my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
-	                print "$szSQL\n";
-	                $sth->execute() or die "execution failed: $sth->errstr()";
-	                my $row;
-	                my $nFound = 0;
-	                my $szUnitId = "NULL";
+            my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
+            print "$szSQL\n";
+            $sth->execute() or die "execution failed: $sth->errstr()";
+            my $row;
+            my $nFound = 0;
+            my $szUnitId = "NULL";
 
-	                if ($row = $sth->fetchrow_hashref()) {
-	                        if ($row->{'ip'} eq $szInternalIp) {
-	                        	#Last use of this port was same IP... 
-	                                print "Port $nInternalPort recently used by same IP ($szInternalIp). Skipping saving duplicate record.\n";
-	                                $nFound = 1;
+            if ($row = $sth->fetchrow_hashref()) {
+                if ($row->{'ip'} eq $szInternalIp) {
+                  	#Last use of this port was same IP... 
+                    print "Port $nInternalPort recently used by same IP ($szInternalIp). Skipping saving duplicate record.\n";
+					$nFound = 1;
 					$szUnitId = $row->{'unitId'}                                
-	                        } else {
-	                        	print "Other ip (".$row->{'ip'}.") last used this port. Save new for ".$szInternalIp."\n"; 
-	                        }
-	                }
+	            } else {
+	    			print "Other ip (".$row->{'ip'}.") last used this port. Save new for ".$szInternalIp."\n"; 
+	            }
+	        }
 
-	                if (!$nFound)
-	                {
-	                	#NOTE! This means that this port is not registered before or registered on other unit...
-	                        #Find the unitId
-	                        #NOTE - ***** This may be wrong... maybe other unit had that IP....(there should still be a session....)
-	                        $szSQL = "select clientId from dhcpSession where ip = inet_aton('$szInternalIp') order by sessionId desc limit 1";  
-	                        my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
-	                        $sth->execute() or die "execution failed: $sth->errstr()";
-	                        if (my $cRec = $sth->fetchrow_hashref()) {
-	                        	$szUnitId = $cRec->{'clientId'};
-	                        	print "******** Found the unitId: $szUnitId\n"; 
-	                        } else {
+	        if (!$nFound)
+	        {
+	        	#NOTE! This means that this port is not registered before or registered on other unit...
+	            #Find the unitId
+	            #NOTE - ***** This may be wrong... maybe other unit had that IP....(there should still be a session....)
+	            $szSQL = "select clientId from dhcpSession where ip = inet_aton('$szInternalIp') order by sessionId desc limit 1";  
+	            my $sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
+	            $sth->execute() or die "execution failed: $sth->errstr()";
+	            if (my $cRec = $sth->fetchrow_hashref()) {
+	            	$szUnitId = $cRec->{'clientId'};
+	                print "******** Found the unitId: $szUnitId\n"; 
+	            } else {
 #NOTE!!!                        	#NOTE! Don't just create new UNIT here... Get new session from 
 #NOTE!!!				$szUnitId = getNewUnknownUnitId($dbh, $szInternalIp);
 					$szUnitId = findWhatUnitHasIp($dbh, $szInternalIp);
-	                        	my $szMsg = "******** WARNING - Port assignment found for unknown unit. New created with id $szUnitId. Due to static IP?";
-	                        	print "$szMsg\n";
-	                        	addWarningRecord($dbh, $szMsg); 
-	                        }
+					my $szMsg = "******** WARNING - Port assignment found for unknown unit. New created with id $szUnitId. Due to static IP?";
+	                print "$szMsg\n";
+	                addWarningRecord($dbh, $szMsg); 
+	            }
 
-	        	        $szSQL = "insert into unitPort (unitId, ipAddress, port) values ($szUnitId, inet_aton('".$szInternalIp."'), ".$nInternalPort.")";
-	        	        doExecute($dbh, $szSQL); 
+	        	$szSQL = "insert into unitPort (unitId, ipAddress, port) values ($szUnitId, inet_aton('".$szInternalIp."'), ".$nInternalPort.")";
+	        	doExecute($dbh, $szSQL); 
 #NOTE! This is wrong.. unitPort, not unit...        	        $szUnitId = "".getLastInsertId($dbh);
-	                        #$sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
-	                        print "Saving external port assignment: $szInternalIp - $nInternalPort.\n";
-	                        #print "$szSQL\n";
-	                        #$sth->execute() or die "execution failed: $sth->errstr()";
-	                } else {
-	                	#NOTE! This means that this port was last used by the same unit....
-	                	#port assignment found but unitId may still be blank.....
+	            #$sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
+	            print "Saving external port assignment: $szInternalIp - $nInternalPort.\n";
+	            #print "$szSQL\n";
+	            #$sth->execute() or die "execution failed: $sth->errstr()";
+	        } else {
+	    		#NOTE! This means that this port was last used by the same unit....
+	            #port assignment found but unitId may still be blank.....
  #                       	addWarningRecord($dbh, "**** WARNING *** Port assignment without unit. This shouldn't happen."); 
 				
 #ØT 250130 - this is very wrong...	$szUnitId = getNewUnknownUnitId($dbh, $szInternalIp);
 
-	                }
+	        }
                 
-	                #Update the unit table lastSeen
-	                if ($szUnitId ne "NULL") {
-	                	$szSQL = "update unit set lastSeen = now() where unitId = ?";
-	        	        #doExecute($dbh, $szSQL); 
+	        #Update the unit table lastSeen
+	        if ($szUnitId ne "NULL") {
+	        	$szSQL = "update unit set lastSeen = now() where unitId = ?";
+	        	#doExecute($dbh, $szSQL); 
 				$sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
-	                	$sth->execute($szUnitId) or die "execution failed: $sth->errstr()";
+	            $sth->execute($szUnitId) or die "execution failed: $sth->errstr()";
 
 				$szSQL = "update unitPort set lastSeen = now() where portAssignmentId = ?";
-	        	        #doExecute($dbh, $szSQL); 
+	        	#doExecute($dbh, $szSQL); 
 				$sth = $dbh->prepare($szSQL) or die "prepare statement failed: $dbh->errstr()";
-	                	$sth->execute($szUnitId) or die "execution failed: $sth->errstr()";
-	                } else {
-	                	my $szMsg = "****** ERROR - unit not found.. (this shouldn't happen anymore)...."; 
-	                	print "$szMsg\n";
-                        	addWarningRecord($dbh, $szMsg); 
-	                }
+	            $sth->execute($szUnitId) or die "execution failed: $sth->errstr()";
+	        } else {
+				my $szMsg = "****** ERROR - unit not found.. (this shouldn't happen anymore)...."; 
+	            print "$szMsg\n";
+                addWarningRecord($dbh, $szMsg); 
+	        }
 
-	                if (($nSourcePort ne $nRetDestPort) || ($szDestIp ne $szRetSourceIp) || ($nDestPort ne $nRetSourcePort))
-	                {
-	                	my $szWarn = "********* WARNING! Traffic not returned back to same port...! \n$szLine";
-	                        print "$szWarn\n\n";
-                        	addWarningRecord($dbh, $szWarn); 
-	                        $nReturnPortDiffers++;
-	                }
-		        print "\n"; 
-  
+	        if (($nSourcePort ne $nRetDestPort) || ($szDestIp ne $szRetSourceIp) || ($nDestPort ne $nRetSourcePort))
+	        {
+	    		my $szWarn = "********* WARNING! Traffic not returned back to same port...! \n$szLine";
+	            print "$szWarn\n\n";
+                addWarningRecord($dbh, $szWarn); 
+	            $nReturnPortDiffers++;
+	        }
+	        print "\n"; 
 		} else 
 		{
-		        if ($szLine =~ /udp\s*(\d+)\s(\d+)\ssrc\=(\S*)\sdst=(\S*)\ssport=(\d*)\sdport=(\d*)\ssrc\=(\S*)\sdst=(\S*)\ssport\=(\d*)\sdport=(\d*)(.+)/)
-	                        #udp      17 52 src=192.168.50.100 dst=8.8.8.8 sport=48886 dport=443 src=8.8.8.8 dst=192.168.100.10 sport=443 dport=48886 [ASSURED] mark=0 use=1
-	        	{
-	                        print "udp matching (skipping): $3:$5 -> $4:$6\n\n";                        	
-		        }
-		        else
-		        {
-		                print "No match: $szLine\n"; 
-		                $nNoMatch++;
-		        }
+	        if ($szLine =~ /udp\s*(\d+)\s(\d+)\ssrc\=(\S*)\sdst=(\S*)\ssport=(\d*)\sdport=(\d*)\ssrc\=(\S*)\sdst=(\S*)\ssport\=(\d*)\sdport=(\d*)(.+)/)
+                #udp      17 52 src=192.168.50.100 dst=8.8.8.8 sport=48886 dport=443 src=8.8.8.8 dst=192.168.100.10 sport=443 dport=48886 [ASSURED] mark=0 use=1
+        	{
+                print "udp matching (skipping): $3:$5 -> $4:$6\n\n";                        	
+	        }
+	        else
+	        {
+                print "No match: $szLine\n"; 
+                $nNoMatch++;
+	        }
 		}
 	}
 
@@ -605,10 +604,9 @@ sub handleConntrack {
 	print "$nNewOnes records inserted. $nExists were already stored.. No match: $nNoMatch\n";
 	if ($nReturnPortDiffers)
 	{
-	        print "************** WARNING ********* One packet not sent back to origin.... Check for warnings\n\n";
+        print "************** WARNING ********* One packet not sent back to origin.... Check for warnings\n\n";
 	}
 } #sub handleConntrack()
-
 
 
 sub sendPendingWgets {

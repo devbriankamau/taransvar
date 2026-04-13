@@ -775,8 +775,10 @@ int main(void)
 
     int nl_fd = create_netlink_socket();
     int udp_fd = create_udp_socket(TARALINK_LISTENING_TO_PORT);
+    printf("Listening on netlink fd=%d and UDP port %d fd=%d\n", nl_fd, TARALINK_LISTENING_TO_PORT, udp_fd);
 
     int soc_fd = create_udp_socket(SYSLOG_UDP_PORT);
+    printf("Listening on UDP port %d fd=%d\n", SYSLOG_UDP_PORT, soc_fd);
 
     //Later add
     //int syslog_tcp_fd = create_tcp_listener(SYSLOG_TCP_PORT);
@@ -787,9 +789,7 @@ int main(void)
         if (udp_fd >= 0) close(udp_fd);
         return 1;
     }
-
-    printf("Listening on netlink fd=%d and UDP port %d fd=%d\n", nl_fd, TARALINK_LISTENING_TO_PORT, udp_fd);
-
+    
     const char *text = "hello kernel";
 
     int rc = send_to_kernel(nl_fd, text, strlen(text) + 1);

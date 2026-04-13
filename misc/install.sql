@@ -128,8 +128,14 @@ create table syslogThreat(
 );
 update setup set dbVersion = 56;
 
+#version 57 (260413)
+alter table syslogThreat add service enum ('iptables','cisco','fortinet','palo_alto','cowrie','ssh','ddos','firewall','honeypot','web-service','login_attempt','db','other');
+alter table syslogThreat add description varchar(255);
+alter table syslogThreat add count integer not null default 1;
+update setup set dbVersion = 57;
+
 #******** NEXT TIME ALSO add *****
-#update setup set dbVersion = 57;
+#update setup set dbVersion = 58;
 
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 

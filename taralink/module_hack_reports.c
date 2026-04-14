@@ -152,7 +152,7 @@ void checkHackReports()
 				char cSQL[255];
 				//Check if this address is already registered. Get the last one if several and check if not different unit.. 
 				//**** NOTE! This table should reflect changes in IP address..  
-				sprintf(cSQL, "select infectionId, unitId, handled, inserted, status from internalInfections where ip = %s and unitId is null or unitId = %s order by infectionId desc limit 1", lookupRow[3], lookupRow[2]);
+				sprintf(cSQL, "select infectionId, unitId, handled, inserted, status from internalInfections where ip = %s and (unitId is null or unitId = %s) order by infectionId desc limit 1", lookupRow[3], lookupRow[2]);
 				if (mysql_query(lookupConn, cSQL)) {
 					fprintf(stderr, "****** ERROR ******* While finding port assignment: %s\n", mysql_error(lookupConn));
 					return;

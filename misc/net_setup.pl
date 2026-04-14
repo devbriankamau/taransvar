@@ -109,8 +109,10 @@ sub build_iptables_script {
     my $lan_if                  = shell_quote($c->{LAN_IF});
     my $wan_if                  = shell_quote($c->{WAN_IF});
     my $lan_net                 = shell_quote($c->{LAN_NET});
+    $lan_net = ensure_cidr_24($lan_net);
     my $lan_ip                  = shell_quote($c->{LAN_IP});
     my $wan_net                 = shell_quote($c->{WAN_NET});
+#    $wan_net = ensure_cidr_24($wan_net);    
     my $wan_gw                  = shell_quote($c->{WAN_GW});
     my $allow_ssh               = is_true($c->{ALLOW_SSH});
     my $ssh_port                = int($c->{SSH_PORT});
@@ -121,6 +123,19 @@ sub build_iptables_script {
     my $log_drops               = is_true($c->{LOG_DROPS});
     my $extra_forward_src       = shell_quote($c->{EXTRA_FORWARD_SRC});
     my $extra_forward_if        = shell_quote($c->{EXTRA_FORWARD_IF});
+
+my $szLanOnWan = '';
+
+if ($c->{LAN_IF} ne '' && $c->{LAN_NET} ne '') {
+    # emit LAN INPUT/FORWARD/NAT rules
+    $szLanOnWan = "# Allow all traffic from LAN subnet on LAN interface
+iptables -A INPUT -i \$LAN_IF -s \$LAN_NET -j ACCEPT
+";
+} else {
+    $allow_dhcp = 0;
+    $enable_fwd_lan_to_wan = 0;
+}
+
 
     my $s = <<"EOF";
 #!/bin/bash
@@ -175,8 +190,7 @@ iptables -A INPUT -i lo -j ACCEPT
 # Allow established/related
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 
-# Allow all traffic from LAN subnet on LAN interface
-iptables -A INPUT -i \$LAN_IF -s \$LAN_NET -j ACCEPT
+$szLanOnWan
 
 EOF
 
@@ -190,6 +204,7 @@ EOF
 
     if ($allow_dhcp) {
         $s .= <<"EOF";
+
 # Allow DHCP server/client traffic on LAN side
 iptables -A INPUT -i \$LAN_IF -p udp --sport 68 --dport 67 -j ACCEPT
 iptables -A INPUT -i \$LAN_IF -p udp --sport 67 --dport 68 -j ACCEPT
@@ -443,4 +458,14 @@ sub key_index {
 
     warn "Could not extract numeric suffix from key [$key] for prefix [$prefix]\n";
     return 0;
+}
+
+sub ensure_cidr_24 {
+    my ($net) = @_;
+    return $net unless defined $net && $net ne '';
+
+    # If already has /something, leave it
+    return $net if $net =~ m{/\d+$};
+
+    return "$net/24";
 }

@@ -955,7 +955,7 @@ sub updateGlobalDemo {
 		if ($szReply eq "ok") {
 			my $szSQL = "update partnerRouter set partnerStatusReplied = now() where ip = inet_aton(?);";
 			my $conn = getConnection(); 
-        		my $stmt = $conn->prepare($szSQL);
+        	my $stmt = $conn->prepare($szSQL);
 			$stmt->execute($row->{"ip"});
 			$conn->disconnect;
 			print "Partner returned ok (config_update.php). Updating database.\n";

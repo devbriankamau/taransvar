@@ -21,6 +21,43 @@ use lib_net;
 
 use POSIX qw(setsid);
 
+
+
+
+sub register_internal_infection {
+	#*** NOTE! taralink is doing similar for records in hackReport table... Should be coordinated. 
+	my ($conn, $nUnitId, $nIp) = @_;
+
+	my $szSQL = "select infectionId, unitId, handled, inserted, status from internalInfections where ip = inet_aton(?) and (unitId is null or unitId = ?) order by infectionId desc limit 1";
+
+	my $sth = $conn->prepare($szSQL);
+	print "Searching for infection: ip: $nIp, unit id: $nUnitId\n";
+	$sth->execute($nIp, $nUnitId) or die "execution failed: $sth->errstr()";
+	if (my $row = $sth->fetchrow_hashref()) {
+		my $nInfectionId = $row->{'infectionId'};
+		print "Infection already registered. ID: $nInfectionId\n";
+		my $szSQL = "update internalInfections set unitId = ?, lastSeen = now() where infectionId = ?";
+		my $updateSth = $conn->prepare($szSQL);
+
+		if (!defined $updateSth) {
+    		die "Prepare failed: " . $conn->errstr;
+		}
+
+		$updateSth->execute($nUnitId, $nInfectionId) or die "execution failed: $sth->errstr()";
+		$updateSth->finish;
+	}
+	else
+	{
+		print "Registering new infection - ip: $nIp, unit id: $nUnitId.\n";
+		my $szSQL = "insert into internalInfections (ip, nettmask, status, unitId) values (inet_aton(?), inet_aton('255.255.255.255'), 'firsttime', ?)";
+		my $insertSth = $conn->prepare($szSQL);
+		$insertSth->execute($nIp, $nUnitId) or die "execution failed: $sth->errstr()";
+		$insertSth->finish;
+	}	
+
+	$sth->finish;
+}
+
 sub print_hashref {
 	my ($row) = @_;
     for my $key (keys %$row) {
@@ -72,29 +109,85 @@ sub find_conntrack_entry {
     return undef;
 }
 
-sub handle_cowrid {
-	my ($row) = @_;
-	my $lookup = "src=$row->{'src'} dst=src=$row->{'dst'} sport=$row->{'src_port'} dport=$row->{'dst_port'}";
-	print "About to handle id $row->{'syslogId'} - $lookup\n";
+sub get_unit_from_conntrack {
+    my (%args) = @_;
 
 	my $ct = find_conntrack_entry(
+    		proto       => $args{proto},
+    		target_ip   => $args{target_ip},
+    		target_port => $args{target_port}
+		);
+
+	my $nUnitId = 0;
+
+	if ($ct) {
+		#NOTE **** MAY OR MAY NOT BE IN SUBNET (subnet if my units called honeypot reporting to me or external if external computer attacked my port that is forwarded to other honeypot) - or variations of the two?
+	    print "Real attacker: $ct->{orig_src_ip}:$ct->{orig_src_port}\n";
+		
+		my $szSQL = "select unitId from unit where ipAddress = inet_aton(?) order by lastSeen desc limit 1";
+		my $conn = $args{conn};
+		my $sth = $conn->prepare($szSQL);
+		$sth->execute($ct->{orig_src_ip}) or die "execution failed: $sth->errstr()";
+		if (my $unit = $sth->fetchrow_hashref()) {
+			$nUnitId = $unit->{'unitId'};
+			print "Found unit in subnet. ID: $nUnitId\n";
+		}
+		$sth->finish;
+
+		#update internalInfections
+		register_internal_infection($conn, $nUnitId, $ct->{orig_src_ip});
+
+	} else {
+		print "Returning from get_unit_from_conntrack - none found for $args{target_ip}:$args{target_port}\n";
+	}
+
+	return $nUnitId;
+}
+
+sub handle_syslogThreat_record {
+	my ($conn, $row) = @_;
+
+	if (! defined $row->{'protocol'} || ($row->{'protocol'} ne "tcp" && $row->{'protocol'} ne 'udp')) {
+		print "Unknown or unspecified protocol (only tcp and udp allowed). Skipping...\n";
+		return;
+	}
+
+	my $lookup = "src=$row->{'src'} dst=$row->{'dst'} sport=$row->{'src_port'} dport=$row->{'dst_port'}";
+	print "About to handle id $row->{'syslogThreatId'} - $lookup\n";
+
+	my $nUnitId = get_unit_from_conntrack(
+			conn 		=>$conn,
     		proto       => $row->{'protocol'},
     		target_ip   => $row->{'dst'},
     		target_port => $row->{'dst_port'},
 		);
 
-	if ($ct) {
-	    print "Real attacker: $ct->{orig_src_ip}:$ct->{orig_src_port}\n";
+	print "Finishing for syslogThreat ID: $row->{syslogThreatId}\n";
+
+	if ($nUnitId) {
+		my $szSQL = "update syslogThreat set unit_id = ?, handled = b'1' where syslogThreatId = ?";
+		my $sth = $conn->prepare($szSQL);
+		$sth->execute($nUnitId, $row->{syslogThreatId}) or die "execution failed: $sth->errstr()";
+		$sth->finish;
+
+		#Mark the unit as seen...
+
 	} else {
-    	print "No conntrack match found\n";
-	}	
+		#print "***** WARNING! $row{target_ip}:$args{target_port} not found by conntrack! Because it's external attacking honeypot I'm port forwarding to? (if so, report to global DB server)\n";
+    	print "No conntrack match found.\n";
+		my $szSQL = "update syslogThreat set handled = b'1' where syslogThreatId = ?";
+		my $sth = $conn->prepare($szSQL);
+		$sth->execute($row->{syslogThreatId}) or die "execution failed: $sth->errstr()";
+		$sth->finish;
+	}
+
 }
 
 sub handle_syslogThreat_table
 {
 	my ($dbh) = @_;
 
-	my $szSQL = "select syslogId, src_ip, inet_ntoa(src_ip) as src, src_port, dst_ip, inet_ntoa(dst_ip) as dst, dst_port, protocol, service from syslogThreat where handled is null limit 1000";
+	my $szSQL = "select syslogId, syslogThreatId, src_ip, inet_ntoa(src_ip) as src, src_port, dst_ip, inet_ntoa(dst_ip) as dst, dst_port, protocol, service from syslogThreat where handled is null limit 1000";
 	my $sth = $dbh->prepare($szSQL);
 	print "\n\nFinding unhandled syslogThreat records.\n";
 	$sth->execute() or die "execution failed: $sth->errstr()";
@@ -114,7 +207,7 @@ sub handle_syslogThreat_table
 		} else {
 			if ($row->{'service'} eq 'cowrie') {
 				print ("$row->{'src'}:$row->{'src_port'} -> $row->{'dst'}:$row->{'dst_port'}\n");
-				handle_cowrid($row);
+				handle_syslogThreat_record($dbh, $row);
 			} else {
 				if ($row->{'service'} eq 'iptable') {
 					print ("iptable found $row->{'src'}:$row->{'src_port'} -> $row->{'dst'}:$row->{'dst_port'} (set to handled)\n");

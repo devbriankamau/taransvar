@@ -10,6 +10,12 @@
 #LAN_INTERFACE="wg0"
 #WAN_INTERFACE="wt0"
 
+# Restrict hotspot clients entering the NetBird/simulated-WAN network.
+# Ordinary hotspot Internet forwarding remains allowed.
+#NETBIRD_CIDR="100.68.0.0/16"
+#HOTSPOT_ALLOWED_NETBIRD_NODES="100.68.22.33"
+#HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS="80,443"
+
 # When deploying to production, consider moving SSH from the default port (22).
 #SSH_PORT="22"
 

@@ -3,6 +3,8 @@ use strict;
 use warnings;
 use DBI;
 use JSON::PP qw(decode_json);
+use IPC::Open3;
+use Symbol qw(gensym);
 
 my $json = qx{ndsctl json 2>/dev/null};
 exit 0 if $? != 0 || $json eq '';
@@ -13,6 +15,13 @@ my $dbh = DBI->connect(
     'DBI:mysql:database=taransvar;host=localhost', 'root', '',
     { RaiseError => 1, PrintError => 0, AutoCommit => 1 }
 ) or die "Unable to connect to TaraSec database\n";
+
+my %access_env = read_env('/etc/tarasec/access.env');
+my $gateway_key = $access_env{TARASEC_GATEWAY_KEY} // '';
+my $gateway_token = $access_env{TARASEC_GATEWAY_TOKEN} // '';
+my $access_url = $access_env{TARASEC_ACCESS_URL} // 'https://tarasec.org/api/v1/subscriber/access-api.php';
+my $accounting_url = $access_env{TARASEC_ACCOUNTING_URL} // 'https://tarasec.org/api/v1/subscriber/accounting-api.php';
+my $central_ready = ($gateway_key ne '' && $gateway_token ne '');
 
 my $find = $dbh->prepare(q{
     SELECT s.sessionid,s.username,h.subscriptionType,h.quotaMB,h.usageMB
@@ -65,6 +74,55 @@ for my $client_key (keys %{$data->{clients}}) {
     my $device_key = lc($client->{mac} // $client_key // '');
     $device_key = '' unless $device_key =~ /\A(?:[0-9a-f]{2}:){5}[0-9a-f]{2}\z/;
 
+    # Global TaraSec subscribers are accounted centrally. openNDS reports
+    # cumulative KiB counters; the central accounting API accepts cumulative
+    # bytes and computes/charges only the increase since the previous report.
+    if ($central_ready && $device_key ne '') {
+        eval {
+            $roaming->execute($device_key);
+            my ($is_roaming) = $roaming->fetchrow_array;
+            if ($is_roaming) {
+                my $access_body = curl_form(
+                    $access_url,
+                    $gateway_key,
+                    $gateway_token,
+                    [ device_key => $device_key, client_ip => $ip ]
+                );
+                my $access = eval { decode_json($access_body) };
+                if ($access && $access->{ok} && $access->{allow} && int($access->{session_id} // 0) > 0) {
+                    my $session_id = int($access->{session_id});
+                    my $account_body = curl_form(
+                        $accounting_url,
+                        $gateway_key,
+                        $gateway_token,
+                        [
+                            session_id => $session_id,
+                            bytes_up => $up * 1024,
+                            bytes_down => $down * 1024,
+                        ]
+                    );
+                    my $account = eval { decode_json($account_body) };
+                    if ($account && $account->{ok}) {
+                        logger("central session=$session_id client=$ip usage_mib=".($account->{usage_mib}//'0')." charged=".($account->{charged_credits}//'0'));
+                        if (exists $account->{allow} && !$account->{allow}) {
+                            system('ndsctl','deauth',$ip);
+                            logger("central credit exhausted for $device_key at $ip");
+                        }
+                    } else {
+                        logger("central accounting rejected client=$ip response=$account_body");
+                    }
+                } elsif ($access && $access->{ok} && !$access->{allow}) {
+                    system('ndsctl','deauth',$ip);
+                    logger("central access denied for $device_key at $ip reason=".($access->{reason}//'unknown'));
+                } else {
+                    logger("central access lookup failed client=$ip response=$access_body");
+                }
+            }
+        };
+        logger("central accounting failed for $ip: $@") if $@;
+    }
+
+    # Preserve legacy local-subscriber accounting for hotspot-local accounts.
     eval {
         $dbh->begin_work;
         $find->execute($ip);
@@ -79,20 +137,14 @@ for my $client_key (keys %{$data->{clients}}) {
         $old_up = 0 unless defined $old_up;
         $old_down = 0 unless defined $old_down;
 
-        # A counter reset within the same DB session is treated as a new
-        # openNDS accounting epoch. Never subtract previously charged traffic.
         my $delta_up = $up >= $old_up ? $up - $old_up : $up;
         my $delta_down = $down >= $old_down ? $down - $old_down : $down;
         my $delta_kib = $delta_up + $delta_down;
 
-        # openNDS cumulative session counters are KiB, while
-        # hotspotSubscriber stores MiB.
         if ($delta_kib > 0) {
             $add->execute($delta_kib,$username);
             $history->execute($username,$ip,$delta_kib);
 
-            # Only globally-bound devices accrue roaming/operator earnings.
-            # Local subscribers remain normal local hotspot traffic.
             if ($device_key ne '') {
                 $roaming->execute($device_key);
                 my ($is_roaming,$customer_id) = $roaming->fetchrow_array;
@@ -129,6 +181,48 @@ for my $client_key (keys %{$data->{clients}}) {
     }
 }
 $dbh->disconnect;
+
+sub read_env {
+    my ($path) = @_;
+    my %values;
+    return %values if !-r $path;
+    open my $fh, '<', $path or return %values;
+    while (my $line = <$fh>) {
+        chomp $line;
+        $line =~ s/^\s+|\s+$//g;
+        next if $line eq '' || $line =~ /^#/;
+        next unless $line =~ /^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/;
+        my ($key,$value)=($1,$2);
+        $value =~ s/^['\"]//;
+        $value =~ s/['\"]$//;
+        $values{$key}=$value;
+    }
+    close $fh;
+    return %values;
+}
+
+sub curl_form {
+    my ($url,$key,$token,$pairs) = @_;
+    my @cmd = (
+        'curl','-sS','--connect-timeout','4','--max-time','10',
+        '-H',"X-TaraSec-Gateway-Key: $key",
+        '-H',"X-TaraSec-Token: $token",
+    );
+    while (@$pairs) {
+        my $name = shift @$pairs;
+        my $value = shift @$pairs;
+        push @cmd, '--data-urlencode', "$name=$value";
+    }
+    push @cmd, $url;
+    my $err = gensym;
+    my $pid = open3(undef, my $out, $err, @cmd);
+    local $/;
+    my $stdout = <$out> // '';
+    my $stderr = <$err> // '';
+    waitpid($pid,0);
+    die "curl failed: $stderr" if $? != 0;
+    return $stdout;
+}
 
 sub logger {
     my ($message)=@_;

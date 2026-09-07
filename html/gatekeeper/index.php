@@ -74,7 +74,7 @@ if ($bOk)
 {
 	if (intval($setupRow["dbVersion"])+0 < $nRequiredDbVersion)
 	{
-		print "Your database is not properly upgraded... you should run: sudo perl misc/system_diag.pl to upgrade to version $nRequiredDbVersion.";
+		print "Your database is not properly upgraded. Deploy the current misc files, then run: sudo bash -c 'cd /root/taransvar/perl && perl diagnose.pl' to upgrade to version $nRequiredDbVersion.";
 		print "<br><br>This script is made for version ".$nRequiredDbVersion.". Your database is version ".$setupRow["dbVersion"].". <br><br>Aborting...";
 		return;
 	}

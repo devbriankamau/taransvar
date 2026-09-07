@@ -5,39 +5,49 @@ error_reporting(E_ALL);
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
-$policyFile = '/var/lib/tarasec/demo-nodes.tsv';
+$configFile = '/etc/tarasecfw.conf';
 $gatewayName = gethostname() ?: 'TaraSec gateway';
-$nodes = [];
+$values = [];
 
-if (is_readable($policyFile)) {
-    $lines = file($policyFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    foreach ($lines ?: [] as $line) {
-        $parts = explode("\t", $line, 3);
-        $address = trim((string)($parts[0] ?? ''));
-        if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
-            continue;
+if (is_readable($configFile)) {
+    foreach (file($configFile, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        if (preg_match('/^\s*(DEMO_NODES|DEMO_NODE_NAMES|HOTSPOT_ALLOWED_NETBIRD_NODES|HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS)\s*=\s*["\']?([^"\']*)["\']?\s*$/', $line, $match)) {
+            $values[$match[1]] = trim($match[2]);
         }
-        $ports = [];
-        foreach (explode(',', (string)($parts[1] ?? '80,443')) as $port) {
-            $value = filter_var(trim($port), FILTER_VALIDATE_INT, [
-                'options' => ['min_range' => 1, 'max_range' => 65535]
-            ]);
-            if ($value !== false) {
-                $ports[] = (int)$value;
-            }
-        }
-        $nodes[] = [
-            'address' => $address,
-            'name' => trim((string)($parts[2] ?? '')),
-            'ports' => array_values(array_unique($ports))
-        ];
     }
+}
+
+$addresses = array_values(array_filter(array_map('trim', explode(
+    ',',
+    $values['DEMO_NODES'] ?? $values['HOTSPOT_ALLOWED_NETBIRD_NODES'] ?? ''
+))));
+$names = array_map('trim', explode(',', $values['DEMO_NODE_NAMES'] ?? ''));
+$ports = [];
+foreach (explode(',', $values['HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS'] ?? '80,443') as $port) {
+    $value = filter_var(trim($port), FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1, 'max_range' => 65535]
+    ]);
+    if ($value !== false) {
+        $ports[] = (int)$value;
+    }
+}
+
+$nodes = [];
+foreach ($addresses as $index => $address) {
+    if (filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+        continue;
+    }
+    $nodes[] = [
+        'address' => $address,
+        'name' => $names[$index] ?? '',
+        'ports' => array_values(array_unique($ports))
+    ];
 }
 
 echo json_encode([
     'ok' => true,
     'gateway' => $gatewayName,
     'nodes' => $nodes,
-    'configured' => is_readable($policyFile),
+    'configured' => is_readable($configFile),
     'server_time' => gmdate('c')
 ], JSON_UNESCAPED_SLASHES);

@@ -123,7 +123,7 @@ if [ -n "${HOTSPOT_IF:-}" ] &&
     iptables -A FORWARD -i "$HOTSPOT_IF" -o "$WAN_INTERFACE" \
         -d "$NETBIRD_CIDR" \
         -m limit --limit "${MAX_LOGS_PER_MIN}/min" --limit-burst "$MAX_BURSTS" \
-        -j LOG --log-prefix "TARASEC_HOTSPOT_NETBIRD_DENIED: " --log-level 5
+        -j LOG --log-prefix "TARASEC_HS_NB_DENIED: " --log-level 5
     iptables -A FORWARD -i "$HOTSPOT_IF" -o "$WAN_INTERFACE" \
         -d "$NETBIRD_CIDR" -j DROP
 fi

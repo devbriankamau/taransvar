@@ -45,10 +45,11 @@ hotspot_web_base() {
 authenticated_status_page() {
     local loginbase
     loginbase="$(hotspot_web_base)"
-    if [ -z "${custom:-}" ]; then customhtml=""; else customhtml="<input type=\"hidden\" name=\"custom\" value=\"$custom\">"; fi
-    echo "<div class=\"ok\">Welcome back</div>
-<p class=\"lead\">This device has active TaraSec hotspot access.</p>
-<form action=\"/opennds_preauth/\" method=\"get\"><input type=\"hidden\" name=\"fas\" value=\"$fas\">$customhtml$custom_passthrough<input type=\"hidden\" name=\"landing\" value=\"yes\"><input class=\"btn\" type=\"submit\" value=\"Continue to Internet\"></form>
+    echo "<div class=\"ok\">Internet access active</div>
+<p class=\"lead\">This device is already authorized on this TaraSec hotspot.</p>
+<div class=\"note\">No additional confirmation is required. TaraSec will now leave the captive portal.</div>
+<script>setTimeout(function(){window.location.replace('http://neverssl.com/');},500);</script>
+<a class=\"btn\" href=\"http://neverssl.com/\">Open Internet</a>
 <a class=\"btn btnlogout\" href=\"$loginbase/portal_status.php\">Log out</a>
 <a class=\"btn btn2\" href=\"$loginbase/portal_status.php\">My access / account information</a>
 <div class=\"note\"><b>About this hotspot</b><br>Learn about TaraSec and Taransvar, hotspot security, acceptable use and privacy from the information links below.</div>

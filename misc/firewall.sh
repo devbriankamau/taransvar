@@ -106,6 +106,23 @@ if [ -n "${HOTSPOT_IF:-}" ] &&
    ip link show "$WAN_INTERFACE" >/dev/null 2>&1; then
     IFS=',' read -ra DEMO_NODE_LIST <<< "$DEMO_NODES"
     IFS=',' read -ra DEMO_TCP_PORTS <<< "$HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS"
+
+    # The existing DBSERVER setting is the app's central HTTP API/control
+    # service.  Permit those web requests without advertising the server as a
+    # demo receiver and without opening the database port itself.
+    if [ -n "${DBSERVER:-}" ]; then
+        for PORT in "${DEMO_TCP_PORTS[@]}"; do
+            PORT="${PORT//[[:space:]]/}"
+            [ -z "$PORT" ] && continue
+            if ! valid_port "$PORT"; then
+                echo "Invalid HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS entry: $PORT" >&2
+                exit 1
+            fi
+            iptables -A FORWARD -i "$HOTSPOT_IF" -o "$WAN_INTERFACE" \
+                -d "$DBSERVER" -p tcp --dport "$PORT" -j ACCEPT
+        done
+    fi
+
     for NODE_IP in "${DEMO_NODE_LIST[@]}"; do
         NODE_IP="${NODE_IP//[[:space:]]/}"
         [ -z "$NODE_IP" ] && continue

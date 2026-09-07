@@ -66,6 +66,9 @@ iptables -P OUTPUT ACCEPT
 IS_GATEWAY="${IS_GATEWAY:-0}"
 LAN_INTERFACE="${LAN_INTERFACE:-wg0}"
 WAN_INTERFACE="${WAN_INTERFACE:-wt0}"
+NETBIRD_CIDR="${NETBIRD_CIDR:-100.68.0.0/16}"
+HOTSPOT_ALLOWED_NETBIRD_NODES="${HOTSPOT_ALLOWED_NETBIRD_NODES:-}"
+HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS="${HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS:-80,443}"
 
 if [ "$IS_GATEWAY" = "1" ]; then
     iptables -t nat -C POSTROUTING -o "$WAN_INTERFACE" -j MASQUERADE 2>/dev/null ||
@@ -92,6 +95,37 @@ if [ -n "${HOTSPOT_IF:-}" ] && ip link show "$HOTSPOT_IF" >/dev/null 2>&1; then
     iptables -A INPUT -i "$HOTSPOT_IF" -p udp --dport 67 -j ACCEPT
     iptables -A INPUT -i "$HOTSPOT_IF" -p tcp --dport 2050 -j ACCEPT
     iptables -A INPUT -i "$HOTSPOT_IF" -p tcp --dport 8080 -j ACCEPT
+fi
+
+# Hotspot clients keep ordinary Internet forwarding, but may only enter the
+# NetBird/simulated-WAN network through explicitly approved demo nodes/ports.
+# WAN_INTERFACE is retained as the historical name for that overlay interface.
+if [ -n "${HOTSPOT_IF:-}" ] &&
+   ip link show "$HOTSPOT_IF" >/dev/null 2>&1 &&
+   ip link show "$WAN_INTERFACE" >/dev/null 2>&1; then
+    IFS=',' read -ra DEMO_NODES <<< "$HOTSPOT_ALLOWED_NETBIRD_NODES"
+    IFS=',' read -ra DEMO_TCP_PORTS <<< "$HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS"
+    for NODE_IP in "${DEMO_NODES[@]}"; do
+        NODE_IP="${NODE_IP//[[:space:]]/}"
+        [ -z "$NODE_IP" ] && continue
+        for PORT in "${DEMO_TCP_PORTS[@]}"; do
+            PORT="${PORT//[[:space:]]/}"
+            [ -z "$PORT" ] && continue
+            if ! valid_port "$PORT"; then
+                echo "Invalid HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS entry: $PORT" >&2
+                exit 1
+            fi
+            iptables -A FORWARD -i "$HOTSPOT_IF" -o "$WAN_INTERFACE" \
+                -d "$NODE_IP" -p tcp --dport "$PORT" -j ACCEPT
+        done
+    done
+
+    iptables -A FORWARD -i "$HOTSPOT_IF" -o "$WAN_INTERFACE" \
+        -d "$NETBIRD_CIDR" \
+        -m limit --limit "${MAX_LOGS_PER_MIN}/min" --limit-burst "$MAX_BURSTS" \
+        -j LOG --log-prefix "TARASEC_HOTSPOT_NETBIRD_DENIED: " --log-level 5
+    iptables -A FORWARD -i "$HOTSPOT_IF" -o "$WAN_INTERFACE" \
+        -d "$NETBIRD_CIDR" -j DROP
 fi
 
 if is_on "$SSH_RECOVERY_PROTECT" && [ -n "$SSH_RECOVERY_SOURCES" ]; then

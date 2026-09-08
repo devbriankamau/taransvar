@@ -91,6 +91,35 @@ function checkIfTooManyLoginAttemptFromIp($szIp)
 	if ($result && ($rec = $result->fetch_assoc())) if ($rec["last1Minute"]+0 > 5 || $rec["last5Minutes"]+0 > 10) reportHacking("", "This IP tried to log in ".$rec["last1Minute"]."/".$rec["last5Minutes"]." last 1/5 min");
 }
 
+function taraSecConfigFlag($name, $default = false)
+{
+    $configFile = '/etc/tarasecfw.conf';
+    if (!is_readable($configFile)) return $default;
+
+    foreach (file($configFile, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
+        if (preg_match('/^\\s*'.preg_quote($name, '/').'\\s*=\\s*["\\\']?([^"\\\']*)["\\\']?\\s*$/', $line, $match)) {
+            return in_array(strtolower(trim($match[1])), ['1', 'yes', 'true', 'on'], true);
+        }
+    }
+    return $default;
+}
+
+function taraSecRegisteredPartner($conn, $ip)
+{
+    $stmt = $conn->prepare(
+        "SELECT routerId FROM partnerRouter
+         WHERE (INET_ATON(?) & nettmask) = (ip & nettmask)
+         ORDER BY BIT_COUNT(nettmask) DESC LIMIT 1"
+    );
+    $stmt->bind_param("s", $ip);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $found = $result->num_rows > 0;
+    $result->close();
+    $stmt->close();
+    return $found;
+}
+
 function getTagData()
 {
 	$szSenderIp = getSenderIp();
@@ -116,18 +145,30 @@ function getTagData()
 	$retval["senderIp"]=$szSenderIp; $retval["senderPort"]=$clientPort;
 	if(!$stmt->execute()) throw new Exception("Execute failed: ".$stmt->error);
 	$result=$stmt->get_result(); if(!$result) throw new Exception("get_result failed: ".$stmt->error);
+	$nTrafficIsDemo=0;
 	if ($row=$result->fetch_assoc()) {
 		$nTrafficSecondsSince=(int)$row["seconds_since"];
 		$tag=(int)$row["tag"];
 		$version_no=$tag & 0x3;
 		$presumed_infected=($tag >> 2) & 0xF;
 		$owners_id=($tag >> 6) & 0x3FF;
-		$nTrafficSeverity=$presumed_infected;
+
+		// Production partners are always eligible. An unregistered sender's tag
+		// is accepted by this demo endpoint only after explicit local opt-in.
+		$registeredPartner = taraSecRegisteredPartner($conn, $szSenderIp);
+		$demoReceiver = taraSecConfigFlag('DEMO_NODE', false);
+		if ($registeredPartner || $demoReceiver) {
+			$nTrafficSeverity=$presumed_infected;
+			$nTrafficIsDemo=(!$registeredPartner && $demoReceiver) ? 1 : 0;
+		} else {
+			$nTrafficSecondsSince=-1;
+		}
 	}
 	$result->close(); $stmt->close();
 	// Return the actual severity encoded in the TaraSec traffic tag, not merely a boolean.
 	$retval["trafficSeverity"]=$nTrafficSeverity;
 	$retval["trafficSecondsSince"]=$nTrafficSecondsSince;
+	$retval["trafficIsDemo"]=$nTrafficIsDemo;
 
 	$nSeverity=$nInfectionSeverity;
 	// A recent traffic tag is the receiver's freshest evidence and has priority over hackReport.

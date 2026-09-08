@@ -72,6 +72,9 @@ HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS="${HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS:-80,443}"
 DEMO_NODES="${DEMO_NODES:-$HOTSPOT_ALLOWED_NETBIRD_NODES}"
 
 if [ "$IS_GATEWAY" = "1" ]; then
+    # A FORWARD policy and forwarding rules are ineffective while the kernel
+    # forwarding switch is disabled. Enable it immediately for this gateway.
+    sysctl -w net.ipv4.ip_forward=1 >/dev/null
     iptables -t nat -C POSTROUTING -o "$WAN_INTERFACE" -j MASQUERADE 2>/dev/null ||
         iptables -t nat -A POSTROUTING -o "$WAN_INTERFACE" -j MASQUERADE
     iptables -A FORWARD -i "$LAN_INTERFACE" -o "$WAN_INTERFACE" -j ACCEPT

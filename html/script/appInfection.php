@@ -21,12 +21,21 @@ try {
     // It is the JSON view of the same canonical assessment used by the web UI.
     $data = getTagData();
 
-    // On a receiving node the packet carrying this very HTTP request may be
-    // logged asynchronously.  Keep the same TCP source port and retry briefly
-    // so getTagData() can see the TaraSec tag from this request itself.
-    $trafficAge = (int)($data['trafficSecondsSince'] ?? -1);
-    if ($trafficAge < 0 || $trafficAge >= 45) {
-        usleep(300000);
+    /*
+     * Evidence is matched to this request's exact TCP source port. Wait up to
+     * 1.5 seconds for tarakernel's one-second queue flush. A single 300 ms
+     * retry raced the receiver and could return the preceding state.
+     */
+    $deadline = microtime(true) + 1.5;
+    while (true) {
+        $trafficAge = (int)($data['trafficSecondsSince'] ?? -1);
+        if ($trafficAge >= 0 && $trafficAge < 45) {
+            break;
+        }
+        if (microtime(true) >= $deadline) {
+            break;
+        }
+        usleep(100000);
         $data = getTagData();
     }
 

@@ -296,8 +296,8 @@ bindInternalInfectionSelectParam[1].is_unsigned = 1;
 uint32_t selectedInfectionId;
 
 MYSQL_BIND bindInfectionSelectResult[3];
-my_bool infectionResultIsNull[3];
-my_bool infectionResultError[3];
+TARASEC_MY_BOOL infectionResultIsNull[3];
+TARASEC_MY_BOOL infectionResultError[3];
 unsigned long infectionResultLength[3];
 
 memset(bindInfectionSelectResult, 0, sizeof(bindInfectionSelectResult));
@@ -437,8 +437,8 @@ uint32_t selectedCount;
 uint32_t selectedTag;
 
 MYSQL_BIND bindSelectResult[3];
-my_bool resultIsNull[3];
-my_bool resultError[3];
+TARASEC_MY_BOOL resultIsNull[3];
+TARASEC_MY_BOOL resultError[3];
 unsigned long resultLength[3];
 
 memset(bindSelectResult, 0, sizeof(bindSelectResult));

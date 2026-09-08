@@ -355,7 +355,18 @@ if [ -f /etc/tarasecfw.conf ]; then
     echo
     echo "Reapplying TaraSec firewall with hotspot client allowances..."
     bash "$REPO_ROOT/misc/firewall.sh"
-    systemctl restart opennds
+    systemctl stop opennds || true
+    for _ in $(seq 1 30); do
+        if ! pgrep -x opennds >/dev/null 2>&1; then
+            break
+        fi
+        sleep 1
+    done
+    if pgrep -x opennds >/dev/null 2>&1; then
+        echo "ERROR: previous openNDS process did not stop cleanly." >&2
+        exit 1
+    fi
+    systemctl start opennds
     for _ in $(seq 1 45); do
         if systemctl is-active --quiet opennds && ndsctl status >/dev/null 2>&1; then
             break

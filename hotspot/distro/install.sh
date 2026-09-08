@@ -142,7 +142,13 @@ mkdir -p /var/www/html/temp
 chown www-data:www-data /var/www/html/temp
 chown www-data:www-data /var/www/html/temp/* 2>/dev/null || true
 
-cp distro/copythese/*.sql /root/wifi/distro
+echo "Deploying TaraSec web application..."
+cp -a "$REPO_ROOT/html/." /var/www/html/
+mkdir -p /var/www/html/temp
+chown www-data:www-data /var/www/html/temp
+chown www-data:www-data /var/www/html/temp/* 2>/dev/null || true
+
+cp distro/copythese/*.sql /root/w/distro
 cp perl/* /root/wifi/perl
 if command -v ipfm >/dev/null 2>&1; then
     cp distro/copythese/ipfm.conf /etc

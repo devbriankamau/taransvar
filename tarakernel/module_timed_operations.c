@@ -210,52 +210,17 @@ void sendTrafficReport()
 
 void checkTimedOperation(void)
 {
-    static int nTrafficReportLoops = 0;
-
-	/*	static bool bErrorDiscovered = false;
-
-    pr_warn("tarakernel: Testing memory allocation..\n");
-	if (bErrorDiscovered)
-		pr_warn("tarakernel: ************** ERROR HAS BEEN DISCOVERED ***********\n");
-    _Node *pFirst = NULL;    
-
-    for (int n = 0; n < 100; n++) 
-	{
-        pFirst = getNewBefore(pFirst, 100);
-		if (!pFirst)
-		{
-			pr_warn("tarakernel: ************ ERROR ALLOCATING **************");
-			bErrorDiscovered = true; 
-		}
-	}
-
-    int nCount = 0;
-
-    for (_Node *pPtr = pFirst; pPtr;)
-	{
-        nCount++;
-		_Node *pNext = pPtr->pNext;
-		kfree(pPtr);
- 		pPtr = pNext;
-
-	}
-
-    pr_warn("tarakernel: %d elements created..\n", nCount);
-*/	
-
-    if (pSetup->bSendTrafficReport)
+    /*
+     * Flush queued observations on the one-second kernel timer. Previously,
+     * ordinary (including clean) traffic waited about six ticks, while a
+     * changed threat severity set bSendTrafficReport for the next tick.
+     * Nonzero tags can also re-arm this timer immediately.
+     */
+    if (pSetup->bSendTrafficReport ||
+        pSetup->cPendingIncomingReportArr[0].sIp)
     {
-        pr_warn("tarakernel: Timed operations... And set to send traffic report...!\n");
         sendTrafficReport();
-        nTrafficReportLoops = 0;
-        return;     //Don't do other timed operations... 
-    }
-
-    if (nTrafficReportLoops++ >= 5)
-    {
-        //pr_warn("tarakernel: 5th timer so sending traffic report...!\n");
-        sendTrafficReport();
-        return;     //Don't do other timed operations... 
+        return;
     }
 
     //pr_warn("tarakernel: Timed operations...\n");

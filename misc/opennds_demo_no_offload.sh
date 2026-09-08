@@ -6,8 +6,6 @@
 
 set -u
 
-TABLE_FAMILY="ip"
-TABLE_NAME="nds_mangle"
 CHAIN_NAME="nds_ft_OUT"
 COMMENT="tarasec-inspection-no-offload"
 
@@ -18,15 +16,25 @@ COMMENT="tarasec-inspection-no-offload"
 
 command -v nft >/dev/null 2>&1 || exit 0
 
+CHAIN_LOCATION=""
 for _attempt in $(seq 1 20); do
-    if nft list chain "$TABLE_FAMILY" "$TABLE_NAME" "$CHAIN_NAME" >/dev/null 2>&1; then
-        break
-    fi
+    CHAIN_LOCATION="$(nft list ruleset 2>/dev/null | awk -v wanted="$CHAIN_NAME" '
+        $1 == "table" { family=$2; table_name=$3 }
+        $1 == "chain" && $2 == wanted { print family, table_name; exit }
+    ')"
+    [ -n "$CHAIN_LOCATION" ] && break
     sleep 1
 done
 
-if ! nft list chain "$TABLE_FAMILY" "$TABLE_NAME" "$CHAIN_NAME" >/dev/null 2>&1; then
+if [ -z "$CHAIN_LOCATION" ]; then
     echo "openNDS flow-offload chain is unavailable; no exclusion installed." >&2
+    exit 0
+fi
+
+read -r TABLE_FAMILY TABLE_NAME <<< "$CHAIN_LOCATION"
+
+if ! nft list chain "$TABLE_FAMILY" "$TABLE_NAME" "$CHAIN_NAME" >/dev/null 2>&1; then
+    echo "Unable to inspect openNDS chain $TABLE_FAMILY $TABLE_NAME $CHAIN_NAME." >&2
     exit 0
 fi
 

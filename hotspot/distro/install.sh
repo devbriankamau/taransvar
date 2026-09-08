@@ -298,6 +298,17 @@ EOF
     chmod 0644 /etc/tarasecfw.conf
 fi
 
+# openNDS normally offloads established client flows. TaraSec must continue to
+# see every packet destined for DEMO_NODES so it can preserve the traffic tag.
+install -m 0755 "$REPO_ROOT/misc/opennds_demo_no_offload.sh" \
+    /usr/local/sbin/tarasec-opennds-demo-no-offload
+install -d /etc/systemd/system/opennds.service.d
+cat > /etc/systemd/system/opennds.service.d/tarasec-demo-no-offload.conf <<EOF
+[Service]
+ExecStartPost=/usr/local/sbin/tarasec-opennds-demo-no-offload
+EOF
+systemctl daemon-reload
+
 # Running this hotspot-specific installer is itself explicit consent to enable
 # Wi-Fi. The general TaraSec installer asks that question before invoking us.
 CREATE_TEST_ACCOUNT=0

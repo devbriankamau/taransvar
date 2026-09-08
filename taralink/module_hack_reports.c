@@ -217,7 +217,7 @@ uint32_t getIpOfRegisteredPartnerRouter(
 
     uint32_t nRouterIp = 0;
     unsigned long nIpLen = 0;
-    my_bool is_null[2] = {0, 0};
+    TARASEC_MY_BOOL is_null[2] = {0, 0};
 
     MYSQL_BIND rec[2];
     memset(rec, 0, sizeof(rec));

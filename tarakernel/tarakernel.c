@@ -34,6 +34,8 @@ partners or whatever before freezing. We should figure out why and find the opti
 #include <linux/string.h>
 #include <linux/timekeeping.h>
 #include <linux/skbuff.h>
+#include <linux/timer.h>
+#include <linux/jiffies.h>
 
 
 
@@ -113,6 +115,23 @@ void checkThatTcp(struct _PacketInspection *pPacket, char *lpFromWhere);	//26032
 static char *cBlockDescriptor[] = {"SERVERS","INFECTIONS","WHITE_LIST","BLACK_LIST","PARTNERS","INSPECT","HONEYPORT","ASSIST","DROP"};
 
 static struct _Setup *pSetup = NULL;
+static struct timer_list my_timer;
+
+/*
+ * A newly observed threat tag is security-significant and should not wait for
+ * the normal traffic batching interval. Wake the existing timer immediately;
+ * the actual report remains serialized by sendTrafficReport().
+ */
+static void scheduleImmediateTrafficReport(void)
+{
+	if (!pSetup)
+		return;
+
+	if (!pSetup->bSendTrafficReport) {
+		pSetup->bSendTrafficReport = true;
+		mod_timer(&my_timer, jiffies + 1);
+	}
+}
 
 /* Read-only capability flag used to distinguish this corrected fail-open build
  * from legacy builds that dropped forwarded traffic without configuration. */
@@ -395,10 +414,6 @@ static void send_to_user(const char *msg)
 
 
 //Timer callback and includes
-#include <linux/timer.h>
-#include <linux/jiffies.h>
-
-static struct timer_list my_timer;
 
 
 static void my_timer_cb(struct timer_list *t)

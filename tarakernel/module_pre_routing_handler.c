@@ -186,7 +186,17 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
 
 			//Update tagging info so that the once that hits the DB is the most recent. 
 			uint16_t nExTag = pSetup->cPendingIncomingReportArr[n].nTag;
-			pSetup->cPendingIncomingReportArr[n].nTag = pPacket->tcp_header->urg_ptr;								
+			uint16_t nObservedTag = pPacket->tcp_header->urg_ptr;
+
+			/*
+			 * A TaraSec tag may appear only on the connection-opening packet.
+			 * Subsequent ACK/data packets normally have urg_ptr=0. Preserve a
+			 * nonzero tag for the lifetime of this reported flow instead of
+			 * allowing an ordinary follow-up packet to erase the evidence.
+			 */
+			if (nObservedTag || !nExTag)
+				pSetup->cPendingIncomingReportArr[n].nTag = nObservedTag;
+
 			if (pSetup->cPendingIncomingReportArr[n].nTag != nExTag)
 				pr_info("Tag for traffic %pI4:%u changed from %u -> %u\n", &cTraffic.sIp, cTraffic.sPort, nExTag, pSetup->cPendingIncomingReportArr[n].nTag);
                 

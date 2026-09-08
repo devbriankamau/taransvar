@@ -29,7 +29,10 @@ try {
     $deadline = microtime(true) + 1.5;
     while (true) {
         $trafficAge = (int)($data['trafficSecondsSince'] ?? -1);
-        if ($trafficAge >= 0 && $trafficAge < 45) {
+        // A mobile client can quickly reuse a TCP source port. Only an
+        // observation updated in the current second proves that this request,
+        // rather than a preceding red/green request, has reached the database.
+        if ($trafficAge === 0) {
             break;
         }
         if (microtime(true) >= $deadline) {

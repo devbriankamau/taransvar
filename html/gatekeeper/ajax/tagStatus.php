@@ -11,6 +11,18 @@ function tagStatus()
 {
 	$data = getTagData();
 
+	/*
+	 * The AJAX request itself is the traffic being assessed. tarakernel sends
+	 * queued traffic within one second, so briefly wait for an observation from
+	 * the current second instead of displaying the preceding poll's state.
+	 */
+	$deadline = microtime(true) + 1.5;
+	while ((int)($data["trafficSecondsSince"] ?? -1) !== 0 &&
+		microtime(true) < $deadline) {
+		usleep(100000);
+		$data = getTagData();
+	}
+
 	$senderIp = htmlspecialchars(getSenderIp(), ENT_QUOTES, 'UTF-8');
 	$severity = (int)($data["severity"] ?? 0);
 	$trafficAge = (int)($data["trafficSecondsSince"] ?? -1);

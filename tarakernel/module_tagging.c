@@ -1143,7 +1143,7 @@ unsigned int tagThePacket(struct _PacketInspection *pPacket, const struct nf_hoo
     {
 	    union _TagUnion cUnion;
 	    cUnion.nTag = pPacket->tcp_header->urg_ptr;
-        pr_info("tarakernel: FW: Sending tagged traffic. Tag: %u, severity: %u, urg: %u\n", cUnion.nTag, cUnion.cTag.presumed_infected, pPacket->tcp_header->urg);
+        tk_debug_ratelimited(2, "tagged traffic: tag=%u severity=%u urg=%u\n", cUnion.nTag, cUnion.cTag.presumed_infected, pPacket->tcp_header->urg);
     }
     #endif
 

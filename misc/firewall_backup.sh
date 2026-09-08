@@ -13,7 +13,12 @@
 # Restrict hotspot clients entering the NetBird/simulated-WAN network.
 # Ordinary hotspot Internet forwarding remains allowed.
 #NETBIRD_CIDR="100.68.0.0/16"
-# Shared by firewall enforcement and the app's demo configuration endpoint.
+# Allow this node to accept explicitly marked, short-lived demo sessions.
+# This does not make ordinary evidence or the node itself non-production.
+#DEMO_NODE=0
+
+# Shared by firewall enforcement, taralink ephemeral tagging destinations,
+# and the app's demo configuration endpoint.
 #DEMO_NODES="100.68.22.33"
 #DEMO_NODE_NAMES="Tomato"
 #HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS="80,443"

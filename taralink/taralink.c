@@ -46,6 +46,13 @@
 #endif
 
 #include <stdbool.h>
+
+// MariaDB exposes my_bool, while MySQL 8 uses the C99 bool type in MYSQL_BIND.
+#if defined(MARIADB_BASE_VERSION)
+#define TARASEC_MY_BOOL my_bool
+#else
+#define TARASEC_MY_BOOL bool
+#endif
 #include <sys/syscall.h>
 #include <netdb.h>
 #include <sys/types.h>

@@ -33,7 +33,17 @@
 #include <sys/select.h>
 #include <linux/netlink.h>
 
-#include "mariadb/mysql.h"
+#if defined(__has_include)
+#  if __has_include(<mariadb/mysql.h>)
+#    include <mariadb/mysql.h>
+#  elif __has_include(<mysql/mysql.h>)
+#    include <mysql/mysql.h>
+#  else
+#    error "No compatible MySQL/MariaDB client header found"
+#  endif
+#else
+#  include <mysql/mysql.h>
+#endif
 
 #include <stdbool.h>
 #include <sys/syscall.h>

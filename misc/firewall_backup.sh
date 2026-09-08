@@ -28,7 +28,7 @@
 #TCP_PORTS=""
 
 # UDP ports for elaborated threat data exchange and threat logging
-#UDP_PORTS="5552,514"
+#UDP_PORTS="5551,5552,514"
 
 # Allow ICMP echo requests (ping)
 #ALLOW_PING=0
@@ -54,7 +54,7 @@ source "$CONF"
 SSH_PORT="${SSH_PORT:-22}"
 ALLOW_WEB="${ALLOW_WEB:-1}"
 TCP_PORTS="${TCP_PORTS:-}"
-UDP_PORTS="${UDP_PORTS:-5552,514}"
+UDP_PORTS="${UDP_PORTS:-5551,5552,514}"
 MAX_LOGS_PER_MIN="${MAX_LOGS_PER_MIN:-10}"
 MAX_BURSTS="${MAX_BURSTS:-20}"
 

@@ -276,8 +276,13 @@ IS_GATEWAY=0
 WAN_INTERFACE="wt0"
 NETBIRD_CIDR="100.68.0.0/16"
 
+# Set to 1 only on nodes that explicitly accept short-lived demo sessions.
+# This is a capability flag; it does not classify ordinary evidence as demo.
+DEMO_NODE=0
+
 # Endpoints advertised to the TaraSec App and permitted from hotspot clients.
-# Keep the names in the same order as their addresses.
+# Taralink also treats these as ephemeral tagging destinations without adding
+# permanent production partner records. Keep names in the same order.
 DEMO_NODES=""
 DEMO_NODE_NAMES=""
 HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS="80,443"

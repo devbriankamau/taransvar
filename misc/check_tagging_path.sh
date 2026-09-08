@@ -64,7 +64,13 @@ if [ "$mode" = gateway ]; then
 else
 	if [ -n "$peer" ]; then
 		echo "=== Recent TCP traffic received from $peer ==="
-		mysql taransvar -e "SELECT trafficId,INET_NTOA(ipFrom) AS ipFrom,portFrom,INET_NTOA(ipTo) AS ipTo,portTo,tag,tagSeverity,lastSeen FROM traffic WHERE ipFrom=INET_ATON('$peer') ORDER BY trafficId DESC LIMIT 20;" || true
+		if mysql -N -B taransvar -e "SHOW COLUMNS FROM traffic LIKE 'tagSeverity';" 2>/dev/null | grep -q '^tagSeverity'; then
+			severity_column=",tagSeverity"
+		else
+			severity_column=""
+			echo "NOTE: traffic.tagSeverity is unavailable; showing the raw tag."
+		fi
+		mysql taransvar -e "SELECT trafficId,INET_NTOA(ipFrom) AS ipFrom,portFrom,INET_NTOA(ipTo) AS ipTo,portTo,tag${severity_column},lastSeen FROM traffic WHERE ipFrom=INET_ATON('$peer') ORDER BY trafficId DESC LIMIT 20;" || true
 	else
 		echo "Peer IP omitted; skipping receiver database query"
 	fi

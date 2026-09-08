@@ -624,7 +624,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 			}
 			else
 			{
-				pr_info("tarakernel: Incoming (from partner) not tagged: %pI4:%u -> %pI4:%u tag: %u",
+				tk_debug_ratelimited(3, "Incoming from partner untagged: %pI4:%u -> %pI4:%u tag: %u",
 					 &pPacket->ip_header->saddr, pPacket->sPort, &pPacket->ip_header->saddr, pPacket->dPort, cUnion.nTag);
 			}
 
@@ -661,7 +661,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 		        if (pSetup->cShowInstructions.bits.showPreRoutePartner) {
 					//pr_info("tarakernel: PRE ROUTING: Inbound from partner: %s (%s -> %s)\n",pSetup->c100, pPacket->cSourceIp, pPacket->cDestIp);
 					if (!dropFromLogging(pPacket))
-						pr_info("tarakernel: PRE ROUTING Inbound from partner(%pI4): (%s:%d -> %s:%d)\n", &nPartnerIp, pPacket->cSourceIp, ntohs(pPacket->tcp_header->source), pPacket->cDestIp, ntohs(pPacket->tcp_header->dest)); 
+						tk_debug(3, "PRE ROUTING inbound from partner(%pI4): (%s:%d -> %s:%d)\n", &nPartnerIp, pPacket->cSourceIp, ntohs(pPacket->tcp_header->source), pPacket->cDestIp, ntohs(pPacket->tcp_header->dest)); 
 				}
 				if (cUnion.cTag.version_no)
 				  pSetup->cGlobalStatistics.nFromPartnerTagged++;
@@ -722,7 +722,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
         {
 			char cBuf1[50], cBuf2[50];
 			if (!dropFromLogging(pPacket))
-				pr_info("tarakernel: PR: Neither to or from me.. What is this? %s:%d (%s) -> %s:%d (%s)\n", 
+				tk_debug_ratelimited(3, "PR: Neither to or from me: %s:%d (%s) -> %s:%d (%s)\n", 
 					pPacket->cSourceIp, pPacket->sPort, inspectIsItMe(pPacket->ip_header->saddr, cBuf1),  
 					pPacket->cDestIp, pPacket->dPort, inspectIsItMe(pPacket->ip_header->daddr, cBuf2));
 		}
@@ -869,7 +869,7 @@ static unsigned int module_ip4_post_routing_handler(void *priv, struct sk_buff *
    	                getMeAndMine(cTemp, sizeof(cTemp));
 					if (pSetup->cShowInstructions.bits.showOther)
 						if (!dropFromLogging(pPacket))
-   	    			    	pr_info("tarakernel: **** WARNING **** PR None of mine.. Probably partner malconfiguration? (%s:%d->%s:%d %s)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, cTemp);
+   	    			    	tk_debug_ratelimited(2, "PR: traffic outside configured local/partner networks: (%s:%d->%s:%d %s)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, cTemp);
 				}
   			}
 	}

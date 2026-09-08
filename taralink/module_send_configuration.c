@@ -50,6 +50,105 @@ int fileConfigurationSent(struct _SocketData *pSockData, int nSequenceNumber, in
 	return 0;
 }*/
 
+/*
+ * DEMO_NODES are gateway-local destinations.  They are sent to tarakernel as
+ * partner destinations for packet tagging, but are deliberately not inserted
+ * into partnerRouter and therefore do not become production trust records.
+ */
+static int appendDemoPartnersFromConfig(char *reply, size_t replySize)
+{
+    FILE *config = fopen("/etc/tarasecfw.conf", "r");
+    char line[2048];
+    char value[2048] = "";
+    int added = 0;
+
+    if (!config)
+        return 0;
+
+    while (fgets(line, sizeof(line), config)) {
+        char *p = line;
+        char *end;
+
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (strncmp(p, "DEMO_NODES", strlen("DEMO_NODES")) != 0)
+            continue;
+
+        p += strlen("DEMO_NODES");
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (*p++ != '=')
+            continue;
+        while (*p == ' ' || *p == '\t')
+            p++;
+
+        strncpy(value, p, sizeof(value) - 1);
+        value[sizeof(value) - 1] = '\0';
+        end = value + strlen(value);
+        while (end > value && (end[-1] == '\n' || end[-1] == '\r' ||
+               end[-1] == ' ' || end[-1] == '\t'))
+            *--end = '\0';
+        if (value[0] == '"' || value[0] == '\'') {
+            char quote = value[0];
+            memmove(value, value + 1, strlen(value));
+            end = strrchr(value, quote);
+            if (end)
+                *end = '\0';
+        }
+        break;
+    }
+    fclose(config);
+
+    if (!value[0])
+        return 0;
+
+    {
+        char *save = NULL;
+        char *token = strtok_r(value, ",", &save);
+
+        while (token) {
+            unsigned int a, b, d, e;
+            char extra;
+            char entry[32];
+            char *start = token;
+            char *finish;
+
+            while (*start == ' ' || *start == '\t')
+                start++;
+            finish = start + strlen(start);
+            while (finish > start && (finish[-1] == ' ' || finish[-1] == '\t'))
+                *--finish = '\0';
+
+            if (sscanf(start, "%u.%u.%u.%u%c", &a, &b, &d, &e, &extra) == 4 &&
+                a <= 255 && b <= 255 && d <= 255 && e <= 255) {
+                unsigned int ip = (a << 24) | (b << 16) | (d << 8) | e;
+                snprintf(entry, sizeof(entry), "%08X:FFFFFFFF^", ip);
+
+                if (!strstr(reply, entry)) {
+                    size_t needed = strlen(reply) + strlen(entry) +
+                                    (added == 0 ? strlen("PARTNER|") : 0) + 2;
+                    if (needed >= replySize) {
+                        fprintf(stderr, "DEMO_NODES partner list exceeds configuration buffer\n");
+                        break;
+                    }
+                    if (added == 0)
+                        strcat(reply, "PARTNER|");
+                    strcat(reply, entry);
+                    printf("Demo partner found: %s/32\n", start);
+                    added++;
+                }
+            } else {
+                fprintf(stderr, "Ignoring invalid DEMO_NODES address: %s\n", start);
+            }
+            token = strtok_r(NULL, ",", &save);
+        }
+    }
+
+    if (added)
+        strcat(reply, "|");
+    return added;
+}
+
 void updateHandled(MYSQL *updateConn, char *lpTableName, char *lpKeyField, char *lpId)
 {
 	char cSQL[300];
@@ -684,6 +783,10 @@ int sentConfiguration(int nSequenceNumber, int bIsInbound, int bReadChangesOnly)
 			strcpy(cReply+strlen(cReply), "|");
 	        bFoundData = 1;
         }
+
+		/* Add explicitly configured demo destinations without persisting trust. */
+		if (appendDemoPartnersFromConfig(cReply, sizeof(cReply)) > 0)
+			bFoundData = 1;
 		//else
 		//	printf("No routers updated\n", nFound);
 

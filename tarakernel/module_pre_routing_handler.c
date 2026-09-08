@@ -173,6 +173,7 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
 	}
 
     //Queue this packet for sending to ABMonitor for further handling. 
+    bool bImmediateTaggedReport = false;
     int n = 0;
     for (n = 0; n < sizeof(pSetup->cPendingIncomingReportArr) / sizeof(struct _ipPort2); n++)
     {
@@ -197,8 +198,11 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
 			if (nObservedTag || !nExTag)
 				pSetup->cPendingIncomingReportArr[n].nTag = nObservedTag;
 
-			if (pSetup->cPendingIncomingReportArr[n].nTag != nExTag)
+			if (pSetup->cPendingIncomingReportArr[n].nTag != nExTag) {
 				pr_info("Tag for traffic %pI4:%u changed from %u -> %u\n", &cTraffic.sIp, cTraffic.sPort, nExTag, pSetup->cPendingIncomingReportArr[n].nTag);
+				if (pSetup->cPendingIncomingReportArr[n].nTag)
+					bImmediateTaggedReport = true;
+			}
                 
          	//if (pSetup->cShowInstructions.bits.showOther)
                 //        pr_info("tarakernel: PR: Reporting incoming traffic %s:%d -> %s:%d (increased count at #%d)\n",pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, n);
@@ -215,6 +219,8 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
                 pSetup->cPendingIncomingReportArr[n].nCount = 1;
 
 				pSetup->cPendingIncomingReportArr[n].nTag = pPacket->tcp_header->urg_ptr;	//OT_Changed: 260225 - just testing if can get this through taralink to DB
+				if (pSetup->cPendingIncomingReportArr[n].nTag)
+					bImmediateTaggedReport = true;
 				//pr_info("tarakernel: Traffic stored %pI4:%u - tag: %u\n", &cTraffic.sIp, cTraffic.sPort, pSetup->cPendingIncomingReportArr[n].nTag);
 
 				//pSetup->cPendingIncomingReportArr[n].nTag = 316;//TESTING 260225 pPacket->tcp_header->urg_ptr;	//OT_Changed: 260225 - just testing if can get this through taralink to DB
@@ -230,6 +236,10 @@ void reportInboundTraffic(struct _PacketInspection *pPacket)
 		//Array is full... Print warning...
     	if (pSetup->cShowInstructions.bits.showOther)
             pr_info("tarakernel: ******* Queue of traffic reports is full (n=%d)... Please inform support center\n", n);
+    }
+    else if (bImmediateTaggedReport)
+    {
+        scheduleImmediateTrafficReport();
     }
 }
 
@@ -561,7 +571,7 @@ static unsigned int module_ip4_pre_routing_handler(void *priv, struct sk_buff *s
 
 				if (!pInfection || cUnion.cTag.presumed_infected != pInfection->nSeverity)
 				{
-					pr_warn("tarakernel: *** WARNING *** PR incoming tagged message (from %pI4:%u) and remote infection severity differs: Stored: %u, incoming msg: %u", &pPacket->ip_header->saddr, pPacket->tcp_header->source, cUnion.cTag.presumed_infected, pInfection->nSeverity);
+					pr_warn("tarakernel: *** WARNING *** PR incoming tagged message (from %pI4:%u) and remote infection severity differs: Stored: %u, incoming msg: %u", &pPacket->ip_header->saddr, pPacket->tcp_header->source, cUnion.cTag.presumed_infected, pInfection ? pInfection->nSeverity : 0);
 					pSetup->bSendTrafficReport = 1;	//Initiate sending of traffic data on next timer (in module_timed_operations.c -> checkTimedOperation() )
 					//asdfasdf ... should mark pInfection so don't keep sending....
 					if (pInfection)	//260623 - Added storing...

@@ -148,7 +148,7 @@ mkdir -p /var/www/html/temp
 chown www-data:www-data /var/www/html/temp
 chown www-data:www-data /var/www/html/temp/* 2>/dev/null || true
 
-cp distro/copythese/*.sql /root/w/distro
+cp distro/copythese/*.sql /root/wifi/distro
 cp perl/* /root/wifi/perl
 if command -v ipfm >/dev/null 2>&1; then
     cp distro/copythese/ipfm.conf /etc

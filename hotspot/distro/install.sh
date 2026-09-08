@@ -257,6 +257,36 @@ echo
 echo "Installing and enrolling TaraSec NetBird management..."
 bash "$REPO_ROOT/misc/install_netbird_management.sh"
 
+# The firewall and app demo-discovery endpoint share this local policy file.
+# Create a conservative baseline on fresh installations, but never replace a
+# gateway owner's existing policy.
+if [ ! -e /etc/tarasecfw.conf ]; then
+    echo
+    echo "Creating default TaraSec firewall configuration..."
+    cat > /etc/tarasecfw.conf <<EOF
+# TaraSec local firewall and demo policy
+DBSERVER="100.68.126.0"
+IS_GATEWAY=0
+WAN_INTERFACE="wt0"
+NETBIRD_CIDR="100.68.0.0/16"
+
+# Endpoints advertised to the TaraSec App and permitted from hotspot clients.
+# Keep the names in the same order as their addresses.
+DEMO_NODES=""
+DEMO_NODE_NAMES=""
+HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS="80,443"
+
+ALLOW_WEB=1
+ALLOW_SSH=1
+ALLOW_PING=0
+UDP_PORTS="5552,514"
+MAX_LOGS_PER_MIN=10
+MAX_BURSTS=20
+NODE_NAME="$(hostname)"
+EOF
+    chmod 0644 /etc/tarasecfw.conf
+fi
+
 # Running this hotspot-specific installer is itself explicit consent to enable
 # Wi-Fi. The general TaraSec installer asks that question before invoking us.
 CREATE_TEST_ACCOUNT=0

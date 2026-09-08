@@ -43,6 +43,7 @@ try {
         'client_port' => (int)($data['senderPort'] ?? ($_SERVER['REMOTE_PORT'] ?? 0)),
         'trafficSeverity' => (int)($data['trafficSeverity'] ?? 0),
         'trafficSecondsSince' => (int)($data['trafficSecondsSince'] ?? -1),
+        'demo' => ((int)($data['trafficIsDemo'] ?? 0)) === 1,
         'hackReportSeverity' => (int)($data['hackReportSeverity'] ?? 0),
         'hackReportSecondsSince' => (int)($data['hackReportSecondsSince'] ?? -1),
         'infectionSeverity' => (int)($data['infectionSeverity'] ?? -1),

@@ -121,6 +121,24 @@ module_param(fail_open_without_config, bool, 0444);
 MODULE_PARM_DESC(fail_open_without_config,
 	"Forward packets while taralink configuration is unavailable");
 
+/*
+ * Runtime diagnostics. Level 0 keeps only warnings/errors, level 1 reports
+ * lifecycle and security events, level 2 traces tagging decisions, and level
+ * 3 enables packet-level tracing. Keep the production default inexpensive.
+ */
+static unsigned int debug_level = 1;
+module_param(debug_level, uint, 0644);
+MODULE_PARM_DESC(debug_level,
+	"Diagnostics: 0=warnings, 1=events, 2=tag decisions, 3=packet trace");
+
+#define tk_debug(level, fmt, ...) \
+	do { if (unlikely(debug_level >= (level))) \
+		pr_info("tarakernel: " fmt, ##__VA_ARGS__); } while (0)
+
+#define tk_debug_ratelimited(level, fmt, ...) \
+	do { if (unlikely(debug_level >= (level))) \
+		pr_info_ratelimited("tarakernel: " fmt, ##__VA_ARGS__); } while (0)
+
 #include "module_configuration.h"
 #include "module_store_configuration.h"
 #include "module_packet_interpreter.h"

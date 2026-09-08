@@ -11,7 +11,7 @@ $values = [];
 
 if (is_readable($configFile)) {
     foreach (file($configFile, FILE_IGNORE_NEW_LINES) ?: [] as $line) {
-        if (preg_match('/^\s*(DEMO_NODES|DEMO_NODE_NAMES|HOTSPOT_ALLOWED_NETBIRD_NODES|HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS)\s*=\s*["\']?([^"\']*)["\']?\s*$/', $line, $match)) {
+        if (preg_match('/^\s*(DEMO_NODE|DEMO_NODES|DEMO_NODE_NAMES|HOTSPOT_ALLOWED_NETBIRD_NODES|HOTSPOT_ALLOWED_NETBIRD_TCP_PORTS)\s*=\s*["\']?([^"\']*)["\']?\s*$/', $line, $match)) {
             $values[$match[1]] = trim($match[2]);
         }
     }
@@ -48,6 +48,7 @@ echo json_encode([
     'ok' => true,
     'gateway' => $gatewayName,
     'nodes' => $nodes,
+    'demo_node' => in_array(strtolower($values['DEMO_NODE'] ?? '0'), ['1', 'yes', 'true', 'on'], true),
     'configured' => is_readable($configFile),
     'server_time' => gmdate('c')
 ], JSON_UNESCAPED_SLASHES);

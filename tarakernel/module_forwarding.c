@@ -149,7 +149,7 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		bool bForwarding = true;
 		int nRetval = checkFixTagging(pPacket, bForwarding, state);	//state may be NF_INET_FORWARD??
 
-		pr_info("tarakernel: FW: Forwarding to partner (after tagging).. %s->%s, urg_ptr %04X.\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
+		tk_debug(3, "FW: Forwarding to partner after tagging: %s->%s, tag=%04X\n", pPacket->cSourceIp, pPacket->cDestIp, pPacket->tcp_header->urg_ptr);
 
 		#ifdef ALTERNATIVE_TAGGING
 
@@ -184,8 +184,8 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 		//ØT - need to check why unable to get the tag...
 		union _TagUnion cUnion;
 		cUnion.nTag = pPacket->tcp_header->urg_ptr;
-		pr_info("tarakernel: **** FW: Checking outbound tag: %pI4:%d -> %pI4:%d tag: %u, severity: %u\n (packet->nTag: %u)", 
-			&pPacket->ip_header->saddr, pPacket->sPort, &pPacket->ip_header->saddr, pPacket->dPort, cUnion.nTag, cUnion.cTag.presumed_infected, pPacket->nTag);
+		tk_debug(3, "FW: outbound tag %pI4:%d -> %pI4:%d tag=%u severity=%u packet_tag=%u\n", 
+			&pPacket->ip_header->saddr, pPacket->sPort, &pPacket->ip_header->daddr, pPacket->dPort, cUnion.nTag, cUnion.cTag.presumed_infected, pPacket->nTag);
 
 		return nRetval;
 	}

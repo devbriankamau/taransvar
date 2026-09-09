@@ -104,7 +104,21 @@ restart_sshd() {
 is_on() { case "${1,,}" in 1|yes|true|on) return 0 ;; *) return 1 ;; esac; }
 
 mkdir -p "$SSHD_DROPIN_DIR" "$ROLLBACK_DIR" /usr/local/lib/tarasec
-if [ -f "$SSHD_DROPIN" ]; then cp -a "$SSHD_DROPIN" "$ROLLBACK_DIR/90-tarasec.conf.previous"; else rm -f "$ROLLBACK_DIR/90-tarasec.conf.previous"; fi
+if [ -f "$SSHD_DROPIN" ]; then
+    # A previous interrupted run may have left our temporary two-port sshd
+    # phase in place. Never promote that transitional file to the known-good
+    # rollback state: doing so can restore OpenSSH onto the honeypot port and
+    # prevent the simulator from starting after a reboot.
+    if grep -Fxq "Port $SSH_HONEYPOT_PORT" "$SSHD_DROPIN" \
+       && grep -Fxq "Port $SSH_PORT" "$SSHD_DROPIN" \
+       && grep -Fq 'Managed by TaraSec' "$SSHD_DROPIN"; then
+        echo "Existing two-port TaraSec migration state detected; preserving the earlier rollback snapshot."
+    else
+        cp -a "$SSHD_DROPIN" "$ROLLBACK_DIR/90-tarasec.conf.previous"
+    fi
+else
+    rm -f "$ROLLBACK_DIR/90-tarasec.conf.previous"
+fi
 if command -v iptables-save >/dev/null 2>&1; then iptables-save > "$ROLLBACK_DIR/iptables.previous"; else rm -f "$ROLLBACK_DIR/iptables.previous"; fi
 if command -v ip6tables-save >/dev/null 2>&1; then ip6tables-save > "$ROLLBACK_DIR/ip6tables.previous"; else rm -f "$ROLLBACK_DIR/ip6tables.previous"; fi
 

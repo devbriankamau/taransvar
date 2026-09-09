@@ -149,11 +149,22 @@ try {
         // The normalized Node B observation may already carry TaraSec's unit
         // attribution. Match the complete tuple; never equate a shared IP with
         // a unit when concurrent sessions make that ambiguous.
-        $stmt = $conn->prepare("SELECT syslogThreatId,COALESCE(confirmed_unit_id,unit_id) resolvedUnitId FROM syslogThreat WHERE src_ip=INET_ATON(?) AND src_port=? AND dst_ip=INET_ATON(?) AND dst_port=? AND created>=NOW()-INTERVAL 2 MINUTE ORDER BY syslogThreatId DESC LIMIT 1");
-        $stmt->bind_param('sisi', $sourceIp, $sourcePort, $node['node_b'], $destinationPort);
-        $stmt->execute();
-        $nodeBEvidence = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        // ssh_session_connect is emitted before authentication calls this
+        // endpoint, but rsyslog and conntrack attribution are asynchronous.
+        // Give that exact tuple a short bounded window to acquire its unit id;
+        // otherwise concurrent clients behind one NAT address would be
+        // needlessly reduced to the ambiguous source-IP fallback below.
+        $nodeBEvidence = null;
+        for ($wait = 0; $wait < 8; $wait++) {
+            $stmt = $conn->prepare("SELECT syslogThreatId,COALESCE(confirmed_unit_id,unit_id) resolvedUnitId FROM syslogThreat WHERE src_ip=INET_ATON(?) AND src_port=? AND dst_ip=INET_ATON(?) AND dst_port=? AND created>=NOW()-INTERVAL 2 MINUTE ORDER BY syslogThreatId DESC LIMIT 1");
+            $stmt->bind_param('sisi', $sourceIp, $sourcePort, $node['node_b'], $destinationPort);
+            $stmt->execute();
+            $candidate = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if ($candidate) $nodeBEvidence = $candidate;
+            if ($candidate && $candidate['resolvedUnitId'] !== null) break;
+            if ($wait < 7) usleep(250000);
+        }
 
         $resolvedUnitId = $nodeBEvidence && $nodeBEvidence['resolvedUnitId'] !== null ? (int)$nodeBEvidence['resolvedUnitId'] : null;
         $sql = "SELECT s.*,INET_NTOA(d.nodeAIp) node_a,d.nodeAPort FROM demoSshSession s JOIN demoSshSetup d ON d.demoSshSetupId=s.demoSshSetupId WHERE s.demoSshNodeBId=? AND s.credentialGeneration=? AND s.state IN ('awaiting_node_a','demo_infected','awaiting_node_b') AND s.expires>NOW()";

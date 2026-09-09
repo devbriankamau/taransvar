@@ -26,6 +26,7 @@ if ($infectedParam !== '0' && $infectedParam !== '1') {
 }
 
 $wantInfected = $infectedParam === '1';
+$isDemo = ((string)($_POST['demo'] ?? '0') === '1') ? 1 : 0;
 $sender = getSenderIp();
 
 if (filter_var($sender, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
@@ -53,7 +54,7 @@ try {
 
     $infectionId = $row ? (int)$row['infectionId'] : 0;
     $severity = 3;
-    $why = 'TaraSec app: device self-declared infected';
+    $why = $isDemo ? 'TaraSec app demo: device self-declared infected' : 'TaraSec app: device self-declared infected';
 
     if ($wantInfected) {
         if ($infectionId > 0) {
@@ -65,20 +66,21 @@ try {
                         status = 'unknown',
                         nettmask = 4294967295,
                         why = ?,
+                        isDemo = ?,
                         lastSeen = NOW()
                   WHERE infectionId = ?"
             );
-            $stmt->bind_param('isi', $severity, $why, $infectionId);
+            $stmt->bind_param('isii', $severity, $why, $isDemo, $infectionId);
             $stmt->execute();
             $stmt->close();
         } else {
             $stmt = $conn->prepare(
                 "INSERT INTO internalInfections
-                    (ip, nettmask, status, handled, active, lastSeen, severity, why)
+                    (ip, nettmask, status, handled, active, lastSeen, severity, why, isDemo)
                  VALUES
-                    (INET_ATON(?), 4294967295, 'unknown', b'0', b'1', NOW(), ?, ?)"
+                    (INET_ATON(?), 4294967295, 'unknown', b'0', b'1', NOW(), ?, ?, ?)"
             );
-            $stmt->bind_param('sis', $sender, $severity, $why);
+            $stmt->bind_param('sisi', $sender, $severity, $why, $isDemo);
             $stmt->execute();
             $infectionId = (int)$conn->insert_id;
             $stmt->close();
@@ -91,6 +93,7 @@ try {
             'client_ip' => $sender,
             'infectionId' => $infectionId,
             'severity' => $severity,
+            'demo' => (bool)$isDemo,
             'message' => 'This device is marked infected on the local TaraSec gateway'
         ], JSON_UNESCAPED_SLASHES);
         exit;
@@ -100,7 +103,7 @@ try {
     if ($infectionId > 0) {
         $stmt = $conn->prepare(
             "UPDATE internalInfections
-                SET active = b'0', handled = b'0', lastSeen = NOW()
+                SET active = b'0', handled = b'0', isDemo = b'0', lastSeen = NOW()
               WHERE infectionId = ?"
         );
         $stmt->bind_param('i', $infectionId);

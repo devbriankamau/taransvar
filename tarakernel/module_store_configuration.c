@@ -246,7 +246,21 @@ char *interpretSetup(char *lpBlockDescriptor, char *lpIpList)
         pSetup->nBlockSshThreshold = (unsigned char)nMyIp;
 		pr_info("tarakernel: ****** ssh blocking threshold found ****: %d\n", pSetup->nBlockSshThreshold);
 
-
+    	//*********** Get protected administrative SSH port
+        lpIpList = lpSep+1;
+        lpSep = strchr(lpIpList, '^');
+        if (!lpSep) {
+			pr_info("tarakernel: ***** ERROR in setup (administrative SSH port)\n");
+			return lpFound + 1;
+        }
+        *lpSep = 0;
+        if ((nError = kstrtoul(lpIpList, 16, &nMyIp)) || nMyIp < 1 || nMyIp > 65535)
+		{
+			pr_info("tarakernel: invalid administrative SSH port: %s\n", lpIpList);
+			return lpFound + 1;
+        }
+        pSetup->nAdminSshPort = (unsigned short)nMyIp;
+		pr_info("tarakernel: administrative SSH port found: %u\n", pSetup->nAdminSshPort);
 
         //****** Get show info instructions
         lpIpList = lpSep+1; 

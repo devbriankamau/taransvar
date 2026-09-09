@@ -199,10 +199,10 @@ try {
             // clear an older record, even when it belongs to the same unit or
             // address: independent evidence remains owner-controlled.
             if ($row['unitId'] !== null) {
-                $stmt = $conn->prepare("SELECT infectionId FROM internalInfections WHERE unitId=? AND active=b'1' AND lastSeen>=? ORDER BY infectionId DESC LIMIT 1");
+                $stmt = $conn->prepare("SELECT infectionId FROM internalInfections WHERE unitId=? AND active=b'1' AND COALESCE(lastSeen,inserted)>=? ORDER BY infectionId DESC LIMIT 1");
                 $stmt->bind_param('is', $row['unitId'], $row['created']);
             } else {
-                $stmt = $conn->prepare("SELECT infectionId FROM internalInfections WHERE ip=? AND active=b'1' AND lastSeen>=? ORDER BY infectionId DESC LIMIT 1");
+                $stmt = $conn->prepare("SELECT infectionId FROM internalInfections WHERE ip=? AND active=b'1' AND COALESCE(lastSeen,inserted)>=? ORDER BY infectionId DESC LIMIT 1");
                 $stmt->bind_param('is', $row['sourceIp'], $row['created']);
             }
             $stmt->execute(); $demoInfection = $stmt->get_result()->fetch_assoc(); $stmt->close();

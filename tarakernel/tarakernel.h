@@ -235,6 +235,7 @@ struct _Setup {
 	char c100[200];
 	unsigned char nBlockIncomingTaggedTrafficLevel;
 	unsigned char nBlockSshThreshold;
+	unsigned short nAdminSshPort;
 	
 	struct _CheckIp cCheckThese[C_CHECK_ARRAY_SIZE];
 

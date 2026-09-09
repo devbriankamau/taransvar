@@ -25,6 +25,14 @@
 
 # When deploying to production, consider moving SSH from the default port (22).
 #SSH_PORT="22"
+#SSH_ALLOWED_SOURCES="100.68.10.7"
+#SSH_HONEYPOT="on"
+#SSH_HONEYPOT_PORTS="22"
+#SSH_HONEYPOT_AUTH_MODE="accept-all" # accept-all, reject-all, password
+#SSH_HONEYPOT_PASSWORD_HASH=""       # SHA-256; only for password mode
+#SSH_HONEYPOT_DEMO_PORT="22"         # optional DB-authorized demo service
+#SSH_HONEYPOT_DEMO_DB_URL="https://db.example/script/appDemoSshSession.php"
+#SSH_HONEYPOT_DEMO_NODE_TOKEN=""     # random 32+ character secret; store its SHA-256 in demoSshNodeB
 
 #For now, web is required for inter-server communication. You can disable in index.php
 #ALLOW_WEB=1

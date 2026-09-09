@@ -32,7 +32,7 @@ sub parse_event {
         return \%e;
     }
 
-    if ($program eq 'cowrie' || $msg =~ /^\s*\{/) {
+    if ($program eq 'cowrie' || $program eq 'tarasec-ssh-honeypot' || $msg =~ /^\s*\{/) {
         my $j = eval { decode_json($msg) };
         if ($j && ref($j) eq 'HASH' && ip_ok($j->{src_ip}) && ip_ok($j->{dst_ip})) {
             $e{src_ip} = $j->{src_ip};
@@ -40,7 +40,7 @@ sub parse_event {
             $e{src_port} = int($j->{src_port} || 0);
             $e{dst_port} = int($j->{dst_port} || 0);
             $e{protocol} = $j->{proto} || 'tcp';
-            $e{service} = 'cowrie';
+            $e{service} = ($j->{service} || '') eq 'ssh' ? 'ssh' : 'cowrie';
             $e{is_attack} = 1;
             $e{action} = $j->{action} || 'observe';
             $e{severity} = int($j->{severity} || 0);

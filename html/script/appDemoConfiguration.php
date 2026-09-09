@@ -2,6 +2,8 @@
 ini_set('display_errors', '0');
 error_reporting(E_ALL);
 
+include '../dbfunc.php';
+
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
 
@@ -44,10 +46,32 @@ foreach ($addresses as $index => $address) {
     ];
 }
 
+$demoSetups = [];
+try {
+    $conn = getConnection();
+    $result = $conn->query("SELECT s.demoSshSetupId,s.name,INET_NTOA(s.nodeAIp) node_a,s.nodeAPort,INET_NTOA(n.ip) node_b,n.port nodeBPort,s.challengeTtlSeconds FROM demoSshSetup s JOIN demoSshNodeB n ON n.demoSshNodeBId=s.demoSshNodeBId WHERE s.active=b'1' AND n.active=b'1' ORDER BY s.name");
+    while ($row = $result->fetch_assoc()) {
+        $demoSetups[] = [
+            'id' => (int)$row['demoSshSetupId'],
+            'name' => (string)$row['name'],
+            'node_a' => (string)$row['node_a'],
+            'node_a_port' => (int)$row['nodeAPort'],
+            'node_b' => (string)$row['node_b'],
+            'node_b_port' => (int)$row['nodeBPort'],
+            'expires_in' => (int)$row['challengeTtlSeconds']
+        ];
+    }
+    $conn->close();
+} catch (Throwable $e) {
+    // Keep older/pre-migration gateways useful for the existing demo UI.
+    error_log('Unable to load demoSshSetup: ' . $e->getMessage());
+}
+
 echo json_encode([
     'ok' => true,
     'gateway' => $gatewayName,
     'nodes' => $nodes,
+    'demo_ssh_setups' => $demoSetups,
     'demo_node' => in_array(strtolower($values['DEMO_NODE'] ?? '0'), ['1', 'yes', 'true', 'on'], true),
     'configured' => is_readable($configFile),
     'server_time' => gmdate('c')

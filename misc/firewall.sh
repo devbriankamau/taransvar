@@ -18,6 +18,7 @@ source "$CONF"
 SSH_PORT="${SSH_PORT:-22}"
 SSH_HONEYPOT="${SSH_HONEYPOT:-off}"
 SSH_HONEYPOT_PORT="${SSH_HONEYPOT_PORT:-22}"
+SSH_HONEYPOT_PORTS="${SSH_HONEYPOT_PORTS:-$SSH_HONEYPOT_PORT}"
 SSH_ALLOWED_SOURCES="${SSH_ALLOWED_SOURCES:-}"
 SSH_RECOVERY_PROTECT="${SSH_RECOVERY_PROTECT:-on}"
 SSH_RECOVERY_SOURCES="${SSH_RECOVERY_SOURCES:-}"
@@ -52,10 +53,36 @@ add_source_rules() {
 
 if ! valid_port "$SSH_PORT"; then echo "Invalid SSH_PORT=$SSH_PORT" >&2; exit 1; fi
 if ! valid_port "$SSH_HONEYPOT_PORT"; then echo "Invalid SSH_HONEYPOT_PORT=$SSH_HONEYPOT_PORT" >&2; exit 1; fi
-if is_on "$SSH_HONEYPOT" && [ "$SSH_PORT" = "$SSH_HONEYPOT_PORT" ]; then
-    echo "SSH_PORT and SSH_HONEYPOT_PORT must differ when honeypot is enabled." >&2
-    exit 1
-fi
+
+expand_honeypot_ports() {
+    local spec="${SSH_HONEYPOT_PORTS// /,}" item first last port
+    local -A seen=()
+    SSH_HONEYPOT_PORT_LIST=()
+    IFS=',' read -ra items <<< "$spec"
+    for item in "${items[@]}"; do
+        [ -z "$item" ] && continue
+        if [[ "$item" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            first=$((10#${BASH_REMATCH[1]})); last=$((10#${BASH_REMATCH[2]}))
+            [ "$first" -le "$last" ] || { echo "Descending honeypot range: $item" >&2; exit 1; }
+            for ((port=first; port<=last; port++)); do
+                valid_port "$port" || { echo "Invalid honeypot port: $port" >&2; exit 1; }
+                [ "$port" != "$SSH_PORT" ] || { echo "Honeypot port collides with SSH_PORT=$SSH_PORT" >&2; exit 1; }
+                if [ -z "${seen[$port]:-}" ]; then seen[$port]=1; SSH_HONEYPOT_PORT_LIST+=("$port"); fi
+                [ "${#SSH_HONEYPOT_PORT_LIST[@]}" -le 64 ] || { echo "At most 64 honeypot ports are allowed" >&2; exit 1; }
+            done
+        elif [[ "$item" =~ ^[0-9]+$ ]]; then
+            port=$((10#$item))
+            valid_port "$port" || { echo "Invalid honeypot port: $item" >&2; exit 1; }
+            [ "$port" != "$SSH_PORT" ] || { echo "Honeypot port collides with SSH_PORT=$SSH_PORT" >&2; exit 1; }
+            if [ -z "${seen[$port]:-}" ]; then seen[$port]=1; SSH_HONEYPOT_PORT_LIST+=("$port"); fi
+            [ "${#SSH_HONEYPOT_PORT_LIST[@]}" -le 64 ] || { echo "At most 64 honeypot ports are allowed" >&2; exit 1; }
+        else
+            echo "Invalid SSH_HONEYPOT_PORTS entry: $item" >&2; exit 1
+        fi
+    done
+    [ "${#SSH_HONEYPOT_PORT_LIST[@]}" -gt 0 ] || { echo "No honeypot ports configured" >&2; exit 1; }
+}
+expand_honeypot_ports
 
 iptables -F
 iptables -X
@@ -172,7 +199,9 @@ else
 fi
 
 if is_on "$SSH_HONEYPOT"; then
-    iptables -A INPUT -p tcp --dport "$SSH_HONEYPOT_PORT" -j ACCEPT
+    for PORT in "${SSH_HONEYPOT_PORT_LIST[@]}"; do
+        iptables -A INPUT -p tcp --dport "$PORT" -j ACCEPT
+    done
 fi
 
 iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT

@@ -127,7 +127,7 @@ $monthlyPlans = array_filter($plans, function($plan) {
                                 <i class="fas fa-tachometer-alt"></i> My Dashboard
                             </a>
                         <?php else: ?>
-                            <a href="gatekeeper/" class="btn btn-light btn-lg me-md-2"> <!----------  data-bs-toggle="modal"> data-bs-target="#loginModal"> -------->
+                            <a href="demo/" class="btn btn-light btn-lg me-md-2">
                                 <i class="fas fa-sign-in-alt"></i> Try our cyber security demo
                             </a>
                         <?php endif; ?>

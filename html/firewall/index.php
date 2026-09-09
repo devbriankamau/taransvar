@@ -281,6 +281,7 @@ $companionSetup = generate_companion_setup($cfg);
                     <label class="check"><input type="checkbox" name="forward_enabled" <?php if ($cfg['forward_enabled']) echo 'checked'; ?>> Enable forwarding</label>
                     <label class="check"><input type="checkbox" name="dns_enabled" <?php if ($cfg['dns_enabled']) echo 'checked'; ?>> DNS enabled</label>
                 </div>
+                <p class="hint"><a href="/ssh-hardening.php">SSH hardening: restricted administration, lightweight decoy and Cowrie</a></p>
                 <label>DNS servers</label>
                 <input type="text" name="dns_servers" value="<?php echo htmlspecialchars($cfg['dns_servers']); ?>">
             </div>

@@ -1,0 +1,226 @@
+<?php
+ini_set('display_errors', '0');
+error_reporting(E_ALL);
+mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+
+include '../dbfunc.php';
+include '../taraLib.php';
+
+header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
+
+function demoReply(int $status, array $body): never
+{
+    http_response_code($status);
+    echo json_encode($body, JSON_UNESCAPED_SLASHES);
+    exit;
+}
+
+function demoPost(): array
+{
+    $type = strtolower(trim((string)($_SERVER['CONTENT_TYPE'] ?? '')));
+    if (str_starts_with($type, 'application/json')) {
+        $body = json_decode((string)file_get_contents('php://input'), true);
+        return is_array($body) ? $body : [];
+    }
+    return $_POST;
+}
+
+function demoBearer(): string
+{
+    $header = (string)($_SERVER['HTTP_AUTHORIZATION'] ?? '');
+    return preg_match('/^Bearer\s+(.+)$/i', $header, $m) ? trim($m[1]) : '';
+}
+
+function demoPublicSession(array $row): array
+{
+    return [
+        'session_id' => (int)$row['demoSshSessionId'],
+        'state' => (string)$row['state'],
+        'node_a' => (string)$row['node_a'],
+        'node_a_port' => (int)$row['nodeAPort'],
+        'node_b' => (string)$row['node_b'],
+        'node_b_port' => (int)$row['nodeBPort'],
+        'username' => (string)$row['username'],
+        'attempts' => (int)$row['attempts'],
+        'expires' => (string)$row['expires'],
+        'completed' => $row['completed'] === null ? null : (string)$row['completed']
+    ];
+}
+
+$method = (string)($_SERVER['REQUEST_METHOD'] ?? 'GET');
+$input = $method === 'POST' ? demoPost() : $_GET;
+$action = strtolower(trim((string)($input['action'] ?? ($method === 'GET' ? 'status' : 'create'))));
+$sender = getSenderIp();
+if (filter_var($sender, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+    demoReply(400, ['ok' => false, 'error' => 'Unable to identify calling IPv4 client']);
+}
+
+try {
+    $conn = getConnection();
+
+    if ($action === 'create') {
+        if ($method !== 'POST') demoReply(405, ['ok' => false, 'error' => 'POST required']);
+        $setupId = filter_var($input['setup_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if ($setupId === false) demoReply(400, ['ok' => false, 'error' => 'Valid setup_id required']);
+
+        $conn->begin_transaction();
+        $stmt = $conn->prepare("SELECT d.demoSshSetupId,d.demoSshNodeBId,INET_NTOA(d.nodeAIp) node_a,d.nodeAPort,d.challengeTtlSeconds FROM demoSshSetup d JOIN demoSshNodeB n ON n.demoSshNodeBId=d.demoSshNodeBId WHERE d.demoSshSetupId=? AND d.active=b'1' AND n.active=b'1' FOR UPDATE");
+        $stmt->bind_param('i', $setupId);
+        $stmt->execute();
+        $setup = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$setup) { $conn->rollback(); demoReply(404, ['ok' => false, 'error' => 'Demo setup unavailable']); }
+
+        $stmt = $conn->prepare("SELECT why FROM internalInfections WHERE ip=INET_ATON(?) AND active=b'1' AND severity>1 ORDER BY infectionId DESC LIMIT 1");
+        $stmt->bind_param('s', $sender);
+        $stmt->execute();
+        $infection = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($infection && !str_starts_with((string)$infection['why'], 'DEMO:')) {
+            $conn->rollback();
+            demoReply(409, ['ok' => false, 'error' => 'Device has non-demo infection evidence; owner clearance is required']);
+        }
+
+        // Lock Node B while deciding whether to reuse or rotate its credential.
+        // Every overlapping classroom session shares the same generation.
+        $stmt = $conn->prepare("SELECT demoSshNodeBId,name,INET_NTOA(ip) node_b,port nodeBPort,username,passwordPlain,passwordHash,credentialGeneration FROM demoSshNodeB WHERE demoSshNodeBId=? AND active=b'1' FOR UPDATE");
+        $stmt->bind_param('i', $setup['demoSshNodeBId']);
+        $stmt->execute();
+        $node = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$node) { $conn->rollback(); demoReply(404, ['ok' => false, 'error' => 'Node B unavailable']); }
+        $stmt = $conn->prepare("SELECT COUNT(*) activeCount FROM demoSshSession WHERE demoSshNodeBId=? AND state IN ('awaiting_node_a','demo_infected','awaiting_node_b') AND expires>NOW()");
+        $stmt->bind_param('i', $setup['demoSshNodeBId']);
+        $stmt->execute();
+        $activeCount = (int)$stmt->get_result()->fetch_assoc()['activeCount'];
+        $stmt->close();
+        if ($activeCount === 0 || !$node['username'] || !$node['passwordPlain'] || !$node['passwordHash']) {
+            $node['username'] = 'demo';
+            $node['passwordPlain'] = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+            $node['passwordHash'] = hash('sha256', $node['passwordPlain']);
+            $node['credentialGeneration'] = (int)$node['credentialGeneration'] + 1;
+            $stmt = $conn->prepare("UPDATE demoSshNodeB SET username=?,passwordPlain=?,passwordHash=?,credentialGeneration=?,credentialCreated=NOW() WHERE demoSshNodeBId=?");
+            $stmt->bind_param('sssii', $node['username'], $node['passwordPlain'], $node['passwordHash'], $node['credentialGeneration'], $node['demoSshNodeBId']);
+            $stmt->execute();
+            $stmt->close();
+        }
+        $accessToken = bin2hex(random_bytes(24));
+        $accessHash = hash('sha256', $accessToken);
+        $ttl = max(60, min(300, (int)$setup['challengeTtlSeconds']));
+        $unitId = null;
+        $stmt = $conn->prepare("SELECT unitId FROM unit WHERE ipAddress=INET_ATON(?) ORDER BY lastSeen DESC,unitId DESC LIMIT 1");
+        $stmt->bind_param('s', $sender);
+        $stmt->execute();
+        $unitRow = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if ($unitRow) $unitId = (int)$unitRow['unitId'];
+        $stmt = $conn->prepare("INSERT INTO demoSshSession(demoSshSetupId,demoSshNodeBId,sourceIp,unitId,credentialGeneration,accessTokenHash,expires) VALUES(?,?,INET_ATON(?),?,?,?,DATE_ADD(NOW(),INTERVAL ? SECOND))");
+        $stmt->bind_param('iisiisi', $setupId, $node['demoSshNodeBId'], $sender, $unitId, $node['credentialGeneration'], $accessHash, $ttl);
+        $stmt->execute();
+        $sessionId = (int)$conn->insert_id;
+        $stmt->close();
+        $stmt = $conn->prepare("INSERT INTO demoSshEvent(demoSshSessionId,eventType,sourceIp,details) VALUES(?,'created',INET_ATON(?),'shared Node B credential assigned')");
+        $stmt->bind_param('is', $sessionId, $sender);
+        $stmt->execute();
+        $stmt->close();
+        $conn->commit();
+        demoReply(201, ['ok' => true, 'session_id' => $sessionId, 'session_token' => $accessToken, 'state' => 'awaiting_node_a', 'node_a' => $setup['node_a'], 'node_a_port' => (int)$setup['nodeAPort'], 'node_b' => $node['node_b'], 'node_b_port' => (int)$node['nodeBPort'], 'username' => $node['username'], 'password' => $node['passwordPlain'], 'credential_generation' => (int)$node['credentialGeneration'], 'expires_in' => $ttl]);
+    }
+
+    if ($action === 'validate') {
+        if ($method !== 'POST') demoReply(405, ['ok' => false, 'error' => 'POST required']);
+        $username = trim((string)($input['username'] ?? ''));
+        $password = (string)($input['password'] ?? '');
+        $sourceIp = trim((string)($input['source_ip'] ?? ''));
+        $sourcePort = filter_var($input['source_port'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+        $destinationPort = filter_var($input['destination_port'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 65535]]);
+        if (!preg_match('/^[A-Za-z0-9_-]{1,16}$/', $username) || filter_var($sourceIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false || $sourcePort === false || $destinationPort === false) demoReply(400, ['ok' => false, 'error' => 'Invalid challenge report']);
+
+        $conn->begin_transaction();
+        $stmt = $conn->prepare("SELECT demoSshNodeBId,INET_NTOA(ip) node_b,port nodeBPort,sensorTokenHash,username,passwordHash,credentialGeneration FROM demoSshNodeB WHERE ip=INET_ATON(?) AND port=? AND active=b'1' FOR UPDATE");
+        $stmt->bind_param('si', $sender, $destinationPort);
+        $stmt->execute();
+        $node = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$node || !hash_equals((string)$node['sensorTokenHash'], hash('sha256', demoBearer()))) { $conn->rollback(); demoReply(403, ['ok' => false, 'error' => 'Sensor authentication failed']); }
+        $passwordOk = hash_equals((string)$node['username'], $username) && hash_equals((string)$node['passwordHash'], hash('sha256', $password));
+
+        // The normalized Node B observation may already carry TaraSec's unit
+        // attribution. Match the complete tuple; never equate a shared IP with
+        // a unit when concurrent sessions make that ambiguous.
+        $stmt = $conn->prepare("SELECT syslogThreatId,COALESCE(confirmed_unit_id,unit_id) resolvedUnitId FROM syslogThreat WHERE src_ip=INET_ATON(?) AND src_port=? AND dst_ip=INET_ATON(?) AND dst_port=? AND created>=NOW()-INTERVAL 2 MINUTE ORDER BY syslogThreatId DESC LIMIT 1");
+        $stmt->bind_param('sisi', $sourceIp, $sourcePort, $node['node_b'], $destinationPort);
+        $stmt->execute();
+        $nodeBEvidence = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        $resolvedUnitId = $nodeBEvidence && $nodeBEvidence['resolvedUnitId'] !== null ? (int)$nodeBEvidence['resolvedUnitId'] : null;
+        $sql = "SELECT s.*,INET_NTOA(d.nodeAIp) node_a,d.nodeAPort FROM demoSshSession s JOIN demoSshSetup d ON d.demoSshSetupId=s.demoSshSetupId WHERE s.demoSshNodeBId=? AND s.credentialGeneration=? AND s.state IN ('awaiting_node_a','demo_infected','awaiting_node_b') AND s.expires>NOW()";
+        if ($resolvedUnitId !== null) {
+            $sql .= " AND s.unitId=? ORDER BY s.created DESC LIMIT 2 FOR UPDATE";
+            $stmt = $conn->prepare($sql); $stmt->bind_param('iii', $node['demoSshNodeBId'], $node['credentialGeneration'], $resolvedUnitId);
+            $correlation = 'unit';
+        } else {
+            $sql .= " AND s.sourceIp=INET_ATON(?) ORDER BY s.created DESC LIMIT 2 FOR UPDATE";
+            $stmt = $conn->prepare($sql); $stmt->bind_param('iis', $node['demoSshNodeBId'], $node['credentialGeneration'], $sourceIp);
+            $correlation = 'single_source';
+        }
+        $stmt->execute();
+        $matches = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $stmt->close();
+        $row = count($matches) === 1 ? $matches[0] : null;
+        if (!$row) $correlation = count($matches) > 1 ? 'pending' : 'none';
+        $sessionId = $row ? (int)$row['demoSshSessionId'] : null;
+        $stmt = $conn->prepare("INSERT INTO demoSshAttempt(demoSshNodeBId,demoSshSessionId,sourceIp,sourcePort,destinationPort,unitId,credentialGeneration,credentialValid,correlation) VALUES(?,?,INET_ATON(?),?,?,?,?,?,?)");
+        $validBit = $passwordOk ? 1 : 0;
+        $stmt->bind_param('iisiiiiis', $node['demoSshNodeBId'], $sessionId, $sourceIp, $sourcePort, $destinationPort, $resolvedUnitId, $node['credentialGeneration'], $validBit, $correlation);
+        $stmt->execute();
+        $stmt->close();
+
+        $state = $row ? (string)$row['state'] : 'awaiting_attribution';
+        if ($row) {
+            $attempts = (int)$row['attempts'] + 1;
+            $stmt = $conn->prepare("SELECT syslogThreatId FROM syslogThreat WHERE src_ip=? AND dst_ip=INET_ATON(?) AND dst_port=? AND is_attack<>0 AND created>=? ORDER BY syslogThreatId DESC LIMIT 1");
+            $stmt->bind_param('isis', $row['sourceIp'], $row['node_a'], $row['nodeAPort'], $row['created']);
+            $stmt->execute(); $nodeA = $stmt->get_result()->fetch_assoc(); $stmt->close();
+            $qualifies = $passwordOk && $attempts === 1 && $nodeA;
+            $state = $qualifies ? 'cleared' : 'owner_clear_required';
+            $nodeAId = $nodeA ? (int)$nodeA['syslogThreatId'] : null;
+            $nodeBId = $nodeBEvidence ? (int)$nodeBEvidence['syslogThreatId'] : null;
+            $stmt = $conn->prepare("UPDATE demoSshSession SET attempts=?,state=?,nodeBSourcePort=?,nodeAEvidenceId=?,nodeBEvidenceId=?,completed=NOW(),lastSeen=NOW() WHERE demoSshSessionId=?");
+            $stmt->bind_param('isiiii', $attempts, $state, $sourcePort, $nodeAId, $nodeBId, $sessionId); $stmt->execute(); $stmt->close();
+            $event = $qualifies ? 'cleared' : 'rejected';
+            $details = !$passwordOk ? 'credential mismatch' : (!$nodeA ? 'Node A evidence missing' : 'not first attempt');
+            $stmt = $conn->prepare("INSERT INTO demoSshEvent(demoSshSessionId,eventType,nodeIp,sourceIp,syslogThreatId,details) VALUES(?,?,INET_ATON(?),INET_ATON(?),?,?)");
+            $stmt->bind_param('isssis', $sessionId, $event, $node['node_b'], $sourceIp, $nodeBId, $details); $stmt->execute(); $stmt->close();
+            if ($nodeBId) { $stmt = $conn->prepare("UPDATE syslogThreat SET demoSshSessionId=? WHERE syslogThreatId=?"); $stmt->bind_param('ii', $sessionId, $nodeBId); $stmt->execute(); $stmt->close(); }
+        }
+        $conn->commit();
+        demoReply(200, ['ok' => true, 'accepted' => $passwordOk, 'state' => $state, 'correlation' => $correlation]);
+    }
+
+    if ($action === 'status') {
+        $sessionId = filter_var($input['session_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $sessionToken = (string)($input['session_token'] ?? '');
+        if ($sessionId === false) demoReply(400, ['ok' => false, 'error' => 'Valid session_id required']);
+        if (strlen($sessionToken) < 32) demoReply(403, ['ok' => false, 'error' => 'Session token required']);
+        $accessHash = hash('sha256', $sessionToken);
+        $stmt = $conn->prepare("SELECT s.*,INET_NTOA(d.nodeAIp) node_a,d.nodeAPort,INET_NTOA(n.ip) node_b,n.port nodeBPort,n.username FROM demoSshSession s JOIN demoSshSetup d ON d.demoSshSetupId=s.demoSshSetupId JOIN demoSshNodeB n ON n.demoSshNodeBId=s.demoSshNodeBId WHERE s.demoSshSessionId=? AND s.accessTokenHash=? LIMIT 1");
+        $stmt->bind_param('is', $sessionId, $accessHash);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+        if (!$row) demoReply(404, ['ok' => false, 'error' => 'Demo session not found']);
+        if (strtotime((string)$row['expires']) <= time() && in_array($row['state'], ['awaiting_node_a','demo_infected','awaiting_node_b'], true)) {
+            $stmt = $conn->prepare("UPDATE demoSshSession SET state='expired',completed=NOW(),lastSeen=NOW() WHERE demoSshSessionId=?");
+            $stmt->bind_param('i', $sessionId); $stmt->execute(); $stmt->close(); $row['state'] = 'expired'; $row['completed'] = gmdate('Y-m-d H:i:s');
+        }
+        demoReply(200, ['ok' => true, 'session' => demoPublicSession($row)]);
+    }
+
+    demoReply(400, ['ok' => false, 'error' => 'Unknown action']);
+} catch (Throwable $e) {
+    error_log('appDemoSshSession.php failed: ' . $e->getMessage());
+    demoReply(500, ['ok' => false, 'error' => 'Demo service unavailable']);
+}

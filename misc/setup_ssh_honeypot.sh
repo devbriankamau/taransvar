@@ -21,6 +21,12 @@ source "$CONF"
 SSH_PORT="${SSH_PORT:-48222}"
 SSH_HONEYPOT="${SSH_HONEYPOT:-on}"
 SSH_HONEYPOT_PORT="${SSH_HONEYPOT_PORT:-22}"
+SSH_HONEYPOT_PORTS="${SSH_HONEYPOT_PORTS:-$SSH_HONEYPOT_PORT}"
+SSH_HONEYPOT_AUTH_MODE="${SSH_HONEYPOT_AUTH_MODE:-accept-all}"
+SSH_HONEYPOT_PASSWORD_HASH="${SSH_HONEYPOT_PASSWORD_HASH:-}"
+SSH_HONEYPOT_DEMO_PORT="${SSH_HONEYPOT_DEMO_PORT:-0}"
+SSH_HONEYPOT_DEMO_DB_URL="${SSH_HONEYPOT_DEMO_DB_URL:-}"
+SSH_HONEYPOT_DEMO_NODE_TOKEN="${SSH_HONEYPOT_DEMO_NODE_TOKEN:-}"
 SSH_FAILSAFE="${SSH_FAILSAFE:-on}"
 SSH_FAILSAFE_MINUTES="${SSH_FAILSAFE_MINUTES:-10}"
 
@@ -30,7 +36,50 @@ case "$SSH_FAILSAFE_MINUTES" in ''|*[!0-9]*) echo "Invalid SSH_FAILSAFE_MINUTES=
 if [ "$SSH_PORT" -lt 1 ] || [ "$SSH_PORT" -gt 65535 ]; then echo "SSH_PORT must be 1..65535" >&2; exit 1; fi
 if [ "$SSH_HONEYPOT_PORT" -lt 1 ] || [ "$SSH_HONEYPOT_PORT" -gt 65535 ]; then echo "SSH_HONEYPOT_PORT must be 1..65535" >&2; exit 1; fi
 if [ "$SSH_FAILSAFE_MINUTES" -lt 1 ] || [ "$SSH_FAILSAFE_MINUTES" -gt 120 ]; then echo "SSH_FAILSAFE_MINUTES must be 1..120" >&2; exit 1; fi
-if [ "${SSH_HONEYPOT,,}" = "on" ] && [ "$SSH_PORT" -eq "$SSH_HONEYPOT_PORT" ]; then echo "Real SSH and honeypot cannot use the same port ($SSH_PORT)." >&2; exit 1; fi
+case "$SSH_HONEYPOT_AUTH_MODE" in
+    accept-all|reject-all) ;;
+    password)
+        [[ "$SSH_HONEYPOT_PASSWORD_HASH" =~ ^[0-9A-Fa-f]{64}$ ]] || {
+            echo "password mode requires SSH_HONEYPOT_PASSWORD_HASH as SHA-256" >&2; exit 1;
+        }
+        ;;
+    *) echo "SSH_HONEYPOT_AUTH_MODE must be accept-all, reject-all or password" >&2; exit 1 ;;
+esac
+
+expand_honeypot_ports() {
+    local spec="${SSH_HONEYPOT_PORTS// /,}" item first last port
+    local -A seen=()
+    SSH_HONEYPOT_PORT_LIST=()
+    IFS=',' read -ra items <<< "$spec"
+    for item in "${items[@]}"; do
+        [ -z "$item" ] && continue
+        if [[ "$item" =~ ^([0-9]+)-([0-9]+)$ ]]; then
+            first=$((10#${BASH_REMATCH[1]})); last=$((10#${BASH_REMATCH[2]}))
+            [ "$first" -le "$last" ] || { echo "Descending honeypot range: $item" >&2; exit 1; }
+            for ((port=first; port<=last; port++)); do
+                [ "$port" -le 65535 ] || { echo "Invalid honeypot port: $port" >&2; exit 1; }
+                [ "$port" -ne "$SSH_PORT" ] || { echo "Honeypot port collides with real SSH: $port" >&2; exit 1; }
+                if [ -z "${seen[$port]:-}" ]; then seen[$port]=1; SSH_HONEYPOT_PORT_LIST+=("$port"); fi
+                [ "${#SSH_HONEYPOT_PORT_LIST[@]}" -le 64 ] || { echo "At most 64 honeypot ports are allowed" >&2; exit 1; }
+            done
+        elif [[ "$item" =~ ^[0-9]+$ ]] && [ "$((10#$item))" -ge 1 ] && [ "$((10#$item))" -le 65535 ]; then
+            port=$((10#$item))
+            [ "$port" -ne "$SSH_PORT" ] || { echo "Honeypot port collides with real SSH: $port" >&2; exit 1; }
+            if [ -z "${seen[$port]:-}" ]; then seen[$port]=1; SSH_HONEYPOT_PORT_LIST+=("$port"); fi
+            [ "${#SSH_HONEYPOT_PORT_LIST[@]}" -le 64 ] || { echo "At most 64 honeypot ports are allowed" >&2; exit 1; }
+        else
+            echo "Invalid SSH_HONEYPOT_PORTS entry: $item" >&2; exit 1
+        fi
+    done
+    [ "${#SSH_HONEYPOT_PORT_LIST[@]}" -gt 0 ] || { echo "No honeypot ports configured" >&2; exit 1; }
+}
+expand_honeypot_ports
+if [ "$SSH_HONEYPOT_DEMO_PORT" != "0" ]; then
+    [[ "$SSH_HONEYPOT_DEMO_PORT" =~ ^[0-9]+$ ]] && [ "$SSH_HONEYPOT_DEMO_PORT" -ge 1 ] && [ "$SSH_HONEYPOT_DEMO_PORT" -le 65535 ] || { echo "Invalid SSH_HONEYPOT_DEMO_PORT" >&2; exit 1; }
+    [[ " ${SSH_HONEYPOT_PORT_LIST[*]} " == *" $SSH_HONEYPOT_DEMO_PORT "* ]] || { echo "Demo port must be included in SSH_HONEYPOT_PORTS" >&2; exit 1; }
+    [[ "$SSH_HONEYPOT_DEMO_DB_URL" == https://* ]] || { echo "Demo mode requires an HTTPS SSH_HONEYPOT_DEMO_DB_URL" >&2; exit 1; }
+    [ "${#SSH_HONEYPOT_DEMO_NODE_TOKEN}" -ge 32 ] || { echo "Demo mode requires a node token of at least 32 characters" >&2; exit 1; }
+fi
 if ! command -v sshd >/dev/null 2>&1; then echo "OpenSSH server is not installed." >&2; exit 1; fi
 
 # Ubuntu 22.10+ may use systemd ssh.socket activation. In that mode the
@@ -136,18 +185,39 @@ restart_sshd
 if ! ss -ltn | awk '{print $4}' | grep -Eq "[:.]$SSH_PORT$"; then echo "Final SSH port $SSH_PORT is not listening; rollback remains armed." >&2; exit 1; fi
 echo "Real SSH configured for TCP/$SSH_PORT."
 
+if ! python3 -c 'import paramiko' >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y python3-paramiko
+fi
+install -d -m 0750 /var/lib/tarasec-ssh-honeypot
+if [ ! -s /var/lib/tarasec-ssh-honeypot/ssh_host_ed25519_key ]; then
+    ssh-keygen -q -t ed25519 -N '' -f /var/lib/tarasec-ssh-honeypot/ssh_host_ed25519_key
+fi
 install -m 0755 "$HONEYPOT_SRC" /usr/local/lib/tarasec/tarasec_ssh_honeypot.py
 install -m 0644 "$SERVICE_SRC" /etc/systemd/system/tarasec-ssh-honeypot.service
 mkdir -p /etc/systemd/system/tarasec-ssh-honeypot.service.d
 cat > /etc/systemd/system/tarasec-ssh-honeypot.service.d/10-port.conf <<EOF
 [Service]
 Environment=TARASEC_SSH_HONEYPOT_PORT=$SSH_HONEYPOT_PORT
+Environment="TARASEC_SSH_HONEYPOT_PORTS=$SSH_HONEYPOT_PORTS"
+Environment=TARASEC_SSH_HONEYPOT_AUTH_MODE=$SSH_HONEYPOT_AUTH_MODE
+Environment=TARASEC_SSH_HONEYPOT_PASSWORD_HASH=$SSH_HONEYPOT_PASSWORD_HASH
+Environment=TARASEC_SSH_HONEYPOT_DEMO_PORT=$SSH_HONEYPOT_DEMO_PORT
+Environment=TARASEC_SSH_HONEYPOT_DEMO_DB_URL=$SSH_HONEYPOT_DEMO_DB_URL
+Environment=TARASEC_SSH_HONEYPOT_DEMO_NODE_TOKEN=$SSH_HONEYPOT_DEMO_NODE_TOKEN
 EOF
 systemctl daemon-reload
 case "${SSH_HONEYPOT,,}" in
-    1|yes|true|on) systemctl enable --now "$HONEYPOT_SERVICE"; echo "TaraSec SSH honeypot enabled on TCP/$SSH_HONEYPOT_PORT." ;;
+    1|yes|true|on) systemctl enable --now "$HONEYPOT_SERVICE"; echo "TaraSec SSH honeypot enabled on TCP ports: $SSH_HONEYPOT_PORTS." ;;
     *) systemctl disable --now "$HONEYPOT_SERVICE" 2>/dev/null || true; echo "TaraSec SSH honeypot disabled by firewall policy." ;;
 esac
+
+if [ -n "${DBSERVER:-}" ] && [ -r "$REPO_DIR/misc/setup_backoffice_ai.sh" ]; then
+    bash "$REPO_DIR/misc/setup_backoffice_ai.sh" sensor "$DBSERVER"
+    echo "Honeypot telemetry forwarding configured for DB server $DBSERVER (TCP/5514)."
+else
+    echo "WARNING: DBSERVER is unset; events remain in the local system journal only."
+fi
 
 if is_on "$SSH_FAILSAFE"; then
     echo "IMPORTANT: SSH/firewall rollback is still ARMED."
@@ -160,5 +230,5 @@ fi
 echo
 echo "SSH policy staged from $CONF."
 echo "  Real SSH: TCP/$SSH_PORT"
-echo "  Honeypot:  $SSH_HONEYPOT on TCP/$SSH_HONEYPOT_PORT"
+echo "  Honeypot:  $SSH_HONEYPOT on TCP ports $SSH_HONEYPOT_PORTS ($SSH_HONEYPOT_AUTH_MODE)"
 echo "  Rollback:  sshd + IPv4/IPv6 firewall + honeypot state snapshot"

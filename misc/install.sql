@@ -360,8 +360,98 @@ update setup set dbVersion = 83;
 alter table hackReport modify hrCategory enum ('login_fail','tagged_traffic','from_dbserver', 'from_partner', 'ssh_fail', 'ssh_when_blocked', 'iptables', 'attack_severity_1', 'attack_severity_3', 'attack_severity_7', 'unverified_threat_info', 'other','demo');
 update setup set dbVersion = 84;
 
+#version 85 (260909)
+#DB-authoritative SSH demo nodes, configurations, concurrent sessions and event trail.
+create table demoSshNodeB (
+	demoSshNodeBId int unsigned not null auto_increment,
+	name varchar(128) not null,
+	ip int unsigned not null,
+	port smallint unsigned not null,
+	sensorTokenHash char(64) not null,
+	username varchar(16) null,
+	passwordPlain varchar(32) null,
+	passwordHash char(64) null,
+	credentialGeneration int unsigned not null default 0,
+	credentialCreated timestamp null,
+	active bit(1) not null default b'1',
+	created timestamp not null default current_timestamp,
+	primary key(demoSshNodeBId),
+	unique key uq_demoSshNodeB_endpoint(ip,port)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+create table demoSshSetup (
+	demoSshSetupId int unsigned not null auto_increment,
+	name varchar(128) not null,
+	nodeAIp int unsigned not null,
+	nodeAPort smallint unsigned not null default 22,
+	demoSshNodeBId int unsigned not null,
+	challengeTtlSeconds smallint unsigned not null default 180,
+	active bit(1) not null default b'1',
+	created timestamp not null default current_timestamp,
+	primary key(demoSshSetupId),
+	key idx_demoSshSetup_nodes(nodeAIp,demoSshNodeBId,active),
+	constraint fk_demoSshSetup_nodeB foreign key(demoSshNodeBId) references demoSshNodeB(demoSshNodeBId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+create table demoSshSession (
+	demoSshSessionId bigint unsigned not null auto_increment,
+	demoSshSetupId int unsigned not null,
+	demoSshNodeBId int unsigned not null,
+	sourceIp int unsigned not null,
+	unitId int unsigned null,
+	nodeBSourcePort smallint unsigned null,
+	credentialGeneration int unsigned not null,
+	accessTokenHash char(64) not null,
+	state enum('created','awaiting_node_a','demo_infected','awaiting_node_b','cleared','owner_clear_required','expired','cancelled','real_infection_detected') not null default 'awaiting_node_a',
+	attempts tinyint unsigned not null default 0,
+	nodeAEvidenceId int unsigned null,
+	nodeBEvidenceId int unsigned null,
+	created timestamp not null default current_timestamp,
+	expires timestamp not null,
+	completed timestamp null,
+	lastSeen timestamp not null default current_timestamp,
+	primary key(demoSshSessionId),
+	key idx_demoSshSession_source(sourceIp,state,expires),
+	key idx_demoSshSession_access(accessTokenHash),
+	key idx_demoSshSession_unit(unitId,state,expires),
+	constraint fk_demoSshSession_setup foreign key(demoSshSetupId) references demoSshSetup(demoSshSetupId),
+	constraint fk_demoSshSession_nodeB foreign key(demoSshNodeBId) references demoSshNodeB(demoSshNodeBId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+create table demoSshEvent (
+	demoSshEventId bigint unsigned not null auto_increment,
+	demoSshSessionId bigint unsigned not null,
+	created timestamp not null default current_timestamp,
+	eventType enum('created','node_a_observed','node_b_attempt','cleared','rejected','expired','cancelled','real_infection') not null,
+	nodeIp int unsigned null,
+	sourceIp int unsigned null,
+	syslogThreatId int unsigned null,
+	details varchar(255) null,
+	primary key(demoSshEventId),
+	key idx_demoSshEvent_session(demoSshSessionId,created),
+	constraint fk_demoSshEvent_session foreign key(demoSshSessionId) references demoSshSession(demoSshSessionId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+create table demoSshAttempt (
+	demoSshAttemptId bigint unsigned not null auto_increment,
+	demoSshNodeBId int unsigned not null,
+	demoSshSessionId bigint unsigned null,
+	created timestamp not null default current_timestamp,
+	sourceIp int unsigned not null,
+	sourcePort smallint unsigned not null,
+	destinationPort smallint unsigned not null,
+	unitId int unsigned null,
+	credentialGeneration int unsigned not null,
+	credentialValid bit(1) not null default b'0',
+	correlation enum('unit','single_source','pending','none') not null default 'pending',
+	primary key(demoSshAttemptId),
+	key idx_demoSshAttempt_tuple(sourceIp,sourcePort,destinationPort,created),
+	key idx_demoSshAttempt_session(demoSshSessionId),
+	constraint fk_demoSshAttempt_nodeB foreign key(demoSshNodeBId) references demoSshNodeB(demoSshNodeBId),
+	constraint fk_demoSshAttempt_session foreign key(demoSshSessionId) references demoSshSession(demoSshSessionId)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+alter table syslogThreat add demoSshSessionId bigint unsigned null;
+alter table syslogThreat add key idx_syslogThreat_demoSshSession(demoSshSessionId);
+update setup set dbVersion = 85;
+
 #******** NEXT TIME ALSO add *****
-#update setup set dbVersion = 85;
+#update setup set dbVersion = 86;
 
 #NOTE! The versions (#version nn ...) are here so that misc/system_diag.pl 
 #can import DB changes automatically based on the content of this file...

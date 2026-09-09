@@ -16,7 +16,8 @@ template(name="TaraSecForwardFormat" type="string"
 # Reliable copy of selected security telemetry. Disk queue survives DB-server outages.
 if ($msg contains "TARASEC_" or
     $programname == "sshd" or
-    $programname == "cowrie") then {
+    $programname == "cowrie" or
+    $programname == "tarasec-ssh-honeypot") then {
     action(
         type="omfwd"
         target="DB_SERVER"

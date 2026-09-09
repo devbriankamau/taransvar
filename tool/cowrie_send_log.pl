@@ -184,7 +184,7 @@ sub handle_login_success
 
     my $session  = $obj->{session} // '';
     my $username = defined $obj->{username} ? $obj->{username} : '';
-    my $password = defined $obj->{password} ? $obj->{password} : '';
+    my $password_length = defined $obj->{password} ? length($obj->{password}) : 0;
 
     my $ctx = get_or_build_context($obj);
     $ctx->{last_seen}     = time();
@@ -199,7 +199,7 @@ sub handle_login_success
         action     => 'tag_host',
         session    => $session,
         username   => $username,
-        password   => $password,
+        password_length => $password_length,
         src_ip     => $ctx->{src_ip},
         src_port   => $ctx->{src_port},
         dst_ip     => $ctx->{dst_ip},

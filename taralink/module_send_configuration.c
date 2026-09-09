@@ -173,6 +173,44 @@ void reportErrorReadin(char *lpWhat)
         addWarningRecord(szMsg);
 }
 
+static unsigned int readAdminSshPortFromConfig(void)
+{
+    FILE *config = fopen("/etc/tarasecfw.conf", "r");
+    char line[512];
+    unsigned int port = 48222;
+
+    if (!config)
+        return port;
+
+    while (fgets(line, sizeof(line), config)) {
+        char *p = line;
+        unsigned int configuredPort;
+        char extra;
+
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (strncmp(p, "SSH_PORT", strlen("SSH_PORT")) != 0)
+            continue;
+
+        p += strlen("SSH_PORT");
+        while (*p == ' ' || *p == '\t')
+            p++;
+        if (*p++ != '=')
+            continue;
+        while (*p == ' ' || *p == '\t')
+            p++;
+
+        if (sscanf(p, "%u %c", &configuredPort, &extra) == 1 &&
+            configuredPort >= 1 && configuredPort <= 65535)
+            port = configuredPort;
+        else
+            fprintf(stderr, "Ignoring invalid SSH_PORT in /etc/tarasecfw.conf\n");
+        break;
+    }
+    fclose(config);
+    return port;
+}
+
 bool getSetupStringNewOk(MYSQL *conn, MYSQL *updateConn, char *cSetupString, int nBuffSize, bool bReadChangesOnly)
 {
 	return 1;
@@ -439,8 +477,9 @@ int sentConfiguration(int nSequenceNumber, int bIsInbound, int bReadChangesOnly)
 
 				unsigned int  nBlockingThreshold = atoi(setupRow[4]);
 				unsigned int  nBlockSshThreshold = atoi(setupRow[5]);
+				unsigned int  nAdminSshPort = readAdminSshPortFromConfig();
 
-				snprintf(cSetupString, sizeof(cSetupString), "SETUP|%08X^%08X^%08X^%01X^%01X^%02X^%s^", adminIP, internalIP, nettmask, nBlockingThreshold, nBlockSshThreshold, cShowStatusBits.nValues, szDontDmesgIPs);
+				snprintf(cSetupString, sizeof(cSetupString), "SETUP|%08X^%08X^%08X^%01X^%01X^%04X^%02X^%s^", adminIP, internalIP, nettmask, nBlockingThreshold, nBlockSshThreshold, nAdminSshPort, cShowStatusBits.nValues, szDontDmesgIPs);
 					//strcpy(cReply+strlen(cReply), "SETUP|");
 					//strcpy(cReply+strlen(cReply), row[0]);
 					//strcpy(cReply+strlen(cReply), "|");

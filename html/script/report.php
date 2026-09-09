@@ -50,10 +50,19 @@ $category = isset($_GET['code']) ? trim((string)$_GET['code']) : 'other';
 $allowedCategories = [
     'login_fail', 'tagged_traffic', 'from_dbserver', 'from_partner',
     'ssh_fail', 'ssh_when_blocked', 'iptables', 'attack_severity_1',
-    'attack_severity_3', 'attack_severity_7', 'other', 'demo'
+    'attack_severity_3', 'attack_severity_7', 'unverified_threat_info',
+    'other', 'demo'
 ];
 if (!in_array($category, $allowedCategories, true)) {
     $category = 'other';
+}
+
+// Demo provenance is deliberately carried in the explanatory text because
+// that text already travels with ELABORATED_THREAT_INFO and through partner
+// forwarding. Never let an intermediate node's generic code=from_partner
+// erase the fact that this report originated from the TaraSec demo control.
+if (strncmp($why, 'DEMO:', 5) === 0) {
+    $category = 'demo';
 }
 
 $ourId = isset($_GET['ourid']) ? (int)$_GET['ourid'] : 0;
@@ -160,7 +169,7 @@ try {
     }
 
     $conn->close();
-    error_log('Hack report accepted reportId=' . $reportId . ' sender=' . $sender . ' source=' . $ip . ':' . $port);
+    error_log('Hack report accepted reportId=' . $reportId . ' sender=' . $sender . ' source=' . $ip . ':' . $port . ' category=' . $category);
     echo 'ok';
 } catch (Throwable $e) {
     error_log('Hack report endpoint failed. Sender=' . $sender . ' IP=' . $ip . ':' . $port . ' Error=' . $e->getMessage());

@@ -195,17 +195,33 @@ try {
             $stmt = $conn->prepare("SELECT syslogThreatId FROM syslogThreat WHERE src_ip=? AND dst_ip=INET_ATON(?) AND dst_port=? AND is_attack<>0 AND created>=? ORDER BY syslogThreatId DESC LIMIT 1");
             $stmt->bind_param('isis', $row['sourceIp'], $row['node_a'], $row['nodeAPort'], $row['created']);
             $stmt->execute(); $nodeA = $stmt->get_result()->fetch_assoc(); $stmt->close();
-            $qualifies = $passwordOk && $attempts === 1 && $nodeA;
+            // Locate the active infection created during this session. Never
+            // clear an older record, even when it belongs to the same unit or
+            // address: independent evidence remains owner-controlled.
+            if ($row['unitId'] !== null) {
+                $stmt = $conn->prepare("SELECT infectionId FROM internalInfections WHERE unitId=? AND active=b'1' AND lastSeen>=? ORDER BY infectionId DESC LIMIT 1");
+                $stmt->bind_param('is', $row['unitId'], $row['created']);
+            } else {
+                $stmt = $conn->prepare("SELECT infectionId FROM internalInfections WHERE ip=? AND active=b'1' AND lastSeen>=? ORDER BY infectionId DESC LIMIT 1");
+                $stmt->bind_param('is', $row['sourceIp'], $row['created']);
+            }
+            $stmt->execute(); $demoInfection = $stmt->get_result()->fetch_assoc(); $stmt->close();
+            $qualifies = $passwordOk && $attempts === 1 && $nodeA && $demoInfection;
             $state = $qualifies ? 'cleared' : 'owner_clear_required';
             $nodeAId = $nodeA ? (int)$nodeA['syslogThreatId'] : null;
             $nodeBId = $nodeBEvidence ? (int)$nodeBEvidence['syslogThreatId'] : null;
             $stmt = $conn->prepare("UPDATE demoSshSession SET attempts=?,state=?,nodeBSourcePort=?,nodeAEvidenceId=?,nodeBEvidenceId=?,completed=NOW(),lastSeen=NOW() WHERE demoSshSessionId=?");
             $stmt->bind_param('isiiii', $attempts, $state, $sourcePort, $nodeAId, $nodeBId, $sessionId); $stmt->execute(); $stmt->close();
             $event = $qualifies ? 'cleared' : 'rejected';
-            $details = !$passwordOk ? 'credential mismatch' : (!$nodeA ? 'Node A evidence missing' : 'not first attempt');
+            $details = $qualifies ? 'validated first-attempt sequence' : (!$passwordOk ? 'credential mismatch' : (!$nodeA ? 'Node A evidence missing' : (!$demoInfection ? 'session infection missing' : 'not first attempt')));
             $stmt = $conn->prepare("INSERT INTO demoSshEvent(demoSshSessionId,eventType,nodeIp,sourceIp,syslogThreatId,details) VALUES(?,?,INET_ATON(?),INET_ATON(?),?,?)");
             $stmt->bind_param('isssis', $sessionId, $event, $node['node_b'], $sourceIp, $nodeBId, $details); $stmt->execute(); $stmt->close();
             if ($nodeBId) { $stmt = $conn->prepare("UPDATE syslogThreat SET demoSshSessionId=? WHERE syslogThreatId=?"); $stmt->bind_param('ii', $sessionId, $nodeBId); $stmt->execute(); $stmt->close(); }
+            if ($qualifies) {
+                $why = 'DEMO:SSH session ' . $sessionId . ': validated and cleared';
+                $stmt = $conn->prepare("UPDATE internalInfections SET active=b'0',handled=b'0',why=?,lastSeen=NOW() WHERE infectionId=?");
+                $stmt->bind_param('si', $why, $demoInfection['infectionId']); $stmt->execute(); $stmt->close();
+            }
         }
         $conn->commit();
         demoReply(200, ['ok' => true, 'accepted' => $passwordOk, 'state' => $state, 'correlation' => $correlation]);

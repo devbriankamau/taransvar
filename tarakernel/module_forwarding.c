@@ -131,9 +131,9 @@ static unsigned int module_forwarding_handler(void *priv, struct sk_buff *skb, c
 
 	struct _InfectionSpecification *pInfected = isInfected(pPacket->ip_header->saddr);	//Check if packet is from infected unit in my subnet
 
-	if (pPacket->dPort == 22 && pInfected)
+	if (pPacket->dPort == pSetup->nAdminSshPort && pInfected && pInfected->nSeverity > pSetup->nBlockSshThreshold)
 	{
-		pr_info("tarakernel: FW: Dropping traffic from infected unit to port 22 (ssh) %s:%d -> %s:%d (severity: %d)\n", pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, pInfected->nSeverity);		
+		pr_info("tarakernel: FW: Dropping traffic from infected unit to protected SSH port %u %s:%d -> %s:%d (severity/threshold: %d/%d)\n", pSetup->nAdminSshPort, pPacket->cSourceIp, pPacket->sPort, pPacket->cDestIp, pPacket->dPort, pInfected->nSeverity, pSetup->nBlockSshThreshold);
 		return NF_DROP;
 	}
 
